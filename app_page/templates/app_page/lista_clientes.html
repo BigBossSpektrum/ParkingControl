@@ -46,6 +46,7 @@
     </style>
 {% endblock %}
 {% block content %}
+<<<<<<< HEAD
     {% csrf_token %}
     <div class="container-fluid px-3 py-2">
         <h1 class="mb-4">Clientes Registrados</h1>
@@ -74,26 +75,51 @@
         </div>
         <div class="table-responsive">
             <table class="table table-bordered align-middle" id="tablaClientes">
+=======
+    <div class="container py-4">
+        <h1 class="mb-4">Clientes Registrados</h1>
+        <a href="/" class="btn btn-success mb-3" style="font-weight: bold; color: #000;">Registrar nuevo cliente</a>
+        <form method="get" class="row g-2 mb-3">
+            <div class="col-auto">
+                <input type="text" name="q" class="form-control" placeholder="Buscar..." value="{{ query }}">
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-dark">Buscar</button>
+            </div>
+        </form>
+        <div class="table-responsive">
+            <table class="table table-bordered align-middle">
+>>>>>>> 7395215fdcd9c30411c8dbe2b5120de6ba911bbd
                 <thead>
                     <tr>
                         <th>Cédula</th>
                         <th>Nombre</th>
                         <th>Teléfono</th>
                         <th>Matrícula</th>
+<<<<<<< HEAD
                         <th>Tipo</th>
                         <th>Fecha Entrada</th>
                         <th>Fecha Salida</th>
                         <th>Tiempo en parking</th>
+=======
+                        <th>Fecha Entrada</th>
+                        <th>Fecha Salida</th>
+>>>>>>> 7395215fdcd9c30411c8dbe2b5120de6ba911bbd
                         <th>Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
+<<<<<<< HEAD
                 {% for cliente, minutos in clientes_con_tiempo %}
+=======
+                {% for cliente in page_obj %}
+>>>>>>> 7395215fdcd9c30411c8dbe2b5120de6ba911bbd
                     <tr>
                         <td>{{ cliente.cedula }}</td>
                         <td>{{ cliente.nombre }}</td>
                         <td>{{ cliente.telefono }}</td>
                         <td>{{ cliente.matricula }}</td>
+<<<<<<< HEAD
                         <td>
                             <span class="badge {% if cliente.tipo_vehiculo == 'carro' %}bg-primary{% elif cliente.tipo_vehiculo == 'moto' %}bg-success{% else %}bg-secondary{% endif %}">
                                 {{ cliente.get_tipo_vehiculo_display }}
@@ -118,6 +144,18 @@
                     </tr>
                 {% empty %}
                     <tr><td colspan="9" class="text-center">No hay clientes registrados.</td></tr>
+=======
+                        <td>{{ cliente.fecha_entrada|date:'Y-m-d H:i' }}</td>
+                        <td>{{ cliente.fecha_salida|date:'Y-m-d H:i' }}</td>
+                        <td>
+                            <a href="{% url 'ver_registro' cliente.pk %}" class="btn btn-info btn-sm" style="color:#111;background:#0ff;border:none;">Ver registro</a>
+                            <a href="{% url 'editar_cliente' cliente.pk %}" class="btn btn-success btn-sm ms-1">Editar</a>
+                            <a href="{% url 'eliminar_cliente' cliente.pk %}" class="btn btn-dark btn-sm ms-1">Eliminar</a>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="7" class="text-center">No hay clientes registrados.</td></tr>
+>>>>>>> 7395215fdcd9c30411c8dbe2b5120de6ba911bbd
                 {% endfor %}
                 </tbody>
             </table>
@@ -136,6 +174,7 @@
             </div>
         </div>
     </div>
+<<<<<<< HEAD
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -553,6 +592,10 @@
         });
     });
     </script>
+=======
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+>>>>>>> 7395215fdcd9c30411c8dbe2b5120de6ba911bbd
     {% if message_success %}
     <script>
         Swal.fire({

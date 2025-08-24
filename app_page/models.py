@@ -20,6 +20,7 @@ class Cliente(models.Model):
 	fecha_entrada = models.DateTimeField(null=True, blank=True)
 	fecha_salida = models.DateTimeField(null=True, blank=True)
 	qr_image = models.ImageField(upload_to='qr_codes/', null=True, blank=True)
+<<<<<<< HEAD
 
 	def generate_qr_with_data(self):
 		"""Genera un QR con datos adicionales integrados en la imagen"""
@@ -109,6 +110,8 @@ class Cliente(models.Model):
 		except Exception as e:
 			print(f"Error generando QR con datos para cliente {self.id}: {e}")
 			return False
+=======
+>>>>>>> 7395215fdcd9c30411c8dbe2b5120de6ba911bbd
 
 	def __str__(self):
 		return f"{self.nombre} ({self.cedula})"

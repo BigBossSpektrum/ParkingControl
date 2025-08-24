@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import os
 from io import BytesIO
 import barcode
@@ -122,6 +123,12 @@ def dashboard(request):
 	})
 
 # --- VISTA PARA VER REGISTRO Y QR ---
+=======
+from django.conf import settings
+import os
+# --- VISTA PARA VER REGISTRO Y QR ---
+from django.utils import timezone
+>>>>>>> 7395215fdcd9c30411c8dbe2b5120de6ba911bbd
 
 
 # --- IMPORTS ---
@@ -141,6 +148,7 @@ from django.core.files.base import ContentFile
 @login_required
 def ver_registro(request, pk):
 	cliente = get_object_or_404(Cliente, pk=pk)
+<<<<<<< HEAD
 	
 	if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.GET.get('ajax'):
 		# Calcular tiempo en parking
@@ -162,6 +170,8 @@ def ver_registro(request, pk):
 			'qr_image_url': cliente.qr_image.url if cliente.qr_image else None,
 		})
 	
+=======
+>>>>>>> 7395215fdcd9c30411c8dbe2b5120de6ba911bbd
 	return render(request, 'app_page/ver_registro.html', {'cliente': cliente})
 
 # --- FORMULARIOS ---
@@ -172,6 +182,7 @@ class ClienteForm(forms.ModelForm):
 
 	class Meta:
 		model = Cliente
+<<<<<<< HEAD
 		fields = ['cedula', 'nombre', 'telefono', 'tipo_vehiculo', 'tiempo_parking']
 
 	def __init__(self, *args, **kwargs):
@@ -210,6 +221,9 @@ class ClienteForm(forms.ModelForm):
 		if not re.match(r'^[A-Z]{3}-[0-9A-Z]{3}$', matricula):
 			raise forms.ValidationError('Formato inválido. Ejemplo válido: JAW-12P')
 		return matricula
+=======
+		fields = ['cedula', 'nombre', 'telefono', 'matricula', 'tipo_vehiculo', 'tiempo_parking']
+>>>>>>> 7395215fdcd9c30411c8dbe2b5120de6ba911bbd
 
 class LoginForm(forms.Form):
 	username = forms.CharField(label='Usuario')
@@ -238,25 +252,59 @@ def logout_view(request):
 	return redirect('login')
 
 @login_required
+<<<<<<< HEAD
+=======
+def portal_opciones(request):
+	from django.utils import timezone
+	hoy = timezone.now().date()
+	clientes_hoy = Cliente.objects.filter(fecha_entrada__date=hoy)
+	conteo_hoy = clientes_hoy.count()
+	ultimos = Cliente.objects.order_by('-fecha_entrada')[:5]
+	return render(request, 'app_page/portal_opciones.html', {
+	    'conteo_hoy': conteo_hoy,
+	    'ultimos': ultimos,
+	})
+
+@login_required
+>>>>>>> 7395215fdcd9c30411c8dbe2b5120de6ba911bbd
 def index(request):
 	from django.utils import timezone
 	if request.method == 'POST':
 		print('POST recibido:', request.POST)
 		form = ClienteForm(request.POST)
 		if form.is_valid():
+<<<<<<< HEAD
 			cliente = form.save(commit=False)
 			cliente.fecha_entrada = timezone.now()
 			# Guardar primero para obtener el id
 			cliente.save()
 			# Generar QR con datos adicionales
 			cliente.generate_qr_with_data()
+=======
+			print('Form válido. Cedula:', form.cleaned_data.get('cedula'))
+			cliente = form.save(commit=False)
+			cliente.fecha_entrada = timezone.now()
+			# Generar QR
+			import qrcode
+			from django.core.files.base import ContentFile
+			qr_data = f"Cédula: {cliente.cedula}\nNombre: {cliente.nombre}\nMatrícula: {cliente.matricula}\nFecha Entrada: {cliente.fecha_entrada.strftime('%Y-%m-%d %H:%M')}"
+			qr_img = qrcode.make(qr_data)
+			buf = BytesIO()
+			qr_img.save(buf, format='PNG')
+			buf.seek(0)
+			cliente.qr_image.save(f"qr_{cliente.cedula}_{cliente.fecha_entrada.strftime('%Y%m%d%H%M%S')}.png", ContentFile(buf.read()), save=False)
+>>>>>>> 7395215fdcd9c30411c8dbe2b5120de6ba911bbd
 			cliente.save()
 			return redirect('lista_clientes')
 		else:
 			print('Form inválido. Errores:', form.errors)
 	else:
 		form = ClienteForm(initial={'cedula': ''})
+<<<<<<< HEAD
 	return render(request, 'app_page/registar_usuario.html', {'form': form})
+=======
+	return render(request, 'app_page/index.html', {'form': form})
+>>>>>>> 7395215fdcd9c30411c8dbe2b5120de6ba911bbd
 
 @login_required
 def editar_cliente(request, pk):

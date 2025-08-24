@@ -1,4 +1,5 @@
 {% extends 'app_page/base.html' %}
+<<<<<<< HEAD
 {% block title %}Salida - Escanear QR{% endblock %}
 {% block extra_css %}
     <style>
@@ -407,4 +408,16 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 </script>
+=======
+{% block title %}Registrar Salida{% endblock %}
+{% block content %}
+    <h1>Registrar Salida</h1>
+    {% if mensaje %}<p><strong>{{ mensaje }}</strong></p>{% endif %}
+    <form method="post">
+    {{ csrf_token }}
+        {{ form|safe }}
+        <button type="submit">Registrar Salida</button>
+    </form>
+    <a href="{% url 'portal_opciones' %}">Volver al portal</a>
+>>>>>>> 7395215fdcd9c30411c8dbe2b5120de6ba911bbd
 {% endblock %}

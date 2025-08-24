@@ -11,6 +11,7 @@
             <p class="card-text"><b>Tipo de Vehículo:</b> {{ cliente.get_tipo_vehiculo_display }}</p>
             <p class="card-text"><b>Fecha Entrada:</b> {{ cliente.fecha_entrada|date:'Y-m-d H:i' }}</p>
             <p class="card-text"><b>Fecha Salida:</b> {{ cliente.fecha_salida|date:'Y-m-d H:i' }}</p>
+<<<<<<< HEAD
             <div class="row">
                 <div class="col-12 text-center my-3">
                     {% if cliente.qr_image %}
@@ -21,6 +22,15 @@
                     {% endif %}
                 </div>
             </div>
+=======
+            {% if cliente.qr_image %}
+                <div class="text-center my-3">
+                    <img src="{{ cliente.qr_image.url }}" alt="QR del cliente" style="width:220px; height:220px; border:2px solid #0f0; background:#fff;"/>
+                </div>
+            {% else %}
+                <div class="alert alert-warning">No hay QR generado para este cliente.</div>
+            {% endif %}
+>>>>>>> 7395215fdcd9c30411c8dbe2b5120de6ba911bbd
         </div>
     </div>
     <div class="text-center">
