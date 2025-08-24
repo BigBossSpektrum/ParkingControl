@@ -1,11 +1,6 @@
-{% load static %}
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <title>Iniciar Sesión</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+{% extends 'app_page/base.html' %}
+{% block title %}Iniciar Sesión{% endblock %}
+{% block extra_head %}
     <style>
         body {
             background: #111;
@@ -68,7 +63,9 @@
         }
     </style>
 </head>
-<body>
+</style>
+{% endblock %}
+{% block content %}
 <div class="login-container">
     <div class="login-box">
         <div class="info-section">
@@ -82,7 +79,7 @@
         </div>
         <div class="form-section">
             <h3 class="mb-4">Iniciar Sesión</h3>
-            <form method="post" autocomplete="off">
+            <form method="post">
                 {% csrf_token %}
                 <div class="mb-3">
                     <label for="id_username" class="form-label">Usuario</label>
@@ -106,10 +103,10 @@
             {% if form.errors %}
             <div class="alert alert-danger mt-3">Usuario o contraseña incorrectos.</div>
             {% endif %}
-            <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
         </div>
     </div>
 </div>
+{% endblock %}
 </script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script>

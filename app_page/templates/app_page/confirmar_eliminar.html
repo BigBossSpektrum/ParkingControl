@@ -1,15 +1,11 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Eliminar Cliente</title>
-</head>
-<body>
+{% extends 'app_page/base.html' %}
+{% block title %}Eliminar Cliente{% endblock %}
+{% block content %}
     <h1>¿Eliminar cliente?</h1>
     <p>¿Estás seguro que deseas eliminar a <strong>{{ cliente.nombre }}</strong> ({{ cliente.cedula }})?</p>
     <form method="post">
         {% csrf_token %}
         <button type="submit">Sí, eliminar</button>
-        <a href="/clientes/">Cancelar</a>
+        <a href="{% url 'lista_clientes' %}">Cancelar</a>
     </form>
-</body>
-</html>
+{% endblock %}

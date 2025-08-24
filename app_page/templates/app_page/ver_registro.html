@@ -1,0 +1,38 @@
+{% extends 'app_page/base.html' %}
+{% block title %}Registro del Cliente{% endblock %}
+{% block content %}
+<div class="container py-4">
+    <h1 class="mb-4">Registro del Cliente</h1>
+    <div class="card bg-dark text-success mb-4" style="max-width: 500px; margin:auto;">
+        <div class="card-body">
+            <h5 class="card-title">{{ cliente.nombre }} ({{ cliente.cedula }})</h5>
+            <p class="card-text"><b>Teléfono:</b> {{ cliente.telefono }}</p>
+            <p class="card-text"><b>Matrícula:</b> {{ cliente.matricula }}</p>
+            <p class="card-text"><b>Tipo de Vehículo:</b> {{ cliente.get_tipo_vehiculo_display }}</p>
+            <p class="card-text"><b>Fecha Entrada:</b> {{ cliente.fecha_entrada|date:'Y-m-d H:i' }}</p>
+            <p class="card-text"><b>Fecha Salida:</b> {{ cliente.fecha_salida|date:'Y-m-d H:i' }}</p>
+            <div class="row">
+                <div class="col-12 col-md-6 text-center my-3">
+                    {% if cliente.qr_image %}
+                        <img src="{{ cliente.qr_image.url }}" alt="QR del cliente" style="width:180px; height:180px; border:2px solid #0f0; background:#fff;"/>
+                        <div class="small mt-2">Código QR</div>
+                    {% else %}
+                        <div class="alert alert-warning">No hay QR generado para este cliente.</div>
+                    {% endif %}
+                </div>
+                <div class="col-12 col-md-6 text-center my-3">
+                    {% if cliente.barcode_image %}
+                        <img src="{{ cliente.barcode_image.url }}" alt="Código de barras" style="width:220px; height:60px; border:2px solid #0f0; background:#fff;"/>
+                        <div class="small mt-2">Código de barras (ID: {{ cliente.id }})</div>
+                    {% else %}
+                        <div class="alert alert-warning">No hay código de barras generado.</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="text-center">
+        <a href="{% url 'lista_clientes' %}" class="btn btn-dark">Volver a la lista</a>
+    </div>
+</div>
+{% endblock %}

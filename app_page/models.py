@@ -6,7 +6,7 @@ class Cliente(models.Model):
 		('moto', 'Moto'),
 		('otro', 'Otro'),
 	]
-	cedula = models.CharField(max_length=20, unique=True)
+	cedula = models.CharField(max_length=20)
 	nombre = models.CharField(max_length=100)
 	telefono = models.CharField(max_length=20)
 	matricula = models.CharField(max_length=20)
@@ -14,6 +14,8 @@ class Cliente(models.Model):
 	tiempo_parking = models.PositiveIntegerField(null=True, blank=True, help_text='Tiempo en minutos')
 	fecha_entrada = models.DateTimeField(null=True, blank=True)
 	fecha_salida = models.DateTimeField(null=True, blank=True)
+	qr_image = models.ImageField(upload_to='qr_codes/', null=True, blank=True)
+	barcode_image = models.ImageField(upload_to='barcodes/', null=True, blank=True)
 
 	def __str__(self):
 		return f"{self.nombre} ({self.cedula})"
