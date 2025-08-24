@@ -12,20 +12,12 @@
             <p class="card-text"><b>Fecha Entrada:</b> {{ cliente.fecha_entrada|date:'Y-m-d H:i' }}</p>
             <p class="card-text"><b>Fecha Salida:</b> {{ cliente.fecha_salida|date:'Y-m-d H:i' }}</p>
             <div class="row">
-                <div class="col-12 col-md-6 text-center my-3">
+                <div class="col-12 text-center my-3">
                     {% if cliente.qr_image %}
-                        <img src="{{ cliente.qr_image.url }}" alt="QR del cliente" style="width:180px; height:180px; border:2px solid #0f0; background:#fff;"/>
-                        <div class="small mt-2">Código QR</div>
+                        <img src="{{ cliente.qr_image.url }}" alt="QR del cliente con datos" style="max-width: 300px; border:2px solid #0f0; background:#fff;"/>
+                        <div class="small mt-2">Código QR con datos del cliente</div>
                     {% else %}
                         <div class="alert alert-warning">No hay QR generado para este cliente.</div>
-                    {% endif %}
-                </div>
-                <div class="col-12 col-md-6 text-center my-3">
-                    {% if cliente.barcode_image %}
-                        <img src="{{ cliente.barcode_image.url }}" alt="Código de barras" style="width:220px; height:60px; border:2px solid #0f0; background:#fff;"/>
-                        <div class="small mt-2">Código de barras (ID: {{ cliente.id }})</div>
-                    {% else %}
-                        <div class="alert alert-warning">No hay código de barras generado.</div>
                     {% endif %}
                 </div>
             </div>

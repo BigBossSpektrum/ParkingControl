@@ -46,25 +46,41 @@
     </style>
 {% endblock %}
 {% block content %}
-    <div class="container py-4">
+    {% csrf_token %}
+    <div class="container-fluid px-3 py-2">
         <h1 class="mb-4">Clientes Registrados</h1>
         <a href="/" class="btn btn-success mb-3" style="font-weight: bold; color: #000;">Registrar nuevo cliente</a>
-        <form method="get" class="row g-2 mb-3">
-            <div class="col-auto">
-                <input type="text" name="q" class="form-control" placeholder="Buscar..." value="{{ query }}">
+        <div class="row g-2 mb-3">
+            <div class="col-md-3">
+                <input type="text" id="filtroTiempoReal" class="form-control" placeholder="Buscar por cédula, nombre, teléfono o matrícula..." value="{{ query }}">
             </div>
-            <div class="col-auto">
-                <button type="submit" class="btn btn-dark">Buscar</button>
+            <div class="col-md-2">
+                <select id="filtroTipo" class="form-control">
+                    <option value="">Todos los tipos</option>
+                    <option value="carro">Carro</option>
+                    <option value="moto">Moto</option>
+                    <option value="otro">Otro</option>
+                </select>
             </div>
-        </form>
+            <div class="col-md-2">
+                <input type="date" id="fechaDesde" class="form-control" placeholder="Fecha desde" title="Entrada mayor o igual a">
+            </div>
+            <div class="col-md-2">
+                <input type="date" id="fechaHasta" class="form-control" placeholder="Fecha hasta" title="Entrada menor o igual a">
+            </div>
+            <div class="col-md-1">
+                <button type="button" id="limpiarFiltros" class="btn btn-dark">Limpiar</button>
+            </div>
+        </div>
         <div class="table-responsive">
-            <table class="table table-bordered align-middle">
+            <table class="table table-bordered align-middle" id="tablaClientes">
                 <thead>
                     <tr>
                         <th>Cédula</th>
                         <th>Nombre</th>
                         <th>Teléfono</th>
                         <th>Matrícula</th>
+                        <th>Tipo</th>
                         <th>Fecha Entrada</th>
                         <th>Fecha Salida</th>
                         <th>Tiempo en parking</th>
@@ -78,19 +94,30 @@
                         <td>{{ cliente.nombre }}</td>
                         <td>{{ cliente.telefono }}</td>
                         <td>{{ cliente.matricula }}</td>
+                        <td>
+                            <span class="badge {% if cliente.tipo_vehiculo == 'carro' %}bg-primary{% elif cliente.tipo_vehiculo == 'moto' %}bg-success{% else %}bg-secondary{% endif %}">
+                                {{ cliente.get_tipo_vehiculo_display }}
+                            </span>
+                        </td>
                         <td>{{ cliente.fecha_entrada|date:'Y-m-d H:i' }}</td>
                         <td>{{ cliente.fecha_salida|date:'Y-m-d H:i' }}</td>
                         <td>
                             {% if minutos is not None %}{{ minutos }} min{% else %}-{% endif %}
                         </td>
                         <td>
-                            <a href="{% url 'ver_registro' cliente.pk %}" class="btn btn-info btn-sm" style="color:#111;background:#0ff;border:none;">Ver registro</a>
-                            <button class="btn btn-success btn-sm ms-1 btn-editar" data-id="{{ cliente.pk }}">Editar</button>
-                            <button class="btn btn-dark btn-sm ms-1 btn-eliminar" data-id="{{ cliente.pk }}">Eliminar</button>
+                            <button class="btn btn-info btn-sm btn-ver-registro" data-id="{{ cliente.pk }}" style="color:#111;background:#0ff;border:none;" title="Ver registro">
+                                <i class="bi bi-file-text"></i>
+                            </button>
+                            <button class="btn btn-success btn-sm ms-1 btn-editar" data-id="{{ cliente.pk }}" title="Editar">
+                                <i class="bi bi-gear"></i>
+                            </button>
+                            <button class="btn btn-dark btn-sm ms-1 btn-eliminar" data-id="{{ cliente.pk }}" title="Eliminar">
+                                <i class="bi bi-x-circle"></i>
+                            </button>
                         </td>
                     </tr>
                 {% empty %}
-                    <tr><td colspan="7" class="text-center">No hay clientes registrados.</td></tr>
+                    <tr><td colspan="9" class="text-center">No hay clientes registrados.</td></tr>
                 {% endfor %}
                 </tbody>
             </table>
@@ -109,52 +136,419 @@
             </div>
         </div>
     </div>
+    
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
+    let clienteIdActual = null;
+    
     document.addEventListener('DOMContentLoaded', function() {
-        // Editar
-        document.querySelectorAll('.btn-editar').forEach(function(btn) {
-            btn.addEventListener('click', function() {
-                const id = this.getAttribute('data-id');
+        // Filtrado en tiempo real
+        const filtroTexto = document.getElementById('filtroTiempoReal');
+        const filtroTipo = document.getElementById('filtroTipo');
+        const fechaDesde = document.getElementById('fechaDesde');
+        const fechaHasta = document.getElementById('fechaHasta');
+        const limpiarBtn = document.getElementById('limpiarFiltros');
+        const tabla = document.getElementById('tablaClientes');
+        const filas = tabla.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+        
+        function aplicarFiltros() {
+            const textoFiltro = filtroTexto.value.toLowerCase();
+            const tipoFiltro = filtroTipo.value.toLowerCase();
+            const filtroFechaDesde = fechaDesde.value;
+            const filtroFechaHasta = fechaHasta.value;
+            
+            let filasVisibles = 0;
+            
+            for (let i = 0; i < filas.length; i++) {
+                const fila = filas[i];
+                
+                // Skip empty row
+                if (fila.cells.length < 8) continue;
+                
+                const cedula = fila.cells[0].textContent.toLowerCase();
+                const nombre = fila.cells[1].textContent.toLowerCase();
+                const telefono = fila.cells[2].textContent.toLowerCase();
+                const matricula = fila.cells[3].textContent.toLowerCase();
+                const tipo = fila.cells[4].textContent.toLowerCase();
+                const fechaEntrada = fila.cells[5].textContent.trim();
+                
+                // Filtro de texto
+                const coincideTexto = textoFiltro === '' || 
+                    cedula.includes(textoFiltro) || 
+                    nombre.includes(textoFiltro) || 
+                    telefono.includes(textoFiltro) || 
+                    matricula.includes(textoFiltro);
+                
+                // Filtro de tipo
+                const coincideTipo = tipoFiltro === '' || tipo.includes(tipoFiltro);
+                
+                // Filtro de fechas (basado en fecha de entrada)
+                let coincideFecha = true;
+                if (fechaEntrada && fechaEntrada !== '-') {
+                    // Extraer solo la fecha (YYYY-MM-DD) de la fecha completa
+                    const fechaEntradaSolo = fechaEntrada.split(' ')[0]; // "2025-08-24 10:30" -> "2025-08-24"
+                    
+                    if (filtroFechaDesde) {
+                        coincideFecha = coincideFecha && (fechaEntradaSolo >= filtroFechaDesde);
+                    }
+                    
+                    if (filtroFechaHasta) {
+                        coincideFecha = coincideFecha && (fechaEntradaSolo <= filtroFechaHasta);
+                    }
+                }
+                
+                if (coincideTexto && coincideTipo && coincideFecha) {
+                    fila.style.display = '';
+                    filasVisibles++;
+                } else {
+                    fila.style.display = 'none';
+                }
+            }
+            
+            // Mostrar mensaje si no hay resultados
+            const filaVacia = tabla.querySelector('tr td[colspan="9"]');
+            if (filaVacia) {
+                filaVacia.parentElement.style.display = filasVisibles === 0 ? '' : 'none';
+            }
+        }
+        
+        // Event listeners para filtros
+        filtroTexto.addEventListener('input', aplicarFiltros);
+        filtroTipo.addEventListener('change', aplicarFiltros);
+        fechaDesde.addEventListener('change', aplicarFiltros);
+        fechaHasta.addEventListener('change', aplicarFiltros);
+        
+        // Limpiar filtros
+        limpiarBtn.addEventListener('click', function() {
+            filtroTexto.value = '';
+            filtroTipo.value = '';
+            fechaDesde.value = '';
+            fechaHasta.value = '';
+            aplicarFiltros();
+        });
+        
+        // Aplicar filtros al cargar si hay query inicial
+        if (filtroTexto.value) {
+            aplicarFiltros();
+        }
+        // Función para editar cliente
+        function editarCliente(id) {
+            clienteIdActual = id;
+            
+            // Cargar datos del cliente
+            fetch(`/clientes/editar/${id}/?ajax=1`, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Mostrar SweetAlert con formulario de edición
                 Swal.fire({
-                    title: '¿Editar cliente?',
-                    text: '¿Deseas editar los datos de este cliente?',
-                    icon: 'question',
+                    title: 'Editar Cliente',
+                    html: `
+                        <div class="text-start">
+                            <div class="mb-3">
+                                <label class="form-label text-success">Cédula</label>
+                                <input type="text" id="swal-cedula" class="swal2-input" value="${data.cedula || ''}" placeholder="Cédula">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label text-success">Nombre</label>
+                                <input type="text" id="swal-nombre" class="swal2-input" value="${data.nombre || ''}" placeholder="Nombre">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label text-success">Teléfono</label>
+                                <input type="text" id="swal-telefono" class="swal2-input" value="${data.telefono || ''}" placeholder="Teléfono">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label text-success">Tipo de Vehículo</label>
+                                <select id="swal-tipo" class="swal2-input">
+                                    <option value="carro" ${data.tipo_vehiculo === 'carro' ? 'selected' : ''}>Carro</option>
+                                    <option value="moto" ${data.tipo_vehiculo === 'moto' ? 'selected' : ''}>Moto</option>
+                                    <option value="otro" ${data.tipo_vehiculo === 'otro' ? 'selected' : ''}>Otro</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label text-success">Matrícula</label>
+                                <div style="display: flex; gap: 10px; align-items: center;">
+                                    <input type="text" id="swal-matricula-inicio" class="swal2-input" value="${data.matricula_inicio || ''}" placeholder="ABC" maxlength="3" style="width: 80px;">
+                                    <span style="color: #0f0;">-</span>
+                                    <input type="text" id="swal-matricula-fin" class="swal2-input" value="${data.matricula_fin || ''}" placeholder="123" maxlength="3" style="width: 80px;">
+                                </div>
+                            </div>
+                        </div>
+                    `,
                     showCancelButton: true,
-                    confirmButtonText: 'Editar',
+                    confirmButtonText: 'Guardar',
                     cancelButtonText: 'Cancelar',
                     background: '#222',
                     color: '#0f0',
                     confirmButtonColor: '#0f0',
-                    cancelButtonColor: '#111',
+                    cancelButtonColor: '#666',
+                    width: '500px',
+                    customClass: {
+                        popup: 'swal-wide'
+                    },
+                    preConfirm: () => {
+                        const cedula = document.getElementById('swal-cedula').value;
+                        const nombre = document.getElementById('swal-nombre').value;
+                        const telefono = document.getElementById('swal-telefono').value;
+                        const tipo = document.getElementById('swal-tipo').value;
+                        const matriculaInicio = document.getElementById('swal-matricula-inicio').value;
+                        const matriculaFin = document.getElementById('swal-matricula-fin').value;
+                        
+                        if (!cedula || !nombre || !telefono || !matriculaInicio || !matriculaFin) {
+                            Swal.showValidationMessage('Todos los campos son obligatorios');
+                            return false;
+                        }
+                        
+                        return {
+                            cedula: cedula,
+                            nombre: nombre,
+                            telefono: telefono,
+                            tipo_vehiculo: tipo,
+                            matricula_inicio: matriculaInicio,
+                            matricula_fin: matriculaFin
+                        };
+                    }
                 }).then((result) => {
                     if (result.isConfirmed) {
-                        window.location.href = '/clientes/editar/' + id + '/';
+                        guardarEdicion(result.value);
                     }
                 });
-            });
-        });
-        // Eliminar
-        document.querySelectorAll('.btn-eliminar').forEach(function(btn) {
-            btn.addEventListener('click', function() {
-                const id = this.getAttribute('data-id');
+            })
+            .catch(error => {
+                console.error('Error:', error);
                 Swal.fire({
-                    title: '¿Eliminar cliente?',
-                    text: 'Esta acción no se puede deshacer. ¿Seguro que deseas eliminar?',
+                    icon: 'error',
+                    title: 'Error al cargar datos',
+                    background: '#222',
+                    color: '#0f0',
+                    confirmButtonColor: '#0f0'
+                });
+            });
+        }
+        
+        // Función para guardar edición
+        function guardarEdicion(datos) {
+            const formData = new FormData();
+            formData.append('cedula', datos.cedula);
+            formData.append('nombre', datos.nombre);
+            formData.append('telefono', datos.telefono);
+            formData.append('tipo_vehiculo', datos.tipo_vehiculo);
+            formData.append('matricula_inicio', datos.matricula_inicio);
+            formData.append('matricula_fin', datos.matricula_fin);
+            formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+            
+            fetch(`/clientes/editar/${clienteIdActual}/`, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: data.message,
+                        background: '#222',
+                        color: '#0f0',
+                        confirmButtonColor: '#0f0'
+                    }).then(() => location.reload());
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error al actualizar',
+                        text: 'Revise los datos ingresados',
+                        background: '#222',
+                        color: '#0f0',
+                        confirmButtonColor: '#0f0'
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error de conexión',
+                    background: '#222',
+                    color: '#0f0',
+                    confirmButtonColor: '#0f0'
+                });
+            });
+        }
+        
+        // Función para eliminar cliente
+        function eliminarCliente(id) {
+            clienteIdActual = id;
+            
+            // Cargar datos del cliente
+            fetch(`/clientes/eliminar/${id}/?ajax=1`, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                Swal.fire({
+                    title: '¿Eliminar Cliente?',
+                    html: `¿Estás seguro de que deseas eliminar al cliente <strong style="color: #0f0;">${data.nombre}</strong>?<br><br><span style="color: #ff6b6b;">Esta acción no se puede deshacer.</span>`,
                     icon: 'warning',
                     showCancelButton: true,
-                    confirmButtonText: 'Eliminar',
+                    confirmButtonText: 'Sí, eliminar',
                     cancelButtonText: 'Cancelar',
                     background: '#222',
                     color: '#0f0',
                     confirmButtonColor: '#d33',
-                    cancelButtonColor: '#111',
+                    cancelButtonColor: '#666',
                 }).then((result) => {
                     if (result.isConfirmed) {
-                        window.location.href = '/clientes/eliminar/' + id + '/';
+                        confirmarEliminacion();
                     }
                 });
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error al cargar datos',
+                    background: '#222',
+                    color: '#0f0',
+                    confirmButtonColor: '#0f0'
+                });
+            });
+        }
+        
+        // Función para confirmar eliminación
+        function confirmarEliminacion() {
+            const formData = new FormData();
+            formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+            
+            fetch(`/clientes/eliminar/${clienteIdActual}/`, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: data.message,
+                        background: '#222',
+                        color: '#0f0',
+                        confirmButtonColor: '#0f0'
+                    }).then(() => location.reload());
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error al eliminar',
+                    background: '#222',
+                    color: '#0f0',
+                    confirmButtonColor: '#0f0'
+                });
+            });
+        }
+        
+        // Función para ver registro del cliente
+        function verRegistro(id) {
+            // Cargar datos del cliente
+            fetch(`/clientes/registro/${id}/?ajax=1`, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                const qrImage = data.qr_image_url ? `<img src="${data.qr_image_url}" alt="QR Code" style="max-width: 200px; margin: 10px;">` : '<p style="color: #888;">Sin QR generado</p>';
+                
+                Swal.fire({
+                    title: `Registro de ${data.nombre}`,
+                    html: `
+                        <div class="text-start" style="color: #0f0;">
+                            <div class="row mb-3">
+                                <div class="col-6">
+                                    <strong>Cédula:</strong><br>${data.cedula}
+                                </div>
+                                <div class="col-6">
+                                    <strong>Teléfono:</strong><br>${data.telefono}
+                                </div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-6">
+                                    <strong>Matrícula:</strong><br>${data.matricula}
+                                </div>
+                                <div class="col-6">
+                                    <strong>Tipo:</strong><br>${data.tipo_vehiculo}
+                                </div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-6">
+                                    <strong>Entrada:</strong><br>${data.fecha_entrada || 'No registrada'}
+                                </div>
+                                <div class="col-6">
+                                    <strong>Salida:</strong><br>${data.fecha_salida || 'En parking'}
+                                </div>
+                            </div>
+                            <div class="mb-3 text-center">
+                                <strong>Tiempo en parking:</strong><br>
+                                <span style="color: #0ff; font-size: 1.2em;">${data.tiempo_parking}</span>
+                            </div>
+                            <div class="text-center">
+                                <h6 style="color: #0f0;">Código QR con Datos</h6>
+                                ${qrImage}
+                            </div>
+                        </div>
+                    `,
+                    background: '#222',
+                    color: '#0f0',
+                    confirmButtonColor: '#0f0',
+                    confirmButtonText: 'Cerrar',
+                    width: '600px',
+                    customClass: {
+                        popup: 'swal-wide'
+                    }
+                });
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error al cargar registro',
+                    background: '#222',
+                    color: '#0f0',
+                    confirmButtonColor: '#0f0'
+                });
+            });
+        }
+        
+        // Event listeners para los botones
+        document.querySelectorAll('.btn-ver-registro').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                const id = this.getAttribute('data-id');
+                verRegistro(id);
+            });
+        });
+        
+        document.querySelectorAll('.btn-editar').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                const id = this.getAttribute('data-id');
+                editarCliente(id);
+            });
+        });
+        
+        document.querySelectorAll('.btn-eliminar').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                const id = this.getAttribute('data-id');
+                eliminarCliente(id);
             });
         });
     });
