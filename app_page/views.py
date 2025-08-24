@@ -1,8 +1,5 @@
-<<<<<<< HEAD
 import os
 from io import BytesIO
-import barcode
-from barcode.writer import ImageWriter
 import qrcode
 from django.conf import settings
 from django.utils import timezone
@@ -123,111 +120,55 @@ def dashboard(request):
 	})
 
 # --- VISTA PARA VER REGISTRO Y QR ---
-=======
-from django.conf import settings
-import os
-# --- VISTA PARA VER REGISTRO Y QR ---
-from django.utils import timezone
->>>>>>> 7395215fdcd9c30411c8dbe2b5120de6ba911bbd
-
-
-# --- IMPORTS ---
-from django.shortcuts import render, redirect, get_object_or_404
-from django.http import HttpResponse
-from django.contrib.auth import authenticate, login as auth_login, logout as auth_logout
-from django.contrib.auth.decorators import login_required
-from django.core.paginator import Paginator
-from django import forms
-from django.db import models
-from .models import Cliente
-import barcode
-from barcode.writer import ImageWriter
-from io import BytesIO
-from django.core.files.base import ContentFile
-
 @login_required
 def ver_registro(request, pk):
 	cliente = get_object_or_404(Cliente, pk=pk)
-<<<<<<< HEAD
 	
-	if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.GET.get('ajax'):
-		# Calcular tiempo en parking
-		minutos = None
-		if cliente.fecha_entrada and cliente.fecha_salida:
-			delta = cliente.fecha_salida - cliente.fecha_entrada
-			minutos = int(delta.total_seconds() // 60)
-		
-		return JsonResponse({
-			'id': cliente.id,
-			'cedula': cliente.cedula,
+	# Si es una petición AJAX, devolver JSON
+	if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+		data = {
 			'nombre': cliente.nombre,
+			'cedula': cliente.cedula,
 			'telefono': cliente.telefono,
 			'matricula': cliente.matricula,
 			'tipo_vehiculo': cliente.get_tipo_vehiculo_display(),
-			'fecha_entrada': cliente.fecha_entrada.strftime('%Y-%m-%d %H:%M:%S') if cliente.fecha_entrada else None,
-			'fecha_salida': cliente.fecha_salida.strftime('%Y-%m-%d %H:%M:%S') if cliente.fecha_salida else None,
-			'tiempo_parking': f"{minutos} minutos" if minutos is not None else "En parking",
-			'qr_image_url': cliente.qr_image.url if cliente.qr_image else None,
-		})
+			'fecha_entrada': cliente.fecha_entrada.strftime('%d/%m/%Y %H:%M') if cliente.fecha_entrada else None,
+			'fecha_salida': cliente.fecha_salida.strftime('%d/%m/%Y %H:%M') if cliente.fecha_salida else None,
+			'qr_url': cliente.qr_image.url if cliente.qr_image else None,
+		}
+		return JsonResponse(data)
 	
-=======
->>>>>>> 7395215fdcd9c30411c8dbe2b5120de6ba911bbd
 	return render(request, 'app_page/ver_registro.html', {'cliente': cliente})
 
 # --- FORMULARIOS ---
 class ClienteForm(forms.ModelForm):
-
-	matricula_inicio = forms.CharField(label='Matrícula (3 letras)', max_length=3, min_length=3)
-	matricula_fin = forms.CharField(label='Matrícula (3 finales)', max_length=3, min_length=3)
-
+	matricula_inicio = forms.CharField(max_length=3, widget=forms.TextInput(attrs={'class': 'form-control text-uppercase', 'placeholder': 'ABC'}))
+	matricula_fin = forms.CharField(max_length=3, widget=forms.TextInput(attrs={'class': 'form-control text-uppercase', 'placeholder': '123'}))
+	
 	class Meta:
 		model = Cliente
-<<<<<<< HEAD
-		fields = ['cedula', 'nombre', 'telefono', 'tipo_vehiculo', 'tiempo_parking']
-
-	def __init__(self, *args, **kwargs):
-		super().__init__(*args, **kwargs)
-		# Si hay instancia, dividir la matrícula
-		if self.instance and self.instance.matricula:
-			partes = self.instance.matricula.split('-')
-			if len(partes) == 2:
-				self.fields['matricula_inicio'].initial = partes[0]
-				self.fields['matricula_fin'].initial = partes[1]
-
-	def clean(self):
-		cleaned = super().clean()
-		ini = cleaned.get('matricula_inicio', '').upper()
-		fin = cleaned.get('matricula_fin', '').upper()
-		import re
-		if not re.match(r'^[A-Z]{3}$', ini):
-			self.add_error('matricula_inicio', 'Debe ser 3 letras mayúsculas')
-		if not re.match(r'^[0-9A-Z]{3}$', fin):
-			self.add_error('matricula_fin', 'Debe ser 3 caracteres alfanuméricos')
-		if not self.errors:
-			cleaned['matricula'] = f"{ini}-{fin}"
-		return cleaned
-
+		fields = ['cedula', 'nombre', 'telefono', 'matricula_inicio', 'matricula_fin', 'tipo_vehiculo']
+		widgets = {
+			'cedula': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: 12345678'}),
+			'nombre': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombre completo'}),
+			'telefono': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: 3001234567'}),
+			'tipo_vehiculo': forms.Select(attrs={'class': 'form-control'}),
+		}
+		labels = {
+			'cedula': 'Cédula',
+			'nombre': 'Nombre Completo',
+			'telefono': 'Teléfono',
+			'tipo_vehiculo': 'Tipo de Vehículo',
+		}
+	
 	def save(self, commit=True):
-		self.instance.matricula = self.cleaned_data.get('matricula', '')
-		return super().save(commit)
-
-	def clean_matricula(self):
-		matricula = self.cleaned_data['matricula'].upper()
-		import re
-		if len(matricula) != 7:
-			raise forms.ValidationError('La matrícula debe tener exactamente 7 caracteres (ej: JAW-12P)')
-		if '-' not in matricula:
-			raise forms.ValidationError('La matrícula debe contener un guion (ej: JAW-12P)')
-		if not re.match(r'^[A-Z]{3}-[0-9A-Z]{3}$', matricula):
-			raise forms.ValidationError('Formato inválido. Ejemplo válido: JAW-12P')
-		return matricula
-=======
-		fields = ['cedula', 'nombre', 'telefono', 'matricula', 'tipo_vehiculo', 'tiempo_parking']
->>>>>>> 7395215fdcd9c30411c8dbe2b5120de6ba911bbd
-
-class LoginForm(forms.Form):
-	username = forms.CharField(label='Usuario')
-	password = forms.CharField(widget=forms.PasswordInput, label='Contraseña')
+		instance = super().save(commit=False)
+		matricula_inicio = self.cleaned_data.get('matricula_inicio', '').upper()
+		matricula_fin = self.cleaned_data.get('matricula_fin', '').upper()
+		instance.matricula = f"{matricula_inicio}-{matricula_fin}"
+		if commit:
+			instance.save()
+		return instance
 
 class SalidaQRForm(forms.Form):
 	codigo = forms.CharField(label='Escanee el código de barras/QR o ingrese la cédula o ID')
@@ -242,149 +183,164 @@ def login_view(request):
 				auth_login(request, user)
 				return redirect('dashboard')
 			else:
-				form.add_error(None, 'Usuario o contraseña incorrectos')
+				error = 'Usuario o contraseña incorrectos'
+				return render(request, 'registration/login.html', {'form': form, 'error': error})
 	else:
 		form = LoginForm()
-	return render(request, 'app_registration/login.html', {'form': form})
+	return render(request, 'registration/login.html', {'form': form})
 
 def logout_view(request):
 	auth_logout(request)
 	return redirect('login')
 
-@login_required
-<<<<<<< HEAD
-=======
-def portal_opciones(request):
-	from django.utils import timezone
-	hoy = timezone.now().date()
-	clientes_hoy = Cliente.objects.filter(fecha_entrada__date=hoy)
-	conteo_hoy = clientes_hoy.count()
-	ultimos = Cliente.objects.order_by('-fecha_entrada')[:5]
-	return render(request, 'app_page/portal_opciones.html', {
-	    'conteo_hoy': conteo_hoy,
-	    'ultimos': ultimos,
-	})
+class LoginForm(forms.Form):
+	username = forms.CharField(max_length=150, widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Usuario'}))
+	password = forms.CharField(widget=forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'Contraseña'}))
 
+# Lista de clientes con paginación y filtros AJAX
 @login_required
->>>>>>> 7395215fdcd9c30411c8dbe2b5120de6ba911bbd
-def index(request):
-	from django.utils import timezone
-	if request.method == 'POST':
-		print('POST recibido:', request.POST)
-		form = ClienteForm(request.POST)
-		if form.is_valid():
-<<<<<<< HEAD
-			cliente = form.save(commit=False)
-			cliente.fecha_entrada = timezone.now()
-			# Guardar primero para obtener el id
-			cliente.save()
-			# Generar QR con datos adicionales
-			cliente.generate_qr_with_data()
-=======
-			print('Form válido. Cedula:', form.cleaned_data.get('cedula'))
-			cliente = form.save(commit=False)
-			cliente.fecha_entrada = timezone.now()
-			# Generar QR
-			import qrcode
-			from django.core.files.base import ContentFile
-			qr_data = f"Cédula: {cliente.cedula}\nNombre: {cliente.nombre}\nMatrícula: {cliente.matricula}\nFecha Entrada: {cliente.fecha_entrada.strftime('%Y-%m-%d %H:%M')}"
-			qr_img = qrcode.make(qr_data)
-			buf = BytesIO()
-			qr_img.save(buf, format='PNG')
-			buf.seek(0)
-			cliente.qr_image.save(f"qr_{cliente.cedula}_{cliente.fecha_entrada.strftime('%Y%m%d%H%M%S')}.png", ContentFile(buf.read()), save=False)
->>>>>>> 7395215fdcd9c30411c8dbe2b5120de6ba911bbd
-			cliente.save()
-			return redirect('lista_clientes')
-		else:
-			print('Form inválido. Errores:', form.errors)
-	else:
-		form = ClienteForm(initial={'cedula': ''})
-<<<<<<< HEAD
-	return render(request, 'app_page/registar_usuario.html', {'form': form})
-=======
-	return render(request, 'app_page/index.html', {'form': form})
->>>>>>> 7395215fdcd9c30411c8dbe2b5120de6ba911bbd
+def lista_clientes(request):
+	# Obtener parámetros de filtro
+	estado = request.GET.get('estado', 'todos')
+	buscar = request.GET.get('buscar', '')
+	fecha_inicio = request.GET.get('fecha_inicio', '')
+	fecha_fin = request.GET.get('fecha_fin', '')
+	
+	# Filtrar clientes
+	clientes = Cliente.objects.all().order_by('-fecha_entrada')
+	
+	# Filtro por estado
+	if estado == 'en_parking':
+		clientes = clientes.filter(fecha_salida__isnull=True)
+	elif estado == 'salidos':
+		clientes = clientes.filter(fecha_salida__isnull=False)
+	
+	# Filtro por búsqueda
+	if buscar:
+		clientes = clientes.filter(
+			models.Q(nombre__icontains=buscar) |
+			models.Q(cedula__icontains=buscar) |
+			models.Q(matricula__icontains=buscar)
+		)
+	
+	# Filtro por rango de fechas
+	if fecha_inicio:
+		try:
+			fecha_inicio_dt = timezone.datetime.strptime(fecha_inicio, '%Y-%m-%d')
+			fecha_inicio_dt = timezone.make_aware(fecha_inicio_dt.replace(hour=0, minute=0, second=0))
+			clientes = clientes.filter(fecha_entrada__gte=fecha_inicio_dt)
+		except ValueError:
+			pass
+	
+	if fecha_fin:
+		try:
+			fecha_fin_dt = timezone.datetime.strptime(fecha_fin, '%Y-%m-%d')
+			fecha_fin_dt = timezone.make_aware(fecha_fin_dt.replace(hour=23, minute=59, second=59))
+			clientes = clientes.filter(fecha_entrada__lte=fecha_fin_dt)
+		except ValueError:
+			pass
+	
+	# Paginación
+	paginator = Paginator(clientes, 10)
+	page_number = request.GET.get('page', 1)
+	page_obj = paginator.get_page(page_number)
+	
+	context = {
+		'page_obj': page_obj,
+		'estado': estado,
+		'buscar': buscar,
+		'fecha_inicio': fecha_inicio,
+		'fecha_fin': fecha_fin,
+	}
+	
+	return render(request, 'app_page/lista_clientes.html', context)
 
+# Editar cliente
 @login_required
 def editar_cliente(request, pk):
 	cliente = get_object_or_404(Cliente, pk=pk)
+	
 	if request.method == 'POST':
-		form = ClienteForm(request.POST, instance=cliente)
+		# Si es petición AJAX
+		if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+			try:
+				# Actualizar campos permitidos
+				if 'nombre' in request.POST:
+					cliente.nombre = request.POST['nombre']
+				if 'telefono' in request.POST:
+					cliente.telefono = request.POST['telefono']
+				if 'matricula' in request.POST:
+					cliente.matricula = request.POST['matricula']
+				if 'tipo_vehiculo' in request.POST:
+					cliente.tipo_vehiculo = request.POST['tipo_vehiculo']
+				
+				cliente.save()
+				
+				return JsonResponse({
+					'success': True,
+					'mensaje': 'Cliente actualizado exitosamente'
+				})
+			except Exception as e:
+				return JsonResponse({
+					'success': False,
+					'mensaje': f'Error al actualizar: {str(e)}'
+				})
+		
+		# Formulario normal
+		form = ClienteEditForm(request.POST, instance=cliente)
 		if form.is_valid():
 			form.save()
-			if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-				return JsonResponse({'success': True, 'message': 'Cliente actualizado correctamente'})
 			return redirect('lista_clientes')
-		else:
-			if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-				return JsonResponse({'success': False, 'errors': form.errors})
 	else:
-		form = ClienteForm(instance=cliente)
+		# Si es petición AJAX para obtener datos
+		if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+			data = {
+				'nombre': cliente.nombre,
+				'telefono': cliente.telefono,
+				'matricula': cliente.matricula,
+				'tipo_vehiculo': cliente.tipo_vehiculo,
+			}
+			return JsonResponse(data)
+		
+		form = ClienteEditForm(instance=cliente)
 	
-	if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.GET.get('ajax'):
-		# Devolver datos del cliente para el modal
-		return JsonResponse({
-			'id': cliente.id,
-			'cedula': cliente.cedula,
-			'nombre': cliente.nombre,
-			'telefono': cliente.telefono,
-			'tipo_vehiculo': cliente.tipo_vehiculo,
-			'matricula_inicio': cliente.matricula.split('-')[0] if '-' in cliente.matricula else '',
-			'matricula_fin': cliente.matricula.split('-')[1] if '-' in cliente.matricula else '',
-		})
-	return render(request, 'app_page/registar_usuario.html', {'form': form, 'editar': True, 'cliente': cliente})
+	return render(request, 'app_page/editar_cliente.html', {'form': form, 'cliente': cliente})
 
+class ClienteEditForm(forms.ModelForm):
+	class Meta:
+		model = Cliente
+		fields = ['nombre', 'telefono', 'matricula', 'tipo_vehiculo']
+		widgets = {
+			'nombre': forms.TextInput(attrs={'class': 'form-control'}),
+			'telefono': forms.TextInput(attrs={'class': 'form-control'}),
+			'matricula': forms.TextInput(attrs={'class': 'form-control'}),
+			'tipo_vehiculo': forms.Select(attrs={'class': 'form-control'}),
+		}
+
+# Eliminar cliente
 @login_required
 def eliminar_cliente(request, pk):
 	cliente = get_object_or_404(Cliente, pk=pk)
+	
 	if request.method == 'POST':
 		cliente.delete()
+		
+		# Si es petición AJAX
 		if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-			return JsonResponse({'success': True, 'message': 'Cliente eliminado correctamente'})
+			return JsonResponse({'success': True, 'mensaje': 'Cliente eliminado exitosamente'})
+		
 		return redirect('lista_clientes')
 	
-	if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.GET.get('ajax'):
-		return JsonResponse({
-			'id': cliente.id,
+	# Si es petición AJAX para obtener datos de confirmación
+	if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+		data = {
 			'nombre': cliente.nombre,
-			'cedula': cliente.cedula
-		})
+			'cedula': cliente.cedula,
+		}
+		return JsonResponse(data)
+	
 	return render(request, 'app_page/confirmar_eliminar.html', {'cliente': cliente})
 
-@login_required
-def lista_clientes(request):
-	query = request.GET.get('q', '')
-	clientes = Cliente.objects.all()
-	if query:
-		clientes = clientes.filter(
-			models.Q(cedula__icontains=query) |
-			models.Q(nombre__icontains=query) |
-			models.Q(telefono__icontains=query) |
-			models.Q(matricula__icontains=query)
-		).order_by('-fecha_entrada')  # Ordenar por fecha de entrada descendente
-	else:
-		clientes = Cliente.objects.all().order_by('-fecha_entrada')  # Ordenar por fecha de entrada descendente
-	
-	paginator = Paginator(clientes, 10)  # 10 clientes por página
-	page_number = request.GET.get('page')
-	page_obj = paginator.get_page(page_number)
-	# Calcular minutos en parking para cada cliente
-	clientes_con_tiempo = []
-	for cliente in page_obj:
-		minutos = None
-		if cliente.fecha_entrada and cliente.fecha_salida:
-			delta = cliente.fecha_salida - cliente.fecha_entrada
-			minutos = int(delta.total_seconds() // 60)
-		clientes_con_tiempo.append((cliente, minutos))
-	return render(request, 'app_page/lista_clientes.html', {
-	    'page_obj': page_obj,
-	    'query': query,
-	    'clientes_con_tiempo': clientes_con_tiempo,
-	})
-
-@login_required
-@login_required
 def salida_qr(request):
 	if request.method == 'POST':
 		# Debug: Imprimir headers para diagnóstico
