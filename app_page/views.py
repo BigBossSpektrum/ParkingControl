@@ -1,6 +1,7 @@
 import os
 from io import BytesIO
 import qrcode
+import logging
 from django.conf import settings
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_protect
@@ -13,17 +14,27 @@ from django import forms
 from django.db import models
 from django.core.files.base import ContentFile
 from .models import Cliente
+from .decorators import require_edit_permission, require_delete_permission, require_view_list_permission, get_user_profile
+
+# Configurar logger
+logger = logging.getLogger(__name__)
 
 # --- DASHBOARD: Panel principal con ambos formularios ---
 @login_required
 @csrf_protect
 def dashboard(request):
+	logger.info(f"Dashboard accessed by user: {request.user.username}")
+	logger.info(f"Request method: {request.method}")
+	if request.method == 'POST':
+		logger.info(f"POST data: {request.POST}")
+	
 	mensaje_salida = ''
 	message_success = ''
 	salida_form = SalidaQRForm()
 	registro_form = ClienteForm()
-	
+
 	if request.method == 'POST':
+		logger.info("Processing POST request")
 		# Detectar petición AJAX
 		is_ajax = (
 			request.headers.get('X-Requested-With') == 'XMLHttpRequest' or
@@ -32,8 +43,10 @@ def dashboard(request):
 			request.POST.get('ajax') == '1' or
 			'application/json' in request.headers.get('Accept', '')
 		)
+		logger.info(f"Is AJAX request: {is_ajax}")
 		
 		if 'codigo' in request.POST:
+			logger.info("Processing salida (exit) form")
 			salida_form = SalidaQRForm(request.POST)
 			if salida_form.is_valid():
 				codigo = salida_form.cleaned_data['codigo'].strip()
@@ -102,50 +115,74 @@ def dashboard(request):
 				mensaje_salida = 'Código inválido.'
 		else:
 			# Manejar formulario de registro
+			logger.info("Processing registro (registration) form")
 			registro_form = ClienteForm(request.POST)
+			logger.info(f"Form data received: {request.POST}")
+			logger.info(f"Form is valid: {registro_form.is_valid()}")
+			
 			if registro_form.is_valid():
-				cliente = registro_form.save(commit=False)
-				cliente.fecha_entrada = timezone.now()
-				cliente.save()
-				# Generar QR con datos adicionales
-				cliente.generate_qr_with_data()
-				cliente.save()
-				
-				# Si es petición AJAX, devolver JSON
-				if is_ajax:
-					return JsonResponse({
-						'success': True,
-						'mensaje': 'Cliente registrado exitosamente',
-						'cliente': {
-							'id': cliente.id,
-							'nombre': cliente.get_display_name(),
-							'cedula': cliente.get_display_cedula(),
-							'matricula': cliente.matricula,
-							'tipo_vehiculo': cliente.get_tipo_vehiculo_display(),
-							'fecha_entrada': cliente.fecha_entrada.strftime('%d/%m/%Y %H:%M'),
-							'qr_url': cliente.qr_image.url if cliente.qr_image else None
-						}
-					})
-				
-				message_success = 'Cliente registrado correctamente.'
-				registro_form = ClienteForm()  # Limpiar formulario
+				logger.info("Form validation passed")
+				try:
+					cliente = registro_form.save(commit=False)
+					cliente.fecha_entrada = timezone.now()
+					cliente.save()
+					logger.info(f"Cliente saved with ID: {cliente.id}")
+					
+					# Generar QR con datos adicionales
+					qr_generated = cliente.generate_qr_with_data()
+					logger.info(f"QR generation result: {qr_generated}")
+					cliente.save()
+					logger.info("Cliente saved again after QR generation")
+					
+					# Si es petición AJAX, devolver JSON
+					if is_ajax:
+						logger.info("Returning AJAX success response")
+						return JsonResponse({
+							'success': True,
+							'mensaje': 'Cliente registrado exitosamente',
+							'cliente': {
+								'id': cliente.id,
+								'nombre': cliente.get_display_name(),
+								'cedula': cliente.get_display_cedula(),
+								'matricula': cliente.matricula,
+								'tipo_vehiculo': cliente.get_tipo_vehiculo_display(),
+								'fecha_entrada': cliente.fecha_entrada.strftime('%d/%m/%Y %H:%M'),
+								'qr_url': cliente.qr_image.url if cliente.qr_image else None
+							}
+						})
+					
+					message_success = 'Cliente registrado correctamente.'
+					registro_form = ClienteForm()  # Limpiar formulario
+					logger.info("Registration completed successfully")
+				except Exception as e:
+					logger.error(f"Error during client registration: {str(e)}")
+					if is_ajax:
+						return JsonResponse({
+							'success': False,
+							'mensaje': f'Error al registrar cliente: {str(e)}'
+						})
 			else:
+				logger.warning(f"Form validation failed. Errors: {registro_form.errors}")
 				# Si es petición AJAX con errores
 				if is_ajax:
 					errors = {}
 					for field, error_list in registro_form.errors.items():
 						errors[field] = error_list
+					logger.info(f"Returning AJAX error response: {errors}")
 					return JsonResponse({
 						'success': False,
 						'mensaje': 'Hay errores en el formulario',
 						'errors': errors
 					})
+	# Obtener perfil del usuario
+	perfil = get_user_profile(request.user)
 	
 	return render(request, 'app_page/dashboard.html', {
 		'salida_form': salida_form,
 		'registro_form': registro_form,
 		'mensaje_salida': mensaje_salida,
 		'message_success': message_success,
+		'perfil': perfil,
 	})
 
 # --- VISTA PARA VER REGISTRO Y QR ---
@@ -291,18 +328,22 @@ def lista_clientes(request):
 	page_number = request.GET.get('page', 1)
 	page_obj = paginator.get_page(page_number)
 	
+	# Obtener perfil del usuario
+	perfil = get_user_profile(request.user)
+	
 	context = {
 		'page_obj': page_obj,
 		'estado': estado,
 		'buscar': buscar,
 		'fecha_inicio': fecha_inicio,
 		'fecha_fin': fecha_fin,
+		'perfil': perfil,
 	}
 	
 	return render(request, 'app_page/lista_clientes.html', context)
 
 # Editar cliente
-@login_required
+@require_edit_permission
 def editar_cliente(request, pk):
 	cliente = get_object_or_404(Cliente, pk=pk)
 	
@@ -372,7 +413,7 @@ class ClienteEditForm(forms.ModelForm):
 		}
 
 # Eliminar cliente
-@login_required
+@require_delete_permission
 def eliminar_cliente(request, pk):
 	cliente = get_object_or_404(Cliente, pk=pk)
 	

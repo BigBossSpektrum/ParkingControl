@@ -1,4 +1,5 @@
 from django.db import models
+from django.contrib.auth.models import User
 from django.utils import timezone
 from PIL import Image, ImageDraw, ImageFont
 import qrcode
@@ -7,15 +8,15 @@ from django.core.files.base import ContentFile
 
 class Cliente(models.Model):
 	TIPO_VEHICULO_CHOICES = [
-		('carro', 'Carro'),
-		('moto', 'Moto'),
-		('otro', 'Otro'),
+		('Auto', 'Auto'),
+		('Moto', 'Moto'),
+		('Otro', 'Otro'),
 	]
 	cedula = models.CharField(max_length=20, blank=True, null=True)
 	nombre = models.CharField(max_length=100, blank=True, null=True)
 	telefono = models.CharField(max_length=20, blank=True, null=True)
 	matricula = models.CharField(max_length=20)
-	tipo_vehiculo = models.CharField(max_length=10, choices=TIPO_VEHICULO_CHOICES, default='carro')
+	tipo_vehiculo = models.CharField(max_length=10, choices=TIPO_VEHICULO_CHOICES, default='Auto')
 	tiempo_parking = models.PositiveIntegerField(null=True, blank=True, help_text='Tiempo en minutos')
 	fecha_entrada = models.DateTimeField(null=True, blank=True)
 	fecha_salida = models.DateTimeField(null=True, blank=True)
@@ -126,3 +127,51 @@ class Cliente(models.Model):
 		nombre = self.nombre or 'Sin nombre'
 		cedula = self.cedula or f'ID:{self.id}'
 		return f"{nombre} ({cedula}) - {self.matricula}"
+
+
+class Perfil(models.Model):
+	ROLES_CHOICES = [
+		('administrador', 'Administrador'),
+		('empleado', 'Empleado'),
+	]
+	
+	usuario = models.OneToOneField(User, on_delete=models.CASCADE)
+	rol = models.CharField(
+		max_length=20, 
+		choices=ROLES_CHOICES, 
+		default='empleado'
+	)
+	fecha_creacion = models.DateTimeField(auto_now_add=True)
+	
+	def __str__(self):
+		return f"{self.usuario.username} - {self.get_rol_display()}"
+	
+	def es_administrador(self):
+		return self.rol == 'administrador'
+	
+	def es_empleado(self):
+		return self.rol == 'empleado'
+	
+	def puede_agregar_usuario(self):
+		# Ambos roles pueden agregar usuarios
+		return True
+	
+	def puede_registrar_salida(self):
+		# Ambos roles pueden registrar salida
+		return True
+	
+	def puede_editar_cliente(self):
+		# Solo administrador puede editar
+		return self.es_administrador()
+	
+	def puede_eliminar_cliente(self):
+		# Solo administrador puede eliminar
+		return self.es_administrador()
+	
+	def puede_ver_lista_completa(self):
+		# Tanto administrador como empleado pueden ver la lista completa
+		return True
+	
+	class Meta:
+		verbose_name = 'Perfil'
+		verbose_name_plural = 'Perfiles'

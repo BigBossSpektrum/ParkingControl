@@ -1,16 +1,139 @@
 {% extends 'app_page/base.html' %}
 {% block title %}Panel Principal{% endblock %}
 
-{% block left_section %}
-    {# Formulario de salida #}
-    <div class="card bg-dark text-success border-success shadow-lg" style="width: 100%; max-width: 480px;">
-        <div class="card-body px-5 py-4">
-            <h2 class="card-title text-center mb-4">
-                <i class="bi bi-box-arrow-right me-2"></i>Registrar Salida
-            </h2>
-            {% if mensaje_salida %}<div class="alert alert-info">{{ mensaje_salida }}</div>{% endif %}
-            <form method="post" id="salidaForm" onsubmit="return false;">
-                {% csrf_token %}
+{% block content %}
+<!-- Panel de información del usuario -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="alert alert-info">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <h5 class="mb-0">
+                        <i class="bi bi-person-circle me-2"></i>
+                        Bienvenido, {{ user.get_full_name|default:user.username }}
+                    </h5>
+                    <small>
+                        <i class="bi bi-shield-check me-1"></i>
+                        Nivel de acceso: <strong>{{ perfil.get_rol_display }}</strong>
+                    </small>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <small class="text-muted">
+                        <i class="bi bi-clock me-1"></i>
+                        Sesión iniciada
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6 mb-4">
+        {# Formulario de registro de usuario #}
+        <div class="card bg-dark text-success border-success shadow-lg" style="width: 100%; max-width: 480px;">
+            <div class="card-body px-5 py-4">
+                <h2 class="card-title text-center mb-4">
+                    <i class="bi bi-person-plus-fill me-2"></i>Registro de Cliente
+                </h2>
+                {% if message_success %}<div class="alert alert-success">{{ message_success }}</div>{% endif %}
+                {% if mensaje_error %}<div class="alert alert-danger">{{ mensaje_error }}</div>{% endif %}
+                <form method="post" id="registroForm" onsubmit="return false;">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="registro">
+                    <div class="mb-4">
+                        <label for="{{ registro_form.cedula.id_for_label }}" class="form-label">
+                            <i class="bi bi-card-text me-2"></i>Cédula
+                        </label>
+                        <input type="text" 
+                               name="{{ registro_form.cedula.name }}" 
+                               id="{{ registro_form.cedula.id_for_label }}" 
+                               class="form-control" 
+                               placeholder="Ingrese cédula"
+                               required>
+                    </div>
+                    <div class="mb-4">
+                        <label for="{{ registro_form.nombre.id_for_label }}" class="form-label">
+                            <i class="bi bi-person-vcard me-2"></i>Nombre
+                        </label>
+                        <input type="text" 
+                               name="{{ registro_form.nombre.name }}" 
+                               id="{{ registro_form.nombre.id_for_label }}" 
+                               class="form-control" 
+                               placeholder="Ingrese nombre completo"
+                               required>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label">
+                            <i class="bi bi-car-front me-2"></i>Placa del vehículo
+                        </label>
+                        <div class="row">
+                            <div class="col-6">
+                                <input type="text" 
+                                       name="{{ registro_form.matricula_inicio.name }}" 
+                                       id="{{ registro_form.matricula_inicio.id_for_label }}" 
+                                       class="form-control text-center" 
+                                       placeholder="ABC"
+                                       maxlength="3"
+                                       style="text-transform: uppercase;"
+                                       oninput="this.value = this.value.toUpperCase()"
+                                       required>
+                                <small class="text-muted">Letras</small>
+                            </div>
+                            <div class="col-6">
+                                <input type="text"
+                                       name="{{ registro_form.matricula_fin.name }}"
+                                       id="{{ registro_form.matricula_fin.id_for_label }}"
+                                       class="form-control text-center"
+                                       placeholder="123"
+                                       maxlength="3"
+                                       required>
+                                <small class="text-muted">Números</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label for="{{ registro_form.tipo_vehiculo.id_for_label }}" class="form-label">
+                            <i class="bi bi-truck me-2"></i>Tipo de vehículo
+                        </label>
+                        <select name="{{ registro_form.tipo_vehiculo.name }}" 
+                                id="{{ registro_form.tipo_vehiculo.id_for_label }}" 
+                                class="form-control" 
+                                required>
+                            <option value="">Seleccione tipo de vehículo</option>
+                            <option value="Auto">Auto</option>
+                            <option value="Moto">Moto</option>
+                            <option value="Otro">Otro</option>
+                        </select>
+                    </div>
+                    <div class="mb-4">
+                        <label for="{{ registro_form.telefono.id_for_label }}" class="form-label">
+                            <i class="bi bi-telephone me-2"></i>Teléfono
+                        </label>
+                        <input type="tel" 
+                               name="{{ registro_form.telefono.name }}" 
+                               id="{{ registro_form.telefono.id_for_label }}" 
+                               class="form-control" 
+                               placeholder="Ingrese teléfono">
+                    </div>
+                    <button type="submit" class="btn btn-success w-100 py-2" id="submitRegistroBtn">
+                        <i class="bi bi-save me-1"></i>Registrar Cliente
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6 mb-4">
+        {# Formulario de salida #}
+        <div class="card bg-dark text-success border-success shadow-lg" style="width: 100%; max-width: 480px;">
+            <div class="card-body px-5 py-4">
+                <h2 class="card-title text-center mb-4">
+                    <i class="bi bi-box-arrow-right me-2"></i>Registrar Salida
+                </h2>
+                {% if mensaje_salida %}<div class="alert alert-info">{{ mensaje_salida }}</div>{% endif %}
+                <form method="post" id="salidaForm" onsubmit="return false;">
+                    {% csrf_token %}
                 <div class="mb-4">
                     <label for="id_codigo" class="form-label">
                         <i class="bi bi-upc-scan me-2"></i>Escanee el código QR o ingrese la cédula o ID
@@ -32,291 +155,169 @@
             </form>
         </div>
     </div>
+</div>
 
-{% endblock %}
+<!-- Separador visual -->
+<hr class="my-5">
 
-{% block right_section %}
-    {# Formulario de registro de usuario #}
-    <div class="card bg-dark text-success border-success shadow-lg" style="width: 100%; max-width: 480px;">
-        <div class="card-body px-5 py-4">
-            <h2 class="card-title text-center mb-4">
-                <i class="bi bi-person-plus-fill me-2"></i>Registro de Cliente
-            </h2>
-            {% if message_success %}<div class="alert alert-success">{{ message_success }}</div>{% endif %}
-            <form method="post" id="registroForm" onsubmit="return false;">
-                {% csrf_token %}
-                {% for field in registro_form.visible_fields %}
-                    {% if field.name == 'matricula_inicio' %}
-                        <div class="mb-4">
-                            <label class="form-label">Matrícula <span class="text-danger">*</span></label>
-                            <div class="input-group">
-                                <input type="text" name="matricula_inicio" maxlength="3" minlength="3" class="form-control form-control-sm text-uppercase" style="max-width:60px;" value="{{ registro_form.matricula_inicio.value|default_if_none:'' }}" required>
-                                <span class="input-group-text" style="max-width:24px;">-</span>
-                                <input type="text" name="matricula_fin" maxlength="3" minlength="3" class="form-control form-control-sm text-uppercase" style="max-width:60px;" value="{{ registro_form.matricula_fin.value|default_if_none:'' }}" required>
-                            </div>
-                            <div class="form-text text-success">Campo obligatorio</div>
-                            {% if registro_form.matricula_inicio.help_text %}
-                                <div class="form-text text-success">{{ registro_form.matricula_inicio.help_text }}</div>
-                            {% endif %}
-                            {% for error in registro_form.matricula_inicio.errors %}
-                                <div class="text-danger small">{{ error }}</div>
-                            {% endfor %}
-                            {% for error in registro_form.matricula_fin.errors %}
-                                <div class="text-danger small">{{ error }}</div>
-                            {% endfor %}
-                        </div>
-                    {% elif field.name != 'tiempo_parking' and field.name != 'matricula_fin' %}
-                        <div class="mb-4">
-                            <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
-                            {{ field }}
-                            {% if field.help_text %}
-                                <div class="form-text text-success">{{ field.help_text }}</div>
-                            {% endif %}
-                            {% for error in field.errors %}
-                                <div class="text-danger small">{{ error }}</div>
-                            {% endfor %}
-                        </div>
-                    {% endif %}
-                {% endfor %}
-                <button type="submit" class="btn btn-success w-100 py-2 mt-2" id="submitRegistroBtn">
-                    <i class="bi bi-save me-1"></i>Registrar Cliente
-                </button>
-            </form>
-            <a href="{% url 'lista_clientes' %}" class="btn btn-dark w-100 py-2 mt-3">
-                <i class="bi bi-list-ul me-1"></i>Ver lista de clientes
+<!-- Sección de acciones adicionales -->
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-center gap-3 flex-wrap">
+            <a href="{% url 'lista_clientes' %}" class="btn btn-primary">
+                <i class="bi bi-list-ul me-2"></i>Ver Lista de Clientes
             </a>
+            {% if perfil.es_administrador %}
+            <a href="{% url 'admin:index' %}" class="btn btn-secondary">
+                <i class="bi bi-gear me-2"></i>Panel de Administración
+            </a>
+            {% endif %}
         </div>
     </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const salidaForm = document.getElementById('salidaForm');
-    const submitSalidaBtn = document.getElementById('submitSalidaBtn');
-    const codigoInput = document.querySelector('input[name="codigo"]');
-    
     const registroForm = document.getElementById('registroForm');
+    const codigoInput = document.getElementById('id_codigo');
+    const cedulaInput = document.querySelector('input[name="cedula"]');
+    const matriculaInicioInput = document.querySelector('input[name="matricula_inicio"]');
+    const matriculaFinInput = document.querySelector('input[name="matricula_fin"]');
+    const submitSalidaBtn = document.getElementById('submitSalidaBtn');
     const submitRegistroBtn = document.getElementById('submitRegistroBtn');
     
-    // Event handlers para el formulario de salida
-    if (salidaForm && submitSalidaBtn && codigoInput) {
-        // Múltiples event listeners para prevenir envío normal del formulario
-        salidaForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            procesarSalidaDashboard();
-            return false;
-        });
-        
-        // Prevenir envío por Enter
-        codigoInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter' || e.keyCode === 13) {
-                e.preventDefault();
-                e.stopPropagation();
-                procesarSalidaDashboard();
-                return false;
+    // Mejorar experiencia de usuario con campos de placa
+    if (matriculaInicioInput && matriculaFinInput) {
+        // Auto-avance del campo de letras al campo de números
+        matriculaInicioInput.addEventListener('input', function(e) {
+            // Solo permitir letras y convertir a mayúsculas
+            this.value = this.value.replace(/[^A-Za-z]/g, '').toUpperCase();
+            
+            // Auto-avanzar cuando se completen 3 caracteres
+            if (this.value.length === 3) {
+                matriculaFinInput.focus();
             }
         });
         
-        // Click del botón
-        submitSalidaBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            procesarSalidaDashboard();
-            return false;
+        // Solo permitir números en el campo de números
+        matriculaFinInput.addEventListener('input', function(e) {
+            this.value = this.value.replace(/[^0-9]/g, '');
         });
         
-        // Enfocar automáticamente el campo
-        codigoInput.focus();
-        
-        console.log('Event handlers del dashboard configurados correctamente');
+        // Permitir retroceso entre campos
+        matriculaFinInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Backspace' && this.value.length === 0) {
+                matriculaInicioInput.focus();
+                matriculaInicioInput.setSelectionRange(matriculaInicioInput.value.length, matriculaInicioInput.value.length);
+            }
+        });
     }
     
-    // Event handlers para el formulario de registro
-    if (registroForm && submitRegistroBtn) {
-        // Múltiples event listeners para prevenir envío normal del formulario
+    // Función para enfocar automáticamente el campo de código (salida)
+    function enfocarCodigo() {
+        if (codigoInput) {
+            codigoInput.focus();
+        }
+    }
+    
+    // Enfocar el campo de código al cargar la página
+    enfocarCodigo();
+    
+    // Re-enfocar cuando se pierde el foco (útil para scanners)
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('form') && !e.target.closest('.alert')) {
+            setTimeout(enfocarCodigo, 100);
+        }
+    });
+    
+    // Manejo del formulario de salida
+    if (salidaForm) {
+        salidaForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            submitSalida();
+        });
+    }
+    
+    // Manejo del formulario de registro
+    if (registroForm) {
         registroForm.addEventListener('submit', function(e) {
             e.preventDefault();
-            e.stopPropagation();
-            procesarRegistroCliente();
-            return false;
-        });
-        
-        // Click del botón
-        submitRegistroBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            procesarRegistroCliente();
-            return false;
-        });
-        
-        console.log('Event handlers del registro configurados correctamente');
-        
-        // Asegurar que después de cualquier interacción con el formulario de registro,
-        // el enfoque regrese al campo principal cuando no se esté escribiendo activamente
-        registroForm.addEventListener('focusout', function(e) {
-            // Esperar un momento para permitir que el nuevo elemento reciba el enfoque
-            setTimeout(() => {
-                const activeElement = document.activeElement;
-                // Si el enfoque no está en ningún input del formulario de registro, regresar al campo principal
-                if (!registroForm.contains(activeElement) && activeElement.tagName !== 'BUTTON') {
-                    if (codigoInput) {
-                        codigoInput.focus();
-                    }
-                }
-            }, 100);
+            submitRegistro();
         });
     }
     
-    // Enfocar automáticamente el campo de código para salida al cargar la página
-    if (codigoInput) {
-        codigoInput.focus();
-    }
-    
-    function procesarSalidaDashboard() {
+    function submitSalida() {
         const codigo = codigoInput.value.trim();
         
         if (!codigo) {
             Swal.fire({
                 icon: 'warning',
-                title: 'Campo vacío',
-                text: 'Por favor, escanee un código QR o ingrese una cédula/ID',
-                background: '#222',
-                color: '#0f0',
-                confirmButtonColor: '#0f0'
+                title: 'Campo requerido',
+                text: 'Por favor ingrese un código QR o cédula.',
+                confirmButtonColor: '#198754'
             });
-            codigoInput.focus();
             return false;
         }
         
-        // Mostrar indicador de carga
-        submitSalidaBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Procesando...';
+        // Cambiar el botón mientras se procesa
+        submitSalidaBtn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Procesando...';
         submitSalidaBtn.disabled = true;
         
-        // Enviar petición AJAX
-        const formData = new FormData();
-        formData.append('codigo', codigo);
-        formData.append('ajax', '1');
-        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+        const formData = new FormData(salidaForm);
+        formData.append('action', 'salida');
         
-        console.log('Enviando petición AJAX desde dashboard...');
-        
-        // Usar XMLHttpRequest para mayor compatibilidad
         const xhr = new XMLHttpRequest();
-        xhr.open('POST', window.location.href, true);
+        xhr.open('POST', '', true);
         xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-        xhr.setRequestHeader('Accept', 'application/json, text/javascript, */*; q=0.01');
         
-        xhr.onload = function() {
-            console.log('Respuesta recibida:', xhr.status);
-            if (xhr.status === 200) {
-                try {
-                    const data = JSON.parse(xhr.responseText);
-                    console.log('Datos recibidos:', data);
-                    
-                    if (data.success) {
-                        // Mostrar SweetAlert de éxito
-                        Swal.fire({
-                            icon: 'success',
-                            title: '¡Salida Registrada Exitosamente!',
-                            html: `
-                                <div class="text-start" style="color: #0f0;">
-                                    <div class="row mb-3">
-                                        <div class="col-6">
-                                            <strong>Cliente:</strong><br>
-                                            ${data.cliente.nombre}<br>
-                                            <small>Cédula: ${data.cliente.cedula}</small>
-                                        </div>
-                                        <div class="col-6">
-                                            <strong>Vehículo:</strong><br>
-                                            ${data.cliente.matricula}<br>
-                                            <small>${data.cliente.tipo_vehiculo}</small>
-                                        </div>
-                                    </div>
-                                    <hr style="border-color: #0f0; opacity: 0.3; margin: 1rem 0;">
-                                    <div class="row">
-                                        <div class="col-4">
-                                            <strong>Entrada:</strong><br>
-                                            <small>${data.cliente.fecha_entrada}</small>
-                                        </div>
-                                        <div class="col-4">
-                                            <strong>Salida:</strong><br>
-                                            <small>${data.cliente.fecha_salida}</small>
-                                        </div>
-                                        <div class="col-4">
-                                            <strong>Tiempo Total:</strong><br>
-                                            <small style="color: #ffa500; font-weight: bold;">${data.cliente.tiempo_total}</small>
-                                        </div>
-                                    </div>
-                                </div>
-                            `,
-                            background: '#222',
-                            color: '#0f0',
-                            confirmButtonColor: '#0f0',
-                            confirmButtonText: 'Procesar Siguiente',
-                            width: '600px',
-                            showClass: {
-                                popup: 'animate__animated animate__fadeInDown'
-                            },
-                            hideClass: {
-                                popup: 'animate__animated animate__fadeOutUp'
-                            }
-                        }).then(() => {
-                            // Limpiar formulario para el siguiente escaneo
-                            limpiarFormularioDashboard();
-                        });
-                    } else {
-                        // Mostrar SweetAlert de error
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState === 4) {
+                resetSalidaButton();
+                
+                if (xhr.status === 200) {
+                    try {
+                        const response = JSON.parse(xhr.responseText);
+                        
+                        if (response.success) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Salida registrada',
+                                text: response.message,
+                                confirmButtonColor: '#198754'
+                            }).then(() => {
+                                salidaForm.reset();
+                                enfocarCodigo();
+                                // Actualizar estadísticas si existen
+                                location.reload();
+                            });
+                        } else {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: response.message || 'Error al registrar la salida',
+                                confirmButtonColor: '#198754'
+                            });
+                        }
+                    } catch (e) {
                         Swal.fire({
                             icon: 'error',
-                            title: 'No se pudo registrar la salida',
-                            text: data.mensaje,
-                            background: '#222',
-                            color: '#ff4444',
-                            confirmButtonColor: '#0f0',
-                            confirmButtonText: 'Intentar de nuevo'
-                        }).then(() => {
-                            codigoInput.value = '';
-                            codigoInput.focus();
-                            resetSalidaButton();
+                            title: 'Error de respuesta',
+                            text: 'Error al procesar la respuesta del servidor',
+                            confirmButtonColor: '#198754'
                         });
                     }
-                } catch (error) {
-                    console.error('Error parsing JSON:', error);
-                    console.log('Response text:', xhr.responseText);
+                } else {
                     Swal.fire({
                         icon: 'error',
-                        title: 'Error de respuesta',
-                        text: 'La respuesta del servidor no es válida.',
-                        background: '#222',
-                        color: '#ff4444',
-                        confirmButtonColor: '#0f0',
-                        confirmButtonText: 'Reintentar'
-                    }).then(() => {
-                        resetSalidaButton();
-                        codigoInput.focus();
+                        title: 'Error de conexión',
+                        text: 'Error al conectar con el servidor',
+                        confirmButtonColor: '#198754'
                     });
                 }
-            } else {
-                throw new Error('Error en la respuesta del servidor: ' + xhr.status);
             }
-        };
-        
-        xhr.onerror = function() {
-            console.error('Error AJAX:', xhr.statusText);
-            Swal.fire({
-                icon: 'error',
-                title: 'Error de conexión',
-                text: 'No se pudo procesar la solicitud. Verifique su conexión e intente nuevamente.',
-                background: '#222',
-                color: '#ff4444',
-                confirmButtonColor: '#0f0',
-                confirmButtonText: 'Reintentar'
-            }).then(() => {
-                resetSalidaButton();
-                codigoInput.focus();
-            });
         };
         
         xhr.send(formData);
@@ -328,197 +329,114 @@ document.addEventListener('DOMContentLoaded', function() {
         submitSalidaBtn.disabled = false;
     }
     
-    function limpiarFormularioDashboard() {
-        codigoInput.value = '';
-        codigoInput.focus();
-        resetSalidaButton();
-    }
-    
-    function procesarRegistroCliente() {
-        // Validar campos obligatorios
-        const matriculaInicio = document.querySelector('input[name="matricula_inicio"]').value.trim();
-        const matriculaFin = document.querySelector('input[name="matricula_fin"]').value.trim();
+    function submitRegistro() {
+        console.log('submitRegistro called');
         
-        if (!matriculaInicio || !matriculaFin) {
-            Swal.fire({
-                icon: 'warning',
-                title: 'Campo obligatorio',
-                text: 'La matrícula es obligatoria. Por favor, complete ambas partes.',
-                background: '#222',
-                color: '#ffa500',
-                confirmButtonColor: '#0f0'
-            });
-            return false;
-        }
+        // Validar campos requeridos
+        const requiredFields = registroForm.querySelectorAll('input[required], select[required]');
+        let isValid = true;
         
-        if (matriculaInicio.length < 3 || matriculaFin.length < 3) {
-            Swal.fire({
-                icon: 'warning',
-                title: 'Formato incorrecto',
-                text: 'Cada parte de la matrícula debe tener exactamente 3 caracteres.',
-                background: '#222',
-                color: '#ffa500',
-                confirmButtonColor: '#0f0'
-            });
-            return false;
-        }
+        console.log('Required fields found:', requiredFields.length);
         
-        // Mostrar SweetAlert de confirmación
-        Swal.fire({
-            title: '¿Confirmar registro?',
-            html: `
-                <div class="text-start" style="color: #0f0;">
-                    <p><strong>Matrícula:</strong> ${matriculaInicio}-${matriculaFin}</p>
-                    <p><strong>Nombre:</strong> ${document.querySelector('input[name="nombre"]').value || 'No especificado'}</p>
-                    <p><strong>Cédula:</strong> ${document.querySelector('input[name="cedula"]').value || 'No especificada'}</p>
-                    <p><strong>Teléfono:</strong> ${document.querySelector('input[name="telefono"]').value || 'No especificado'}</p>
-                    <p><strong>Tipo de vehículo:</strong> ${document.querySelector('select[name="tipo_vehiculo"]').selectedOptions[0].text}</p>
-                </div>
-            `,
-            icon: 'question',
-            background: '#222',
-            color: '#0f0',
-            confirmButtonColor: '#0f0',
-            cancelButtonColor: '#dc3545',
-            confirmButtonText: 'Sí, registrar',
-            cancelButtonText: 'Cancelar',
-            showCancelButton: true
-        }).then((result) => {
-            if (result.isConfirmed) {
-                enviarRegistroCliente();
+        requiredFields.forEach(field => {
+            console.log(`Field ${field.name}: value="${field.value}" valid=${field.value.trim() !== ''}`);
+            if (!field.value.trim()) {
+                isValid = false;
+                field.classList.add('is-invalid');
+            } else {
+                field.classList.remove('is-invalid');
             }
         });
         
-        return false;
-    }
-    
-    function enviarRegistroCliente() {
-        // Mostrar indicador de carga
-        submitRegistroBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Registrando...';
+        console.log('Form is valid:', isValid);
+        
+        if (!isValid) {
+            console.log('Form validation failed');
+            Swal.fire({
+                icon: 'warning',
+                title: 'Campos requeridos',
+                text: 'Por favor complete todos los campos obligatorios.',
+                confirmButtonColor: '#198754'
+            });
+            return false;
+        }
+        
+        // Cambiar el botón mientras se procesa
+        submitRegistroBtn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Registrando...';
         submitRegistroBtn.disabled = true;
         
-        // Preparar datos del formulario
         const formData = new FormData(registroForm);
-        formData.append('ajax', '1');
         
-        console.log('Enviando petición AJAX para registro...');
+        // Log form data
+        console.log('Form data being sent:');
+        for (let pair of formData.entries()) {
+            console.log(pair[0] + ': ' + pair[1]);
+        }
         
-        // Usar XMLHttpRequest para mayor compatibilidad
         const xhr = new XMLHttpRequest();
-        xhr.open('POST', window.location.href, true);
+        xhr.open('POST', '', true);
         xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-        xhr.setRequestHeader('Accept', 'application/json, text/javascript, */*; q=0.01');
         
-        xhr.onload = function() {
-            console.log('Respuesta recibida:', xhr.status);
-            if (xhr.status === 200) {
-                try {
-                    const data = JSON.parse(xhr.responseText);
-                    console.log('Datos recibidos:', data);
-                    
-                    if (data.success) {
-                        // Mostrar SweetAlert de éxito con QR
-                        const qrImageHtml = data.cliente.qr_url ? 
-                            `<div class="text-center my-3">
-                                <img src="${data.cliente.qr_url}" alt="Código QR" style="max-width: 250px; border: 2px solid #0f0; background: #fff;">
-                                <div class="small mt-2 text-success">¡Código QR generado exitosamente!</div>
-                            </div>` : 
-                            '<div class="alert alert-warning">QR no disponible.</div>';
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState === 4) {
+                console.log('AJAX response received. Status:', xhr.status);
+                console.log('Response text:', xhr.responseText);
+                
+                resetRegistroButton();
+                
+                if (xhr.status === 200) {
+                    try {
+                        const response = JSON.parse(xhr.responseText);
+                        console.log('Parsed response:', response);
                         
-                        Swal.fire({
-                            icon: 'success',
-                            title: '¡Cliente Registrado Exitosamente!',
-                            html: `
-                                <div class="text-start" style="color: #0f0;">
-                                    <div class="row mb-3">
-                                        <div class="col-6">
-                                            <strong>Cliente:</strong><br>
-                                            ${data.cliente.nombre}<br>
-                                            <small>Cédula: ${data.cliente.cedula}</small>
-                                        </div>
-                                        <div class="col-6">
-                                            <strong>Vehículo:</strong><br>
-                                            ${data.cliente.matricula}<br>
-                                            <small>${data.cliente.tipo_vehiculo}</small>
-                                        </div>
-                                    </div>
-                                    <hr style="border-color: #0f0; opacity: 0.3; margin: 1rem 0;">
-                                    <div class="text-center">
-                                        <strong>Fecha de Entrada:</strong><br>
-                                        <span style="color: #ffa500; font-weight: bold;">${data.cliente.fecha_entrada}</span>
-                                    </div>
-                                    ${qrImageHtml}
-                                </div>
-                            `,
-                            background: '#222',
-                            color: '#0f0',
-                            confirmButtonColor: '#0f0',
-                            confirmButtonText: 'Registrar Siguiente',
-                            width: '600px',
-                            showClass: {
-                                popup: 'animate__animated animate__fadeInDown'
-                            },
-                            hideClass: {
-                                popup: 'animate__animated animate__fadeOutUp'
-                            }
-                        }).then(() => {
-                            // Limpiar formulario para el siguiente registro
-                            limpiarFormularioRegistro();
-                        });
-                    } else {
-                        // Mostrar SweetAlert de error
-                        let errorMsg = data.mensaje;
-                        if (data.errors) {
-                            errorMsg += '<br><br><strong>Errores:</strong><br>';
-                            for (const [field, errors] of Object.entries(data.errors)) {
-                                errorMsg += `• ${field}: ${errors.join(', ')}<br>`;
-                            }
+                        if (response.success) {
+                            console.log('Registration successful');
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Cliente registrado',
+                                text: response.message,
+                                confirmButtonColor: '#198754'
+                            }).then(() => {
+                                limpiarFormularioRegistro();
+                                // Actualizar estadísticas si existen
+                                location.reload();
+                            });
+                        } else {
+                            console.log('Registration failed:', response.message);
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error en el registro',
+                                text: response.message || 'Error al registrar el cliente',
+                                confirmButtonColor: '#198754'
+                            });
                         }
-                        
+                    } catch (e) {
+                        console.error('Error parsing JSON response:', e);
                         Swal.fire({
                             icon: 'error',
-                            title: 'No se pudo registrar el cliente',
-                            html: errorMsg,
-                            background: '#222',
-                            color: '#ff4444',
-                            confirmButtonColor: '#0f0',
-                            confirmButtonText: 'Corregir datos'
-                        }).then(() => {
-                            resetRegistroButton();
+                            title: 'Error de respuesta',
+                            text: 'Error al procesar la respuesta del servidor',
+                            confirmButtonColor: '#198754'
                         });
                     }
-                } catch (error) {
-                    console.error('Error parsing JSON:', error);
-                    console.log('Response text:', xhr.responseText);
+                } else {
                     Swal.fire({
                         icon: 'error',
-                        title: 'Error de respuesta',
-                        text: 'La respuesta del servidor no es válida.',
-                        background: '#222',
-                        color: '#ff4444',
-                        confirmButtonColor: '#0f0',
-                        confirmButtonText: 'Reintentar'
-                    }).then(() => {
-                        resetRegistroButton();
+                        title: 'Error de conexión',
+                        text: 'Error al conectar con el servidor',
+                        confirmButtonColor: '#198754'
                     });
                 }
-            } else {
-                throw new Error('Error en la respuesta del servidor: ' + xhr.status);
             }
         };
         
         xhr.onerror = function() {
-            console.error('Error AJAX:', xhr.statusText);
+            resetRegistroButton();
             Swal.fire({
                 icon: 'error',
-                title: 'Error de conexión',
-                text: 'No se pudo procesar la solicitud. Verifique su conexión e intente nuevamente.',
-                background: '#222',
-                color: '#ff4444',
-                confirmButtonColor: '#0f0',
-                confirmButtonText: 'Reintentar'
-            }).then(() => {
-                resetRegistroButton();
+                title: 'Error de red',
+                text: 'Error de conexión de red',
+                confirmButtonColor: '#198754'
             });
         };
         
@@ -534,7 +452,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function limpiarFormularioRegistro() {
         registroForm.reset();
         resetRegistroButton();
-        // Enfocar el campo de código para salida después del registro
+        // Enfocar el campo de código para salida después del registro exitoso
         if (codigoInput) {
             codigoInput.focus();
         }

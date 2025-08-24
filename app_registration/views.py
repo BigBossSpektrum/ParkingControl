@@ -7,13 +7,21 @@ class LoginForm(forms.Form):
 	password = forms.CharField(widget=forms.PasswordInput, label='Contraseña')
 
 def login_view(request):
+	# Si el usuario ya está autenticado, redirigir al dashboard
+	if request.user.is_authenticated:
+		return redirect('dashboard')
+		
 	if request.method == 'POST':
 		form = LoginForm(request.POST)
 		if form.is_valid():
 			user = authenticate(request, username=form.cleaned_data['username'], password=form.cleaned_data['password'])
 			if user is not None:
 				auth_login(request, user)
-				return redirect('portal_opciones')
+				# Verificar si hay un 'next' parameter para redirección
+				next_url = request.GET.get('next')
+				if next_url:
+					return redirect(next_url)
+				return redirect('dashboard')
 			else:
 				form.add_error(None, 'Usuario o contraseña incorrectos')
 	else:
