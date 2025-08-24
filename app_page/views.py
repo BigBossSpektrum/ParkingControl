@@ -69,10 +69,10 @@ def dashboard(request):
 					if is_ajax:
 						return JsonResponse({
 							'success': True,
-							'mensaje': f'Salida registrada exitosamente para {cliente.nombre}',
+							'mensaje': f'Salida registrada exitosamente para {cliente.get_display_name()}',
 							'cliente': {
-								'nombre': cliente.nombre,
-								'cedula': cliente.cedula,
+								'nombre': cliente.get_display_name(),
+								'cedula': cliente.get_display_cedula(),
 								'matricula': cliente.matricula,
 								'tipo_vehiculo': cliente.get_tipo_vehiculo_display(),
 								'fecha_entrada': cliente.fecha_entrada.strftime('%d/%m/%Y %H:%M') if cliente.fecha_entrada else 'No registrada',
@@ -81,7 +81,7 @@ def dashboard(request):
 							}
 						})
 					
-					mensaje_salida = f'Salida registrada para {cliente.nombre}.'
+					mensaje_salida = f'Salida registrada para {cliente.get_display_name()}.'
 				else:
 					# Si es petición AJAX, devolver JSON
 					if is_ajax:
@@ -101,6 +101,7 @@ def dashboard(request):
 				
 				mensaje_salida = 'Código inválido.'
 		else:
+			# Manejar formulario de registro
 			registro_form = ClienteForm(request.POST)
 			if registro_form.is_valid():
 				cliente = registro_form.save(commit=False)
@@ -109,8 +110,36 @@ def dashboard(request):
 				# Generar QR con datos adicionales
 				cliente.generate_qr_with_data()
 				cliente.save()
+				
+				# Si es petición AJAX, devolver JSON
+				if is_ajax:
+					return JsonResponse({
+						'success': True,
+						'mensaje': 'Cliente registrado exitosamente',
+						'cliente': {
+							'id': cliente.id,
+							'nombre': cliente.get_display_name(),
+							'cedula': cliente.get_display_cedula(),
+							'matricula': cliente.matricula,
+							'tipo_vehiculo': cliente.get_tipo_vehiculo_display(),
+							'fecha_entrada': cliente.fecha_entrada.strftime('%d/%m/%Y %H:%M'),
+							'qr_url': cliente.qr_image.url if cliente.qr_image else None
+						}
+					})
+				
 				message_success = 'Cliente registrado correctamente.'
 				registro_form = ClienteForm()  # Limpiar formulario
+			else:
+				# Si es petición AJAX con errores
+				if is_ajax:
+					errors = {}
+					for field, error_list in registro_form.errors.items():
+						errors[field] = error_list
+					return JsonResponse({
+						'success': False,
+						'mensaje': 'Hay errores en el formulario',
+						'errors': errors
+					})
 	
 	return render(request, 'app_page/dashboard.html', {
 		'salida_form': salida_form,
@@ -124,12 +153,21 @@ def dashboard(request):
 def ver_registro(request, pk):
 	cliente = get_object_or_404(Cliente, pk=pk)
 	
+	# Detectar petición AJAX de múltiples formas
+	is_ajax = (
+		request.headers.get('X-Requested-With') == 'XMLHttpRequest' or
+		request.content_type == 'application/json' or
+		request.GET.get('ajax') == '1' or
+		request.POST.get('ajax') == '1' or
+		'application/json' in request.headers.get('Accept', '')
+	)
+	
 	# Si es una petición AJAX, devolver JSON
-	if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+	if is_ajax:
 		data = {
-			'nombre': cliente.nombre,
-			'cedula': cliente.cedula,
-			'telefono': cliente.telefono,
+			'nombre': cliente.get_display_name(),
+			'cedula': cliente.get_display_cedula(),
+			'telefono': cliente.get_display_telefono(),
 			'matricula': cliente.matricula,
 			'tipo_vehiculo': cliente.get_tipo_vehiculo_display(),
 			'fecha_entrada': cliente.fecha_entrada.strftime('%d/%m/%Y %H:%M') if cliente.fecha_entrada else None,
@@ -142,8 +180,16 @@ def ver_registro(request, pk):
 
 # --- FORMULARIOS ---
 class ClienteForm(forms.ModelForm):
-	matricula_inicio = forms.CharField(max_length=3, widget=forms.TextInput(attrs={'class': 'form-control text-uppercase', 'placeholder': 'ABC'}))
-	matricula_fin = forms.CharField(max_length=3, widget=forms.TextInput(attrs={'class': 'form-control text-uppercase', 'placeholder': '123'}))
+	matricula_inicio = forms.CharField(
+		max_length=3, 
+		required=True,
+		widget=forms.TextInput(attrs={'class': 'form-control text-uppercase', 'placeholder': 'ABC'})
+	)
+	matricula_fin = forms.CharField(
+		max_length=3, 
+		required=True,
+		widget=forms.TextInput(attrs={'class': 'form-control text-uppercase', 'placeholder': '123'})
+	)
 	
 	class Meta:
 		model = Cliente
@@ -155,9 +201,9 @@ class ClienteForm(forms.ModelForm):
 			'tipo_vehiculo': forms.Select(attrs={'class': 'form-control'}),
 		}
 		labels = {
-			'cedula': 'Cédula',
-			'nombre': 'Nombre Completo',
-			'telefono': 'Teléfono',
+			'cedula': 'Cédula (Opcional)',
+			'nombre': 'Nombre Completo (Opcional)',
+			'telefono': 'Teléfono (Opcional)',
 			'tipo_vehiculo': 'Tipo de Vehículo',
 		}
 	
@@ -260,9 +306,18 @@ def lista_clientes(request):
 def editar_cliente(request, pk):
 	cliente = get_object_or_404(Cliente, pk=pk)
 	
+	# Detectar petición AJAX de múltiples formas
+	is_ajax = (
+		request.headers.get('X-Requested-With') == 'XMLHttpRequest' or
+		request.content_type == 'application/json' or
+		request.GET.get('ajax') == '1' or
+		request.POST.get('ajax') == '1' or
+		'application/json' in request.headers.get('Accept', '')
+	)
+	
 	if request.method == 'POST':
 		# Si es petición AJAX
-		if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+		if is_ajax:
 			try:
 				# Actualizar campos permitidos
 				if 'nombre' in request.POST:
@@ -293,18 +348,17 @@ def editar_cliente(request, pk):
 			return redirect('lista_clientes')
 	else:
 		# Si es petición AJAX para obtener datos
-		if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+		if is_ajax:
 			data = {
-				'nombre': cliente.nombre,
-				'telefono': cliente.telefono,
+				'nombre': cliente.get_display_name(),
+				'telefono': cliente.get_display_telefono(),
 				'matricula': cliente.matricula,
 				'tipo_vehiculo': cliente.tipo_vehiculo,
 			}
 			return JsonResponse(data)
 		
-		form = ClienteEditForm(instance=cliente)
-	
-	return render(request, 'app_page/editar_cliente.html', {'form': form, 'cliente': cliente})
+		# Para peticiones normales (fallback), redirigir a lista de clientes
+		return redirect('lista_clientes')
 
 class ClienteEditForm(forms.ModelForm):
 	class Meta:
@@ -322,24 +376,34 @@ class ClienteEditForm(forms.ModelForm):
 def eliminar_cliente(request, pk):
 	cliente = get_object_or_404(Cliente, pk=pk)
 	
+	# Detectar petición AJAX de múltiples formas
+	is_ajax = (
+		request.headers.get('X-Requested-With') == 'XMLHttpRequest' or
+		request.content_type == 'application/json' or
+		request.GET.get('ajax') == '1' or
+		request.POST.get('ajax') == '1' or
+		'application/json' in request.headers.get('Accept', '')
+	)
+	
 	if request.method == 'POST':
 		cliente.delete()
 		
 		# Si es petición AJAX
-		if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+		if is_ajax:
 			return JsonResponse({'success': True, 'mensaje': 'Cliente eliminado exitosamente'})
 		
 		return redirect('lista_clientes')
 	
 	# Si es petición AJAX para obtener datos de confirmación
-	if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+	if is_ajax:
 		data = {
-			'nombre': cliente.nombre,
-			'cedula': cliente.cedula,
+			'nombre': cliente.get_display_name(),
+			'cedula': cliente.get_display_cedula(),
 		}
 		return JsonResponse(data)
 	
-	return render(request, 'app_page/confirmar_eliminar.html', {'cliente': cliente})
+	# Para peticiones normales (fallback), redirigir a lista de clientes
+	return redirect('lista_clientes')
 
 def salida_qr(request):
 	if request.method == 'POST':

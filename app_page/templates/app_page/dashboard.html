@@ -23,7 +23,7 @@
                            autocomplete="off"
                            autofocus>
                     <div class="form-text text-muted mt-2">
-                        <small><i class="bi bi-lightbulb me-1"></i>El campo se enfocará automáticamente para facilitar el escaneo</small>
+                        <small><i class="bi bi-lightbulb me-1"></i>Campo principal del sistema - se enfoca automáticamente para facilitar el escaneo</small>
                     </div>
                 </div>
                 <button type="submit" class="btn btn-success w-100 py-2" id="submitSalidaBtn">
@@ -42,17 +42,19 @@
             <h2 class="card-title text-center mb-4">
                 <i class="bi bi-person-plus-fill me-2"></i>Registro de Cliente
             </h2>
-            <form method="post" action="{% url 'dashboard' %}">
+            {% if message_success %}<div class="alert alert-success">{{ message_success }}</div>{% endif %}
+            <form method="post" id="registroForm" onsubmit="return false;">
                 {% csrf_token %}
                 {% for field in registro_form.visible_fields %}
                     {% if field.name == 'matricula_inicio' %}
                         <div class="mb-4">
-                            <label class="form-label">Matrícula</label>
+                            <label class="form-label">Matrícula <span class="text-danger">*</span></label>
                             <div class="input-group">
                                 <input type="text" name="matricula_inicio" maxlength="3" minlength="3" class="form-control form-control-sm text-uppercase" style="max-width:60px;" value="{{ registro_form.matricula_inicio.value|default_if_none:'' }}" required>
                                 <span class="input-group-text" style="max-width:24px;">-</span>
                                 <input type="text" name="matricula_fin" maxlength="3" minlength="3" class="form-control form-control-sm text-uppercase" style="max-width:60px;" value="{{ registro_form.matricula_fin.value|default_if_none:'' }}" required>
                             </div>
+                            <div class="form-text text-success">Campo obligatorio</div>
                             {% if registro_form.matricula_inicio.help_text %}
                                 <div class="form-text text-success">{{ registro_form.matricula_inicio.help_text }}</div>
                             {% endif %}
@@ -76,8 +78,8 @@
                         </div>
                     {% endif %}
                 {% endfor %}
-                <button type="submit" class="btn btn-success w-100 py-2 mt-2">
-                    <i class="bi bi-save me-1"></i>Generar Código de Barras
+                <button type="submit" class="btn btn-success w-100 py-2 mt-2" id="submitRegistroBtn">
+                    <i class="bi bi-save me-1"></i>Registrar Cliente
                 </button>
             </form>
             <a href="{% url 'lista_clientes' %}" class="btn btn-dark w-100 py-2 mt-3">
@@ -94,6 +96,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const submitSalidaBtn = document.getElementById('submitSalidaBtn');
     const codigoInput = document.querySelector('input[name="codigo"]');
     
+    const registroForm = document.getElementById('registroForm');
+    const submitRegistroBtn = document.getElementById('submitRegistroBtn');
+    
+    // Event handlers para el formulario de salida
     if (salidaForm && submitSalidaBtn && codigoInput) {
         // Múltiples event listeners para prevenir envío normal del formulario
         salidaForm.addEventListener('submit', function(e) {
@@ -125,6 +131,47 @@ document.addEventListener('DOMContentLoaded', function() {
         codigoInput.focus();
         
         console.log('Event handlers del dashboard configurados correctamente');
+    }
+    
+    // Event handlers para el formulario de registro
+    if (registroForm && submitRegistroBtn) {
+        // Múltiples event listeners para prevenir envío normal del formulario
+        registroForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            procesarRegistroCliente();
+            return false;
+        });
+        
+        // Click del botón
+        submitRegistroBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            procesarRegistroCliente();
+            return false;
+        });
+        
+        console.log('Event handlers del registro configurados correctamente');
+        
+        // Asegurar que después de cualquier interacción con el formulario de registro,
+        // el enfoque regrese al campo principal cuando no se esté escribiendo activamente
+        registroForm.addEventListener('focusout', function(e) {
+            // Esperar un momento para permitir que el nuevo elemento reciba el enfoque
+            setTimeout(() => {
+                const activeElement = document.activeElement;
+                // Si el enfoque no está en ningún input del formulario de registro, regresar al campo principal
+                if (!registroForm.contains(activeElement) && activeElement.tagName !== 'BUTTON') {
+                    if (codigoInput) {
+                        codigoInput.focus();
+                    }
+                }
+            }, 100);
+        });
+    }
+    
+    // Enfocar automáticamente el campo de código para salida al cargar la página
+    if (codigoInput) {
+        codigoInput.focus();
     }
     
     function procesarSalidaDashboard() {
@@ -285,6 +332,212 @@ document.addEventListener('DOMContentLoaded', function() {
         codigoInput.value = '';
         codigoInput.focus();
         resetSalidaButton();
+    }
+    
+    function procesarRegistroCliente() {
+        // Validar campos obligatorios
+        const matriculaInicio = document.querySelector('input[name="matricula_inicio"]').value.trim();
+        const matriculaFin = document.querySelector('input[name="matricula_fin"]').value.trim();
+        
+        if (!matriculaInicio || !matriculaFin) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Campo obligatorio',
+                text: 'La matrícula es obligatoria. Por favor, complete ambas partes.',
+                background: '#222',
+                color: '#ffa500',
+                confirmButtonColor: '#0f0'
+            });
+            return false;
+        }
+        
+        if (matriculaInicio.length < 3 || matriculaFin.length < 3) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Formato incorrecto',
+                text: 'Cada parte de la matrícula debe tener exactamente 3 caracteres.',
+                background: '#222',
+                color: '#ffa500',
+                confirmButtonColor: '#0f0'
+            });
+            return false;
+        }
+        
+        // Mostrar SweetAlert de confirmación
+        Swal.fire({
+            title: '¿Confirmar registro?',
+            html: `
+                <div class="text-start" style="color: #0f0;">
+                    <p><strong>Matrícula:</strong> ${matriculaInicio}-${matriculaFin}</p>
+                    <p><strong>Nombre:</strong> ${document.querySelector('input[name="nombre"]').value || 'No especificado'}</p>
+                    <p><strong>Cédula:</strong> ${document.querySelector('input[name="cedula"]').value || 'No especificada'}</p>
+                    <p><strong>Teléfono:</strong> ${document.querySelector('input[name="telefono"]').value || 'No especificado'}</p>
+                    <p><strong>Tipo de vehículo:</strong> ${document.querySelector('select[name="tipo_vehiculo"]').selectedOptions[0].text}</p>
+                </div>
+            `,
+            icon: 'question',
+            background: '#222',
+            color: '#0f0',
+            confirmButtonColor: '#0f0',
+            cancelButtonColor: '#dc3545',
+            confirmButtonText: 'Sí, registrar',
+            cancelButtonText: 'Cancelar',
+            showCancelButton: true
+        }).then((result) => {
+            if (result.isConfirmed) {
+                enviarRegistroCliente();
+            }
+        });
+        
+        return false;
+    }
+    
+    function enviarRegistroCliente() {
+        // Mostrar indicador de carga
+        submitRegistroBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Registrando...';
+        submitRegistroBtn.disabled = true;
+        
+        // Preparar datos del formulario
+        const formData = new FormData(registroForm);
+        formData.append('ajax', '1');
+        
+        console.log('Enviando petición AJAX para registro...');
+        
+        // Usar XMLHttpRequest para mayor compatibilidad
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', window.location.href, true);
+        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+        xhr.setRequestHeader('Accept', 'application/json, text/javascript, */*; q=0.01');
+        
+        xhr.onload = function() {
+            console.log('Respuesta recibida:', xhr.status);
+            if (xhr.status === 200) {
+                try {
+                    const data = JSON.parse(xhr.responseText);
+                    console.log('Datos recibidos:', data);
+                    
+                    if (data.success) {
+                        // Mostrar SweetAlert de éxito con QR
+                        const qrImageHtml = data.cliente.qr_url ? 
+                            `<div class="text-center my-3">
+                                <img src="${data.cliente.qr_url}" alt="Código QR" style="max-width: 250px; border: 2px solid #0f0; background: #fff;">
+                                <div class="small mt-2 text-success">¡Código QR generado exitosamente!</div>
+                            </div>` : 
+                            '<div class="alert alert-warning">QR no disponible.</div>';
+                        
+                        Swal.fire({
+                            icon: 'success',
+                            title: '¡Cliente Registrado Exitosamente!',
+                            html: `
+                                <div class="text-start" style="color: #0f0;">
+                                    <div class="row mb-3">
+                                        <div class="col-6">
+                                            <strong>Cliente:</strong><br>
+                                            ${data.cliente.nombre}<br>
+                                            <small>Cédula: ${data.cliente.cedula}</small>
+                                        </div>
+                                        <div class="col-6">
+                                            <strong>Vehículo:</strong><br>
+                                            ${data.cliente.matricula}<br>
+                                            <small>${data.cliente.tipo_vehiculo}</small>
+                                        </div>
+                                    </div>
+                                    <hr style="border-color: #0f0; opacity: 0.3; margin: 1rem 0;">
+                                    <div class="text-center">
+                                        <strong>Fecha de Entrada:</strong><br>
+                                        <span style="color: #ffa500; font-weight: bold;">${data.cliente.fecha_entrada}</span>
+                                    </div>
+                                    ${qrImageHtml}
+                                </div>
+                            `,
+                            background: '#222',
+                            color: '#0f0',
+                            confirmButtonColor: '#0f0',
+                            confirmButtonText: 'Registrar Siguiente',
+                            width: '600px',
+                            showClass: {
+                                popup: 'animate__animated animate__fadeInDown'
+                            },
+                            hideClass: {
+                                popup: 'animate__animated animate__fadeOutUp'
+                            }
+                        }).then(() => {
+                            // Limpiar formulario para el siguiente registro
+                            limpiarFormularioRegistro();
+                        });
+                    } else {
+                        // Mostrar SweetAlert de error
+                        let errorMsg = data.mensaje;
+                        if (data.errors) {
+                            errorMsg += '<br><br><strong>Errores:</strong><br>';
+                            for (const [field, errors] of Object.entries(data.errors)) {
+                                errorMsg += `• ${field}: ${errors.join(', ')}<br>`;
+                            }
+                        }
+                        
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'No se pudo registrar el cliente',
+                            html: errorMsg,
+                            background: '#222',
+                            color: '#ff4444',
+                            confirmButtonColor: '#0f0',
+                            confirmButtonText: 'Corregir datos'
+                        }).then(() => {
+                            resetRegistroButton();
+                        });
+                    }
+                } catch (error) {
+                    console.error('Error parsing JSON:', error);
+                    console.log('Response text:', xhr.responseText);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error de respuesta',
+                        text: 'La respuesta del servidor no es válida.',
+                        background: '#222',
+                        color: '#ff4444',
+                        confirmButtonColor: '#0f0',
+                        confirmButtonText: 'Reintentar'
+                    }).then(() => {
+                        resetRegistroButton();
+                    });
+                }
+            } else {
+                throw new Error('Error en la respuesta del servidor: ' + xhr.status);
+            }
+        };
+        
+        xhr.onerror = function() {
+            console.error('Error AJAX:', xhr.statusText);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error de conexión',
+                text: 'No se pudo procesar la solicitud. Verifique su conexión e intente nuevamente.',
+                background: '#222',
+                color: '#ff4444',
+                confirmButtonColor: '#0f0',
+                confirmButtonText: 'Reintentar'
+            }).then(() => {
+                resetRegistroButton();
+            });
+        };
+        
+        xhr.send(formData);
+        return false;
+    }
+    
+    function resetRegistroButton() {
+        submitRegistroBtn.innerHTML = '<i class="bi bi-save me-1"></i>Registrar Cliente';
+        submitRegistroBtn.disabled = false;
+    }
+    
+    function limpiarFormularioRegistro() {
+        registroForm.reset();
+        resetRegistroButton();
+        // Enfocar el campo de código para salida después del registro
+        if (codigoInput) {
+            codigoInput.focus();
+        }
     }
 });
 </script>

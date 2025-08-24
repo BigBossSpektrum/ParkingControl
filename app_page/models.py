@@ -11,9 +11,9 @@ class Cliente(models.Model):
 		('moto', 'Moto'),
 		('otro', 'Otro'),
 	]
-	cedula = models.CharField(max_length=20)
-	nombre = models.CharField(max_length=100)
-	telefono = models.CharField(max_length=20)
+	cedula = models.CharField(max_length=20, blank=True, null=True)
+	nombre = models.CharField(max_length=100, blank=True, null=True)
+	telefono = models.CharField(max_length=20, blank=True, null=True)
 	matricula = models.CharField(max_length=20)
 	tipo_vehiculo = models.CharField(max_length=10, choices=TIPO_VEHICULO_CHOICES, default='carro')
 	tiempo_parking = models.PositiveIntegerField(null=True, blank=True, help_text='Tiempo en minutos')
@@ -110,5 +110,19 @@ class Cliente(models.Model):
 			print(f"Error generando QR con datos para cliente {self.id}: {e}")
 			return False
 
+	def get_display_name(self):
+		"""Devuelve el nombre del cliente o un valor por defecto"""
+		return self.nombre or 'Cliente sin nombre'
+	
+	def get_display_cedula(self):
+		"""Devuelve la cédula del cliente o un valor por defecto"""
+		return self.cedula or 'Sin cédula'
+	
+	def get_display_telefono(self):
+		"""Devuelve el teléfono del cliente o un valor por defecto"""
+		return self.telefono or 'Sin teléfono'
+
 	def __str__(self):
-		return f"{self.nombre} ({self.cedula})"
+		nombre = self.nombre or 'Sin nombre'
+		cedula = self.cedula or f'ID:{self.id}'
+		return f"{nombre} ({cedula}) - {self.matricula}"

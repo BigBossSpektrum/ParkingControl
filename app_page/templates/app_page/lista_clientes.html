@@ -40,6 +40,21 @@
             margin-bottom: 1rem;
             font-size: 0.85rem;
         }
+        .btn-group .btn {
+            transition: all 0.2s ease;
+        }
+        .btn-group .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .btn-info {
+            background-color: #17a2b8;
+            border-color: #17a2b8;
+        }
+        .btn-info:hover {
+            background-color: #138496;
+            border-color: #117a8b;
+        }
     </style>
 {% endblock %}
 {% block content %}
@@ -103,14 +118,14 @@
                             </td>
                             <td>
                                 <div class="btn-group" role="group">
-                                    <button class="btn btn-primary btn-sm ver-registro" data-id="{{ cliente.id }}" title="Ver registro y QR">
-                                        <i class="bi bi-eye"></i>
+                                    <button class="btn btn-info btn-sm ver-registro" data-id="{{ cliente.id }}" title="Ver registro y QR">
+                                        <i class="bi bi-qr-code-scan"></i>
                                     </button>
                                     <button class="btn btn-warning btn-sm editar-cliente" data-id="{{ cliente.id }}" title="Editar cliente">
-                                        <i class="bi bi-pencil"></i>
+                                        <i class="bi bi-pencil-square"></i>
                                     </button>
                                     <button class="btn btn-danger btn-sm eliminar-cliente" data-id="{{ cliente.id }}" title="Eliminar cliente">
-                                        <i class="bi bi-trash"></i>
+                                        <i class="bi bi-trash3"></i>
                                     </button>
                                 </div>
                             </td>
@@ -242,30 +257,49 @@
 
             // Event listeners para botones
             document.addEventListener('click', function(e) {
+                console.log('Click detectado en:', e.target);
+                
                 if (e.target.closest('.ver-registro')) {
                     const btn = e.target.closest('.ver-registro');
                     const clienteId = btn.getAttribute('data-id');
+                    console.log('Ver registro para cliente ID:', clienteId);
                     verRegistro(clienteId);
                 }
 
                 if (e.target.closest('.editar-cliente')) {
                     const btn = e.target.closest('.editar-cliente');
                     const clienteId = btn.getAttribute('data-id');
+                    console.log('Editar cliente ID:', clienteId);
                     editarCliente(clienteId);
                 }
 
                 if (e.target.closest('.eliminar-cliente')) {
                     const btn = e.target.closest('.eliminar-cliente');
                     const clienteId = btn.getAttribute('data-id');
+                    console.log('Eliminar cliente ID:', clienteId);
                     eliminarCliente(clienteId);
                 }
             });
 
             // Función para ver registro
             function verRegistro(clienteId) {
-                fetch(`/clientes/registro/${clienteId}/?ajax=1`)
-                    .then(response => response.json())
+                console.log('Ejecutando verRegistro para ID:', clienteId);
+                fetch(`/clientes/registro/${clienteId}/?ajax=1`, {
+                    method: 'GET',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json, text/javascript, */*; q=0.01'
+                    }
+                })
+                    .then(response => {
+                        console.log('Respuesta recibida:', response);
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        return response.json();
+                    })
                     .then(data => {
+                        console.log('Datos del cliente:', data);
                         const qrImageHtml = data.qr_url ? 
                             `<div class="text-center my-3">
                                 <img src="${data.qr_url}" alt="Código QR" style="max-width: 300px; border: 2px solid #0f0; background: #fff;">
@@ -274,10 +308,10 @@
                             '<div class="alert alert-warning">No hay QR generado para este cliente.</div>';
 
                         Swal.fire({
-                            title: `${data.nombre} (${data.cedula})`,
+                            title: `${data.nombre || 'Cliente'} (${data.cedula || 'Sin cédula'})`,
                             html: `
                                 <div class="text-start">
-                                    <p><strong>Teléfono:</strong> ${data.telefono}</p>
+                                    <p><strong>Teléfono:</strong> ${data.telefono || 'No especificado'}</p>
                                     <p><strong>Matrícula:</strong> ${data.matricula}</p>
                                     <p><strong>Tipo de Vehículo:</strong> ${data.tipo_vehiculo}</p>
                                     <p><strong>Fecha Entrada:</strong> ${data.fecha_entrada || 'No registrada'}</p>
@@ -307,24 +341,38 @@
 
             // Función para editar cliente
             function editarCliente(clienteId) {
-                fetch(`/clientes/editar/${clienteId}/?ajax=1`)
-                    .then(response => response.json())
+                console.log('Ejecutando editarCliente para ID:', clienteId);
+                fetch(`/clientes/editar/${clienteId}/?ajax=1`, {
+                    method: 'GET',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json, text/javascript, */*; q=0.01'
+                    }
+                })
+                    .then(response => {
+                        console.log('Respuesta recibida:', response);
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        return response.json();
+                    })
                     .then(data => {
+                        console.log('Datos del cliente para editar:', data);
                         Swal.fire({
                             title: 'Editar Cliente',
                             html: `
                                 <form id="editarForm">
                                     <div class="mb-3">
                                         <label class="form-label">Nombre:</label>
-                                        <input type="text" class="form-control" name="nombre" value="${data.nombre}" required>
+                                        <input type="text" class="form-control" name="nombre" value="${data.nombre || ''}" placeholder="Nombre completo">
                                     </div>
                                     <div class="mb-3">
                                         <label class="form-label">Teléfono:</label>
-                                        <input type="text" class="form-control" name="telefono" value="${data.telefono}" required>
+                                        <input type="text" class="form-control" name="telefono" value="${data.telefono || ''}" placeholder="Teléfono">
                                     </div>
                                     <div class="mb-3">
                                         <label class="form-label">Matrícula:</label>
-                                        <input type="text" class="form-control" name="matricula" value="${data.matricula}" required>
+                                        <input type="text" class="form-control" name="matricula" value="${data.matricula}" required placeholder="ABC-123">
                                     </div>
                                     <div class="mb-3">
                                         <label class="form-label">Tipo de Vehículo:</label>
@@ -346,11 +394,13 @@
                             preConfirm: () => {
                                 const form = document.getElementById('editarForm');
                                 const formData = new FormData(form);
+                                formData.append('ajax', '1');
                                 return fetch(`/clientes/editar/${clienteId}/`, {
                                     method: 'POST',
                                     body: formData,
                                     headers: {
                                         'X-Requested-With': 'XMLHttpRequest',
+                                        'Accept': 'application/json, text/javascript, */*; q=0.01',
                                         'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
                                     }
                                 })
@@ -391,12 +441,26 @@
 
             // Función para eliminar cliente
             function eliminarCliente(clienteId) {
-                fetch(`/clientes/eliminar/${clienteId}/?ajax=1`)
-                    .then(response => response.json())
+                console.log('Ejecutando eliminarCliente para ID:', clienteId);
+                fetch(`/clientes/eliminar/${clienteId}/?ajax=1`, {
+                    method: 'GET',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json, text/javascript, */*; q=0.01'
+                    }
+                })
+                    .then(response => {
+                        console.log('Respuesta recibida:', response);
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        return response.json();
+                    })
                     .then(data => {
+                        console.log('Datos del cliente para eliminar:', data);
                         Swal.fire({
                             title: '¿Eliminar cliente?',
-                            text: `¿Estás seguro de que deseas eliminar a ${data.nombre} (${data.cedula})?`,
+                            text: `¿Estás seguro de que deseas eliminar a ${data.nombre || 'este cliente'} (${data.cedula || 'Sin cédula'})?`,
                             icon: 'warning',
                             background: '#222',
                             color: '#ffa500',
@@ -407,11 +471,16 @@
                             showCancelButton: true
                         }).then(result => {
                             if (result.isConfirmed) {
+                                const formData = new FormData();
+                                formData.append('ajax', '1');
+                                formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+                                
                                 fetch(`/clientes/eliminar/${clienteId}/`, {
                                     method: 'POST',
+                                    body: formData,
                                     headers: {
                                         'X-Requested-With': 'XMLHttpRequest',
-                                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                                        'Accept': 'application/json, text/javascript, */*; q=0.01'
                                     }
                                 })
                                 .then(response => response.json())
@@ -442,6 +511,17 @@
                                     });
                                 });
                             }
+                        });
+                    })
+                    .catch(error => {
+                        console.error('Error al obtener datos del cliente para eliminar:', error);
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: 'No se pudo cargar la información del cliente para eliminar',
+                            background: '#222',
+                            color: '#ff4444',
+                            confirmButtonColor: '#0f0'
                         });
                     });
             }
