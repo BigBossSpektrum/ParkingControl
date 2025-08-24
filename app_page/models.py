@@ -14,6 +14,7 @@ class Cliente(models.Model):
 	tiempo_parking = models.PositiveIntegerField(null=True, blank=True, help_text='Tiempo en minutos')
 	fecha_entrada = models.DateTimeField(null=True, blank=True)
 	fecha_salida = models.DateTimeField(null=True, blank=True)
+	qr_image = models.ImageField(upload_to='qr_codes/', null=True, blank=True)
 
 	def __str__(self):
 		return f"{self.nombre} ({self.cedula})"

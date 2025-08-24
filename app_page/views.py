@@ -1,3 +1,8 @@
+from django.conf import settings
+import os
+# --- VISTA PARA VER REGISTRO Y QR ---
+from django.utils import timezone
+
 
 # --- IMPORTS ---
 from django.shortcuts import render, redirect, get_object_or_404
@@ -13,15 +18,16 @@ from barcode.writer import ImageWriter
 from io import BytesIO
 from django.core.files.base import ContentFile
 
+@login_required
+def ver_registro(request, pk):
+	cliente = get_object_or_404(Cliente, pk=pk)
+	return render(request, 'app_page/ver_registro.html', {'cliente': cliente})
+
 # --- FORMULARIOS ---
 class ClienteForm(forms.ModelForm):
 	class Meta:
 		model = Cliente
-		fields = ['cedula', 'nombre', 'telefono', 'matricula', 'fecha_entrada', 'fecha_salida']
-		widgets = {
-			'fecha_entrada': forms.DateTimeInput(attrs={'type': 'datetime-local'}),
-			'fecha_salida': forms.DateTimeInput(attrs={'type': 'datetime-local'}),
-		}
+		fields = ['cedula', 'nombre', 'telefono', 'matricula', 'tipo_vehiculo', 'tiempo_parking']
 
 class LoginForm(forms.Form):
 	username = forms.CharField(label='Usuario')
@@ -51,17 +57,41 @@ def logout_view(request):
 
 @login_required
 def portal_opciones(request):
-	return render(request, 'app_page/portal_opciones.html')
+	from django.utils import timezone
+	hoy = timezone.now().date()
+	clientes_hoy = Cliente.objects.filter(fecha_entrada__date=hoy)
+	conteo_hoy = clientes_hoy.count()
+	ultimos = Cliente.objects.order_by('-fecha_entrada')[:5]
+	return render(request, 'app_page/portal_opciones.html', {
+	    'conteo_hoy': conteo_hoy,
+	    'ultimos': ultimos,
+	})
 
 @login_required
 def index(request):
+	from django.utils import timezone
 	if request.method == 'POST':
+		print('POST recibido:', request.POST)
 		form = ClienteForm(request.POST)
 		if form.is_valid():
-			cliente = form.save()
+			print('Form válido. Cedula:', form.cleaned_data.get('cedula'))
+			cliente = form.save(commit=False)
+			cliente.fecha_entrada = timezone.now()
+			# Generar QR
+			import qrcode
+			from django.core.files.base import ContentFile
+			qr_data = f"Cédula: {cliente.cedula}\nNombre: {cliente.nombre}\nMatrícula: {cliente.matricula}\nFecha Entrada: {cliente.fecha_entrada.strftime('%Y-%m-%d %H:%M')}"
+			qr_img = qrcode.make(qr_data)
+			buf = BytesIO()
+			qr_img.save(buf, format='PNG')
+			buf.seek(0)
+			cliente.qr_image.save(f"qr_{cliente.cedula}_{cliente.fecha_entrada.strftime('%Y%m%d%H%M%S')}.png", ContentFile(buf.read()), save=False)
+			cliente.save()
 			return redirect('lista_clientes')
+		else:
+			print('Form inválido. Errores:', form.errors)
 	else:
-		form = ClienteForm()
+		form = ClienteForm(initial={'cedula': ''})
 	return render(request, 'app_page/index.html', {'form': form})
 
 @login_required

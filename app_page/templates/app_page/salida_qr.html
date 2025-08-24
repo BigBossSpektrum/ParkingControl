@@ -1,16 +1,12 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Registrar Salida</title>
-</head>
-<body>
+{% extends 'app_page/base.html' %}
+{% block title %}Registrar Salida{% endblock %}
+{% block content %}
     <h1>Registrar Salida</h1>
     {% if mensaje %}<p><strong>{{ mensaje }}</strong></p>{% endif %}
     <form method="post">
-        {% csrf_token %}
-        {{ form.as_p }}
+    {{ csrf_token }}
+        {{ form|safe }}
         <button type="submit">Registrar Salida</button>
     </form>
     <a href="{% url 'portal_opciones' %}">Volver al portal</a>
-</body>
-</html>
+{% endblock %}
