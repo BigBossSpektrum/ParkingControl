@@ -1,0 +1,336 @@
+{% extends 'app_page/base.html' %}
+{% load static %}
+
+{% block title %}Agregar Impresora{% endblock %}
+
+{% block extra_head %}
+<style>
+    .printer-form {
+        background: #fff;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        padding: 2rem;
+        margin-bottom: 2rem;
+    }
+    .form-section {
+        border-left: 4px solid #007bff;
+        padding-left: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    .connection-type-card {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    .connection-type-card:hover {
+        border-color: #007bff;
+        background-color: #f8f9fa;
+    }
+    .connection-type-card.selected {
+        border-color: #007bff;
+        background-color: #e3f2fd;
+    }
+    .quick-setup {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="fas fa-plus-circle"></i> Agregar Nueva Impresora</h2>
+                <a href="{% url 'printer_dashboard' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Volver al Panel
+                </a>
+            </div>
+
+            <!-- Configuración Rápida para Windows -->
+            <div class="quick-setup">
+                <h5><i class="fas fa-magic"></i> Configuración Rápida (Windows)</h5>
+                <p class="mb-3">Si tienes una impresora térmica instalada en Windows, usa este método rápido:</p>
+                <button id="quick-setup-btn" class="btn btn-success">
+                    <i class="fas fa-rocket"></i> Detectar y Configurar Automáticamente
+                </button>
+                <div id="quick-setup-result" class="mt-3" style="display: none;"></div>
+            </div>
+
+            <!-- Formulario Manual -->
+            <div class="printer-form">
+                <form id="printer-form" method="post">
+                    {% csrf_token %}
+                    
+                    <div class="form-section">
+                        <h5><i class="fas fa-printer"></i> Información Básica</h5>
+                        <div class="mb-3">
+                            <label for="printer_name" class="form-label">Nombre de la Impresora *</label>
+                            <input type="text" class="form-control" id="printer_name" name="name" 
+                                   placeholder="Ej: Impresora Principal" required>
+                            <div class="form-text">Nombre que aparecerá en el sistema</div>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h5><i class="fas fa-plug"></i> Tipo de Conexión</h5>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="connection-type-card" data-type="windows">
+                                    <div class="text-center">
+                                        <i class="fas fa-desktop fa-2x text-primary mb-2"></i>
+                                        <h6>Windows</h6>
+                                        <small>Impresora instalada en Windows</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="connection-type-card" data-type="usb">
+                                    <div class="text-center">
+                                        <i class="fas fa-usb fa-2x text-success mb-2"></i>
+                                        <h6>USB Directo</h6>
+                                        <small>Conexión USB directa</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="connection-type-card" data-type="network">
+                                    <div class="text-center">
+                                        <i class="fas fa-network-wired fa-2x text-warning mb-2"></i>
+                                        <h6>Red</h6>
+                                        <small>Impresora en red (IP)</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <input type="hidden" id="connection_type" name="printer_type" required>
+                    </div>
+
+                    <!-- Configuración específica por tipo -->
+                    <div class="form-section">
+                        <h5><i class="fas fa-cog"></i> Configuración de Conexión</h5>
+                        
+                        <!-- Windows -->
+                        <div id="windows-config" class="connection-config" style="display: none;">
+                            <div class="mb-3">
+                                <label for="windows_printer" class="form-label">Nombre de la Impresora en Windows *</label>
+                                <select class="form-select" id="windows_printer" name="connection_string">
+                                    <option value="">Selecciona una impresora...</option>
+                                </select>
+                                <div class="form-text">Lista de impresoras instaladas en Windows</div>
+                            </div>
+                            <button type="button" id="refresh-printers" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-sync"></i> Actualizar Lista
+                            </button>
+                        </div>
+
+                        <!-- USB Directo -->
+                        <div id="usb-config" class="connection-config" style="display: none;">
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle"></i>
+                                La conexión USB directa se configurará automáticamente según el modelo de impresora.
+                            </div>
+                            <input type="hidden" name="connection_string" value="auto">
+                        </div>
+
+                        <!-- Red -->
+                        <div id="network-config" class="connection-config" style="display: none;">
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <label for="ip_address" class="form-label">Dirección IP *</label>
+                                    <input type="text" class="form-control" id="ip_address" 
+                                           placeholder="192.168.1.100" pattern="^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$">
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="port" class="form-label">Puerto</label>
+                                    <input type="number" class="form-control" id="port" value="9100" min="1" max="65535">
+                                </div>
+                            </div>
+                            <div class="form-text">Puerto estándar para impresoras térmicas: 9100</div>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="set_active" name="set_active" checked>
+                            <label class="form-check-label" for="set_active">
+                                Establecer como impresora activa
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <button type="button" id="test-connection" class="btn btn-outline-primary me-md-2" disabled>
+                            <i class="fas fa-test-tube"></i> Probar Conexión
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Guardar Impresora
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Manejar selección de tipo de conexión
+    const connectionCards = document.querySelectorAll('.connection-type-card');
+    const connectionConfigs = document.querySelectorAll('.connection-config');
+    const connectionTypeInput = document.getElementById('connection_type');
+    const testButton = document.getElementById('test-connection');
+
+    connectionCards.forEach(card => {
+        card.addEventListener('click', function() {
+            // Remover selección anterior
+            connectionCards.forEach(c => c.classList.remove('selected'));
+            connectionConfigs.forEach(c => c.style.display = 'none');
+            
+            // Seleccionar nueva
+            this.classList.add('selected');
+            const type = this.dataset.type;
+            connectionTypeInput.value = type === 'windows' ? 'USB' : type.toUpperCase();
+            
+            // Mostrar configuración específica
+            const config = document.getElementById(type + '-config');
+            if (config) {
+                config.style.display = 'block';
+            }
+            
+            testButton.disabled = false;
+            
+            // Cargar impresoras Windows si es necesario
+            if (type === 'windows') {
+                loadWindowsPrinters();
+            }
+        });
+    });
+
+    // Configuración rápida
+    document.getElementById('quick-setup-btn').addEventListener('click', function() {
+        this.disabled = true;
+        this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Detectando...';
+        
+        fetch('{% url "quick_setup_printer" %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            const resultDiv = document.getElementById('quick-setup-result');
+            resultDiv.style.display = 'block';
+            
+            if (data.success) {
+                resultDiv.innerHTML = `
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle"></i>
+                        <strong>¡Éxito!</strong> Impresora configurada: ${data.printer_name}
+                        <br><a href="{% url 'printer_dashboard' %}" class="btn btn-sm btn-success mt-2">Ver Panel</a>
+                    </div>
+                `;
+            } else {
+                resultDiv.innerHTML = `
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        ${data.message || 'No se encontraron impresoras térmicas. Usa la configuración manual.'}
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('quick-setup-result').innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-times-circle"></i>
+                    Error en la configuración automática. Usa la configuración manual.
+                </div>
+            `;
+        })
+        .finally(() => {
+            this.disabled = false;
+            this.innerHTML = '<i class="fas fa-rocket"></i> Detectar y Configurar Automáticamente';
+        });
+    });
+
+    // Cargar impresoras Windows
+    function loadWindowsPrinters() {
+        fetch('{% url "get_windows_printers" %}')
+        .then(response => response.json())
+        .then(data => {
+            const select = document.getElementById('windows_printer');
+            select.innerHTML = '<option value="">Selecciona una impresora...</option>';
+            
+            data.printers.forEach(printer => {
+                const option = document.createElement('option');
+                option.value = printer.name;
+                option.textContent = printer.name;
+                if (printer.is_thermal) {
+                    option.textContent += ' (Recomendada)';
+                }
+                select.appendChild(option);
+            });
+        })
+        .catch(error => {
+            console.error('Error loading printers:', error);
+        });
+    }
+
+    // Actualizar configuración de red
+    document.getElementById('ip_address').addEventListener('input', function() {
+        document.querySelector('#network-config input[name="connection_string"]').value = 
+            this.value + ':' + document.getElementById('port').value;
+    });
+    
+    document.getElementById('port').addEventListener('input', function() {
+        const ip = document.getElementById('ip_address').value;
+        if (ip) {
+            document.querySelector('#network-config input[name="connection_string"]').value = ip + ':' + this.value;
+        }
+    });
+
+    // Manejar envío del formulario
+    document.getElementById('printer-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        const submitBtn = this.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+        
+        fetch('{% url "add_printer" %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.href = '{% url "printer_dashboard" %}';
+            } else {
+                alert('Error: ' + (data.message || 'Error desconocido'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error al guardar la impresora');
+        })
+        .finally(() => {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fas fa-save"></i> Guardar Impresora';
+        });
+    });
+});
+</script>
+{% endblock %}
