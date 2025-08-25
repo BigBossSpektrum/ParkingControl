@@ -274,17 +274,21 @@ class ClienteForm(forms.ModelForm):
 	
 	class Meta:
 		model = Cliente
-		fields = ['cedula', 'nombre', 'telefono', 'matricula_inicio', 'matricula_fin', 'tipo_vehiculo']
+		fields = ['cedula', 'nombre', 'telefono', 'torre', 'apartamento', 'matricula_inicio', 'matricula_fin', 'tipo_vehiculo']
 		widgets = {
 			'cedula': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: 12345678'}),
 			'nombre': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombre completo'}),
 			'telefono': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: 3001234567'}),
+			'torre': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: A, B, C, 1, 2'}),
+			'apartamento': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: 101, 502'}),
 			'tipo_vehiculo': forms.Select(attrs={'class': 'form-control'}),
 		}
 		labels = {
 			'cedula': 'Cédula (Opcional)',
 			'nombre': 'Nombre Completo (Opcional)',
 			'telefono': 'Teléfono (Opcional)',
+			'torre': 'Torre (Opcional)',
+			'apartamento': 'Apartamento (Opcional)',
 			'tipo_vehiculo': 'Tipo de Vehículo',
 		}
 	
@@ -347,7 +351,10 @@ def lista_clientes(request):
 		clientes = clientes.filter(
 			models.Q(nombre__icontains=buscar) |
 			models.Q(cedula__icontains=buscar) |
-			models.Q(matricula__icontains=buscar)
+			models.Q(matricula__icontains=buscar) |
+			models.Q(torre__icontains=buscar) |
+			models.Q(apartamento__icontains=buscar) |
+			models.Q(telefono__icontains=buscar)
 		)
 	
 	# Filtro por rango de fechas
@@ -409,6 +416,10 @@ def editar_cliente(request, pk):
 					cliente.nombre = request.POST['nombre']
 				if 'telefono' in request.POST:
 					cliente.telefono = request.POST['telefono']
+				if 'torre' in request.POST:
+					cliente.torre = request.POST['torre']
+				if 'apartamento' in request.POST:
+					cliente.apartamento = request.POST['apartamento']
 				if 'matricula' in request.POST:
 					cliente.matricula = request.POST['matricula']
 				if 'tipo_vehiculo' in request.POST:
@@ -437,6 +448,8 @@ def editar_cliente(request, pk):
 			data = {
 				'nombre': cliente.get_display_name(),
 				'telefono': cliente.get_display_telefono(),
+				'torre': cliente.get_display_torre(),
+				'apartamento': cliente.get_display_apartamento(),
 				'matricula': cliente.matricula,
 				'tipo_vehiculo': cliente.tipo_vehiculo,
 			}
@@ -448,10 +461,12 @@ def editar_cliente(request, pk):
 class ClienteEditForm(forms.ModelForm):
 	class Meta:
 		model = Cliente
-		fields = ['nombre', 'telefono', 'matricula', 'tipo_vehiculo']
+		fields = ['nombre', 'telefono', 'torre', 'apartamento', 'matricula', 'tipo_vehiculo']
 		widgets = {
 			'nombre': forms.TextInput(attrs={'class': 'form-control'}),
 			'telefono': forms.TextInput(attrs={'class': 'form-control'}),
+			'torre': forms.TextInput(attrs={'class': 'form-control'}),
+			'apartamento': forms.TextInput(attrs={'class': 'form-control'}),
 			'matricula': forms.TextInput(attrs={'class': 'form-control'}),
 			'tipo_vehiculo': forms.Select(attrs={'class': 'form-control'}),
 		}

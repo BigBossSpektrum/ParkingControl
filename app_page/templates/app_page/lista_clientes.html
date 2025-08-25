@@ -95,7 +95,7 @@
         <a href="/" class="btn btn-success mb-3" style="font-weight: bold; color: #000;">Registrar nuevo cliente</a>
         <div class="row g-2 mb-3">
             <div class="col-md-3">
-                <input type="text" id="filtroTiempoReal" class="form-control" placeholder="Buscar por cédula, nombre, teléfono o matrícula..." value="{{ query }}">
+                <input type="text" id="filtroTiempoReal" class="form-control" placeholder="Buscar por cédula, nombre, teléfono, torre, apartamento o matrícula..." value="{{ query }}">
             </div>
             <div class="col-md-2">
                 <select id="filtroTipo" class="form-control">
@@ -129,6 +129,8 @@
                         <th>Cédula</th>
                         <th>Nombre</th>
                         <th>Teléfono</th>
+                        <th>Torre</th>
+                        <th>Apartamento</th>
                         <th>Matrícula</th>
                         <th>Tipo</th>
                         <th>Entrada</th>
@@ -147,6 +149,8 @@
                             <td><span class="cedula">{{ cliente.cedula }}</span></td>
                             <td><span class="nombre">{{ cliente.nombre }}</span></td>
                             <td><span class="telefono">{{ cliente.telefono }}</span></td>
+                            <td><span class="torre">{{ cliente.get_display_torre }}</span></td>
+                            <td><span class="apartamento">{{ cliente.get_display_apartamento }}</span></td>
                             <td><span class="matricula">{{ cliente.matricula }}</span></td>
                             <td><span class="tipo">{{ cliente.get_tipo_vehiculo_display }}</span></td>
                             <td><span class="fecha-entrada">{{ cliente.fecha_entrada|date:"d/m/Y H:i" }}</span></td>
@@ -259,6 +263,8 @@
                     const cedula = fila.querySelector('.cedula').textContent.toLowerCase();
                     const nombre = fila.querySelector('.nombre').textContent.toLowerCase();
                     const telefono = fila.querySelector('.telefono').textContent.toLowerCase();
+                    const torre = fila.querySelector('.torre').textContent.toLowerCase();
+                    const apartamento = fila.querySelector('.apartamento').textContent.toLowerCase();
                     const matricula = fila.querySelector('.matricula').textContent.toLowerCase();
                     const tipo = fila.querySelector('.tipo').textContent.toLowerCase();
                     const fechaEntrada = fila.querySelector('.fecha-entrada').textContent;
@@ -269,6 +275,8 @@
                         cedula.includes(textoBusqueda) || 
                         nombre.includes(textoBusqueda) || 
                         telefono.includes(textoBusqueda) || 
+                        torre.includes(textoBusqueda) || 
+                        apartamento.includes(textoBusqueda) || 
                         matricula.includes(textoBusqueda);
 
                     // Filtro de tipo
@@ -469,6 +477,16 @@
                                     <div class="mb-3">
                                         <label class="form-label">Teléfono:</label>
                                         <input type="text" class="form-control" name="telefono" value="${data.telefono || ''}" placeholder="Teléfono">
+                                    </div>
+                                    <div class="row mb-3">
+                                        <div class="col-6">
+                                            <label class="form-label">Torre:</label>
+                                            <input type="text" class="form-control" name="torre" value="${data.torre || ''}" placeholder="Torre">
+                                        </div>
+                                        <div class="col-6">
+                                            <label class="form-label">Apartamento:</label>
+                                            <input type="text" class="form-control" name="apartamento" value="${data.apartamento || ''}" placeholder="Apartamento">
+                                        </div>
                                     </div>
                                     <div class="mb-3">
                                         <label class="form-label">Matrícula:</label>

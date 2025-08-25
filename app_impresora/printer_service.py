@@ -242,6 +242,16 @@ class PrinterService:
             printer.text(f"ID: {cliente.id}\n")
             printer.text(f"Cedula: {cliente.cedula or 'N/A'}\n")
             printer.text(f"Nombre: {cliente.nombre or 'N/A'}\n")
+            
+            # Información de ubicación (torre y apartamento)
+            if cliente.torre or cliente.apartamento:
+                if cliente.torre and cliente.apartamento:
+                    printer.text(f"Ubicacion: Torre {cliente.torre} - Apt {cliente.apartamento}\n")
+                elif cliente.torre:
+                    printer.text(f"Torre: {cliente.torre}\n")
+                elif cliente.apartamento:
+                    printer.text(f"Apartamento: {cliente.apartamento}\n")
+            
             printer.text(f"Vehiculo: {cliente.get_tipo_vehiculo_display()}\n")
             printer.text(f"Matricula: {cliente.matricula}\n")
             
@@ -443,6 +453,18 @@ class PrinterService:
                 
             printer.text(f"Cedula: {cliente_data.get('cedula', 'N/A')}\n")
             printer.text(f"Nombre: {cliente_data.get('nombre', 'N/A')}\n")
+            
+            # Información de ubicación (torre y apartamento)
+            torre = cliente_data.get('torre', '')
+            apartamento = cliente_data.get('apartamento', '')
+            if torre or apartamento:
+                if torre and apartamento:
+                    printer.text(f"Ubicacion: Torre {torre} - Apt {apartamento}\n")
+                elif torre:
+                    printer.text(f"Torre: {torre}\n")
+                elif apartamento:
+                    printer.text(f"Apartamento: {apartamento}\n")
+            
             printer.text(f"Vehiculo: {cliente_data.get('tipo_vehiculo', 'auto').upper()}\n")
             printer.text(f"Placa: {cliente_data.get('placa', 'N/A')}\n")
             

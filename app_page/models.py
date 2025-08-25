@@ -15,6 +15,8 @@ class Cliente(models.Model):
 	cedula = models.CharField(max_length=20, blank=True, null=True)
 	nombre = models.CharField(max_length=100, blank=True, null=True)
 	telefono = models.CharField(max_length=20, blank=True, null=True)
+	torre = models.CharField(max_length=10, blank=True, null=True, help_text='Torre del apartamento')
+	apartamento = models.CharField(max_length=10, blank=True, null=True, help_text='Número de apartamento')
 	matricula = models.CharField(max_length=20)
 	tipo_vehiculo = models.CharField(max_length=10, choices=TIPO_VEHICULO_CHOICES, default='Auto')
 	tiempo_parking = models.PositiveIntegerField(null=True, blank=True, help_text='Tiempo en minutos')
@@ -47,7 +49,8 @@ class Cliente(models.Model):
 			
 			# Crear imagen más grande para agregar datos
 			width, height = qr_image.size
-			new_height = height + 120  # Espacio para texto
+			extra_height = 140 if ubicacion_str else 120  # Espacio extra si hay ubicación
+			new_height = height + extra_height
 			new_width = max(width, 400)  # Ancho mínimo
 			
 			# Crear imagen final
@@ -75,27 +78,52 @@ class Cliente(models.Model):
 			hora_str = f"Entrada: {fecha_str}"
 			id_str = f"ID: {self.id}"
 			
+			# Información de torre y apartamento
+			ubicacion_str = ""
+			if self.torre or self.apartamento:
+				torre = self.torre or ""
+				apartamento = self.apartamento or ""
+				if torre and apartamento:
+					ubicacion_str = f"Torre {torre} - Apt {apartamento}"
+				elif torre:
+					ubicacion_str = f"Torre {torre}"
+				elif apartamento:
+					ubicacion_str = f"Apartamento {apartamento}"
+			
 			# Posiciones del texto
 			text_y = height + 10
+			line_height = 20
 			
 			# Centrar texto (compatible con versiones anteriores de Pillow)
 			# Calcular ancho del texto para centrarlo manualmente
+			current_y = text_y
+			
 			id_bbox = draw.textbbox((0, 0), id_str, font=font_large)
 			id_width = id_bbox[2] - id_bbox[0]
-			draw.text(((new_width - id_width) // 2, text_y), id_str, fill='black', font=font_large)
+			draw.text(((new_width - id_width) // 2, current_y), id_str, fill='black', font=font_large)
+			current_y += line_height
 			
 			matricula_bbox = draw.textbbox((0, 0), matricula_str, font=font_small)
 			matricula_width = matricula_bbox[2] - matricula_bbox[0]
-			draw.text(((new_width - matricula_width) // 2, text_y + 25), matricula_str, fill='black', font=font_small)
+			draw.text(((new_width - matricula_width) // 2, current_y), matricula_str, fill='black', font=font_small)
+			current_y += line_height
+			
+			# Agregar información de ubicación si existe
+			if ubicacion_str:
+				ubicacion_bbox = draw.textbbox((0, 0), ubicacion_str, font=font_small)
+				ubicacion_width = ubicacion_bbox[2] - ubicacion_bbox[0]
+				draw.text(((new_width - ubicacion_width) // 2, current_y), ubicacion_str, fill='black', font=font_small)
+				current_y += line_height
 			
 			hora_bbox = draw.textbbox((0, 0), hora_str, font=font_small)
 			hora_width = hora_bbox[2] - hora_bbox[0]
-			draw.text(((new_width - hora_width) // 2, text_y + 45), hora_str, fill='black', font=font_small)
+			draw.text(((new_width - hora_width) // 2, current_y), hora_str, fill='black', font=font_small)
+			current_y += line_height
 			
 			tipo_text = f"Tipo: {self.get_tipo_vehiculo_display()}"
 			tipo_bbox = draw.textbbox((0, 0), tipo_text, font=font_small)
 			tipo_width = tipo_bbox[2] - tipo_bbox[0]
-			draw.text(((new_width - tipo_width) // 2, text_y + 65), tipo_text, fill='black', font=font_small)
+			draw.text(((new_width - tipo_width) // 2, current_y), tipo_text, fill='black', font=font_small)
 			
 			# Guardar imagen
 			buf = BytesIO()
@@ -159,6 +187,14 @@ class Cliente(models.Model):
 	def get_display_telefono(self):
 		"""Devuelve el teléfono del cliente o un valor por defecto"""
 		return self.telefono or 'Sin teléfono'
+	
+	def get_display_torre(self):
+		"""Devuelve la torre del cliente o un valor por defecto"""
+		return self.torre or 'Sin torre'
+	
+	def get_display_apartamento(self):
+		"""Devuelve el apartamento del cliente o un valor por defecto"""
+		return self.apartamento or 'Sin apartamento'
 	
 	def tiempo_formateado(self):
 		"""Calcula y formatea el tiempo transcurrido en el parking"""
