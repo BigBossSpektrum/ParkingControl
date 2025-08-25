@@ -193,24 +193,14 @@ class Cliente(models.Model):
 		# Obtener costos actuales
 		costos = Costo.get_costos_actuales()
 		
-		# Calcular tiempo en minutos REAL (no mínimo 1 hora)
+		# Calcular tiempo en horas (mínimo 1 hora)
 		tiempo_minutos = self.tiempo_en_minutos()
-		if tiempo_minutos <= 0:
-			return 0.00
+		tiempo_horas = max(1, (tiempo_minutos + 59) // 60)  # Redondear hacia arriba
 		
 		# Obtener costo por hora según tipo de vehículo
 		costo_por_hora = costos.get_costo_por_tipo(self.tipo_vehiculo)
 		
-		# Calcular costo proporcional al tiempo real (por minutos)
-		costo_por_minuto = float(costo_por_hora) / 60
-		monto_final = costo_por_minuto * tiempo_minutos
-		
-		return monto_final
-
-	def monto_final_formateado(self):
-		"""Devuelve el monto final formateado como string"""
-		monto = self.calcular_costo()
-		return f"${monto:,.0f}"
+		return float(costo_por_hora) * tiempo_horas
 	
 	def costo_formateado(self):
 		"""Devuelve el costo formateado como string"""
@@ -254,14 +244,14 @@ class Cliente(models.Model):
 			return f"${costo_por_minuto:.0f}/min"
 	
 	def tarifa_completa(self):
-		"""Devuelve el monto final con información de eficiencia"""
+		"""Devuelve una tarifa completa con costo total y eficiencia"""
 		if not self.fecha_entrada:
 			return "Sin entrada"
 		
-		monto_final = self.calcular_costo()
+		costo_total = self.calcular_costo()
 		tiempo_costo = self.tiempo_por_costo_formateado()
 		
-		return f"${monto_final:,.0f} ({tiempo_costo})"
+		return f"${costo_total:,.0f} ({tiempo_costo})"
 	
 	def costo_por_tiempo_formateado(self):
 		"""Devuelve el costo por hora formateado"""
