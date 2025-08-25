@@ -674,3 +674,134 @@ def retry_print_job(request, job_id):
             })
     
     return JsonResponse({'success': False, 'message': 'Método no permitido'})
+
+
+@login_required
+def save_design_config(request):
+    """Guardar configuración de diseño de tickets"""
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            
+            # Guardar configuración en cache o base de datos
+            design_config = {
+                'font': data.get('font', 'courier'),
+                'fontSize': data.get('fontSize', 12),
+                'ticketWidth': data.get('ticketWidth', 80),
+                'showLogo': data.get('showLogo', True),
+                'showFecha': data.get('showFecha', True),
+                'showQr': data.get('showQr', True),
+                'showFooter': data.get('showFooter', True),
+                'headerText': data.get('headerText', 'SISTEMA DE PARKING\nControl de Acceso'),
+                'footerText': data.get('footerText', 'Conserve este ticket\nGracias por su visita')
+            }
+            
+            # Guardar en cache por ahora (puedes crear un modelo específico después)
+            cache.set('printer_design_config', design_config, timeout=None)
+            
+            logger.info(f"Design configuration saved: {design_config}")
+            
+            return JsonResponse({
+                'success': True,
+                'message': 'Configuración de diseño guardada exitosamente'
+            })
+            
+        except Exception as e:
+            logger.error(f"Error saving design config: {e}")
+            return JsonResponse({
+                'success': False,
+                'message': f'Error al guardar configuración: {str(e)}'
+            })
+    
+    return JsonResponse({'success': False, 'message': 'Método no permitido'})
+
+
+@login_required  
+def get_design_config(request):
+    """Obtener configuración de diseño actual"""
+    try:
+        design_config = cache.get('printer_design_config', {
+            'font': 'courier',
+            'fontSize': 12,
+            'ticketWidth': 80,
+            'showLogo': True,
+            'showFecha': True,
+            'showQr': True,
+            'showFooter': True,
+            'headerText': 'SISTEMA DE PARKING\nControl de Acceso',
+            'footerText': 'Conserve este ticket\nGracias por su visita'
+        })
+        
+        return JsonResponse({
+            'success': True,
+            'config': design_config
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting design config: {e}")
+        return JsonResponse({
+            'success': False,
+            'message': str(e)
+        })
+
+
+@login_required
+def print_preview(request):
+    """Imprimir ticket de previsualización con datos personalizados"""
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            
+            cedula = data.get('cedula', '12345678')
+            nombre = data.get('nombre', 'Cliente de Prueba')
+            vehiculo = data.get('vehiculo', 'auto')
+            placa = data.get('placa', 'TEST-123')
+            design_config = data.get('design_config', {})
+            
+            # Crear cliente temporal para la previsualización
+            temp_cliente_data = {
+                'cedula': cedula,
+                'nombre': nombre,
+                'tipo_vehiculo': vehiculo,
+                'placa': placa,
+                'is_preview': True
+            }
+            
+            # Verificar que hay una impresora activa
+            active_printer = PrinterConfiguration.objects.filter(is_active=True).first()
+            if not active_printer:
+                return JsonResponse({
+                    'success': False,
+                    'message': 'No hay impresoras activas configuradas'
+                })
+            
+            # Guardar configuración de diseño temporalmente
+            if design_config:
+                cache.set('printer_design_config', design_config, timeout=300)  # 5 minutos
+            
+            # Imprimir usando el servicio de impresión con datos personalizados
+            success = printer_service.print_preview_ticket(temp_cliente_data, design_config)
+            
+            # Crear registro del trabajo de impresión
+            PrintJob.objects.create(
+                printer=active_printer,
+                client_id=f"preview_{cedula}",
+                status='SUCCESS' if success else 'FAILED',
+                details=f"Ticket de previsualización - {nombre} ({placa})"
+            )
+            
+            logger.info(f"Preview ticket printed: {success} for {nombre}")
+            
+            return JsonResponse({
+                'success': success,
+                'message': f'Ticket de previsualización {"enviado a la impresora" if success else "falló al enviar"}'
+            })
+            
+        except Exception as e:
+            logger.error(f"Error printing preview: {e}")
+            return JsonResponse({
+                'success': False,
+                'message': f'Error al imprimir previsualización: {str(e)}'
+            })
+    
+    return JsonResponse({'success': False, 'message': 'Método no permitido'})

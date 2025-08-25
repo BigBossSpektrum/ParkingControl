@@ -408,7 +408,22 @@
                             background: '#222',
                             color: '#0f0',
                             confirmButtonColor: '#0f0',
-                            confirmButtonText: 'Cerrar'
+                            confirmButtonText: 'Cerrar',
+                            showDenyButton: true,
+                            denyButtonColor: '#17a2b8',
+                            denyButtonText: '<i class="fas fa-print"></i> Reimprimir Ticket',
+                            preConfirm: () => {
+                                return true; // Solo cerrar el modal
+                            },
+                            preDeny: () => {
+                                // Reimprimir ticket
+                                return reimprimirTicketDesdeModal(clienteId, data.nombre);
+                            }
+                        }).then((result) => {
+                            if (result.isDenied) {
+                                // El botón de reimprimir fue presionado
+                                // La función reimprimirTicketDesdeModal ya manejó la reimpresión
+                            }
                         });
                     })
                     .catch(error => {
@@ -609,6 +624,75 @@
                             confirmButtonColor: '#0f0'
                         });
                     });
+            }
+
+            // Función para reimprimir ticket desde el modal de detalles
+            function reimprimirTicketDesdeModal(clienteId, nombreCliente) {
+                return new Promise((resolve, reject) => {
+                    // Mostrar confirmación antes de reimprimir
+                    Swal.fire({
+                        title: '¿Reimprimir ticket?',
+                        text: `Se imprimirá nuevamente el ticket para ${nombreCliente}`,
+                        icon: 'question',
+                        background: '#222',
+                        color: '#0f0',
+                        showCancelButton: true,
+                        confirmButtonColor: '#17a2b8',
+                        cancelButtonColor: '#6c757d',
+                        confirmButtonText: '<i class="fas fa-print"></i> Sí, reimprimir',
+                        cancelButtonText: 'Cancelar',
+                        showLoaderOnConfirm: true,
+                        preConfirm: () => {
+                            return fetch(`/impresora/print/${clienteId}/`, {
+                                method: 'POST',
+                                headers: {
+                                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                                    'Content-Type': 'application/json',
+                                    'X-Requested-With': 'XMLHttpRequest'
+                                }
+                            })
+                            .then(response => {
+                                if (!response.ok) {
+                                    throw new Error('Error en la respuesta del servidor');
+                                }
+                                return response.json();
+                            })
+                            .catch(error => {
+                                Swal.showValidationMessage(`Error: ${error.message}`);
+                                reject(error);
+                            });
+                        },
+                        allowOutsideClick: () => !Swal.isLoading()
+                    }).then((result) => {
+                        if (result.isConfirmed && result.value) {
+                            if (result.value.success) {
+                                Swal.fire({
+                                    title: '¡Ticket Enviado!',
+                                    text: result.value.message,
+                                    icon: 'success',
+                                    background: '#222',
+                                    color: '#0f0',
+                                    confirmButtonColor: '#0f0',
+                                    timer: 3000,
+                                    showConfirmButton: false
+                                });
+                                resolve(true);
+                            } else {
+                                Swal.fire({
+                                    title: 'Error',
+                                    text: result.value.message || 'Error al reimprimir el ticket',
+                                    icon: 'error',
+                                    background: '#222',
+                                    color: '#ff4444',
+                                    confirmButtonColor: '#0f0'
+                                });
+                                reject(new Error(result.value.message));
+                            }
+                        } else {
+                            resolve(false); // Usuario canceló
+                        }
+                    });
+                });
             }
         });
     </script>

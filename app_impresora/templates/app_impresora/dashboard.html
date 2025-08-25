@@ -46,6 +46,111 @@
         border-radius: 10px;
         margin: 2rem 0;
     }
+    
+    /* Estilos para previsualización de impresión */
+    .ticket-preview {
+        background: #fff;
+        border: 2px dashed #ccc;
+        border-radius: 8px;
+        padding: 20px;
+        font-family: 'Courier New', monospace;
+        font-size: 12px;
+        line-height: 1.4;
+        width: 80mm;
+        margin: 0 auto;
+        position: relative;
+    }
+    
+    .ticket-header {
+        text-align: center;
+        border-bottom: 1px solid #ddd;
+        padding-bottom: 10px;
+        margin-bottom: 15px;
+    }
+    
+    .ticket-body {
+        margin-bottom: 15px;
+    }
+    
+    .ticket-qr {
+        text-align: center;
+        padding: 10px 0;
+    }
+    
+    .ticket-footer {
+        text-align: center;
+        border-top: 1px solid #ddd;
+        padding-top: 10px;
+        font-size: 10px;
+    }
+    
+    .design-controls {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .control-group {
+        margin-bottom: 15px;
+    }
+    
+    .control-group label {
+        font-weight: bold;
+        margin-bottom: 5px;
+        display: block;
+    }
+    
+    .color-picker {
+        width: 50px;
+        height: 30px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    
+    .font-selector {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+    
+    .font-option {
+        padding: 5px 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        cursor: pointer;
+        background: #fff;
+    }
+    
+    .font-option.active {
+        background: #007bff;
+        color: #fff;
+    }
+    
+    .preview-modal {
+        z-index: 1060;
+    }
+    
+    .customize-modal {
+        z-index: 1070;
+    }
+    
+    .template-card {
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border: 2px solid #e9ecef;
+    }
+    
+    .template-card:hover {
+        border-color: #007bff;
+        box-shadow: 0 4px 8px rgba(0,123,255,0.2);
+    }
+    
+    .template-card.selected {
+        border-color: #28a745;
+        background-color: #f8fff9;
+    }
 </style>
 {% endblock %}
 
@@ -86,25 +191,26 @@
     <div class="quick-actions">
         <h5><i class="fas fa-bolt text-warning"></i> Acciones Rápidas</h5>
         <div class="row">
-            <div class="col-md-3">
+            <div class="col-md-2">
                 <button id="test-active-printer" class="btn btn-primary w-100">
                     <i class="fas fa-print"></i> Probar Activa
                 </button>
             </div>
-            <div class="col-md-3">
-                <button id="toggle-simulation" class="btn btn-warning w-100">
-                    <i class="fas fa-flask"></i> <span id="simulation-text">{% if simulation_mode %}Desactivar{% else %}Activar{% endif %} Simulación</span>
+            <div class="col-md-2">
+                <button id="preview-design" class="btn btn-info w-100">
+                    <i class="fas fa-eye"></i> Previsualizar
                 </button>
             </div>
-            <div class="col-md-3">
+            <div class="col-md-2">
                 <button id="refresh-status" class="btn btn-outline-secondary w-100">
                     <i class="fas fa-sync-alt"></i> Actualizar
                 </button>
             </div>
-            <div class="col-md-3">
-                <a href="{% url 'print_jobs_list' %}" class="btn btn-outline-info w-100">
-                    <i class="fas fa-history"></i> Ver Trabajos
-                </a>
+
+            <div class="col-md-2">
+                <button id="customize-design" class="btn btn-success w-100">
+                    <i class="fas fa-palette"></i> Personalizar
+                </button>
             </div>
         </div>
     </div>
@@ -241,6 +347,184 @@
         </div>
     </div>
     {% endif %}
+</div>
+
+<!-- Modal de Previsualización -->
+<div class="modal fade preview-modal" id="previewModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-eye"></i> Previsualización del Ticket</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Vista Previa:</h6>
+                        <div id="ticket-preview" class="ticket-preview">
+                            <!-- Contenido del ticket se generará dinámicamente -->
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Datos de Ejemplo:</h6>
+                        <div class="mb-3">
+                            <label class="form-label">Cédula:</label>
+                            <input type="text" id="preview-cedula" class="form-control" value="12345678" onchange="updatePreview()">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Nombre:</label>
+                            <input type="text" id="preview-nombre" class="form-control" value="Juan Pérez" onchange="updatePreview()">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Vehículo:</label>
+                            <select id="preview-vehiculo" class="form-control" onchange="updatePreview()">
+                                <option value="auto">Auto</option>
+                                <option value="moto">Moto</option>
+                                <option value="camion">Camión</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Placa:</label>
+                            <input type="text" id="preview-placa" class="form-control" value="ABC-123" onchange="updatePreview()">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-success" onclick="openCustomizeModal()">
+                    <i class="fas fa-palette"></i> Personalizar Diseño
+                </button>
+                <button type="button" class="btn btn-primary" onclick="printPreview()">
+                    <i class="fas fa-print"></i> Imprimir Prueba
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Personalización -->
+<div class="modal fade customize-modal" id="customizeModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-palette"></i> Personalizar Diseño del Ticket</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="design-controls">
+                            <h6><i class="fas fa-paint-brush"></i> Configuración de Diseño</h6>
+                            
+                            <div class="control-group">
+                                <label>Fuente del Ticket:</label>
+                                <div class="font-selector">
+                                    <div class="font-option active" data-font="courier" onclick="selectFont('courier')">Courier</div>
+                                    <div class="font-option" data-font="arial" onclick="selectFont('arial')">Arial</div>
+                                    <div class="font-option" data-font="times" onclick="selectFont('times')">Times</div>
+                                </div>
+                            </div>
+                            
+                            <div class="control-group">
+                                <label>Tamaño de Fuente:</label>
+                                <input type="range" id="font-size" class="form-range" min="8" max="16" value="12" onchange="updateFontSize(this.value)">
+                                <span id="font-size-display">12px</span>
+                            </div>
+                            
+                            <div class="control-group">
+                                <label>Ancho del Ticket (mm):</label>
+                                <input type="range" id="ticket-width" class="form-range" min="58" max="80" value="80" onchange="updateTicketWidth(this.value)">
+                                <span id="width-display">80mm</span>
+                            </div>
+                            
+                            <div class="control-group">
+                                <label>Elementos a Mostrar:</label>
+                                <div class="form-check">
+                                    <input type="checkbox" id="show-logo" class="form-check-input" checked onchange="updatePreview()">
+                                    <label class="form-check-label" for="show-logo">Logo de la empresa</label>
+                                </div>
+                                <div class="form-check">
+                                    <input type="checkbox" id="show-fecha" class="form-check-input" checked onchange="updatePreview()">
+                                    <label class="form-check-label" for="show-fecha">Fecha y hora</label>
+                                </div>
+                                <div class="form-check">
+                                    <input type="checkbox" id="show-qr" class="form-check-input" checked onchange="updatePreview()">
+                                    <label class="form-check-label" for="show-qr">Código QR</label>
+                                </div>
+                                <div class="form-check">
+                                    <input type="checkbox" id="show-footer" class="form-check-input" checked onchange="updatePreview()">
+                                    <label class="form-check-label" for="show-footer">Pie de página</label>
+                                </div>
+                            </div>
+                            
+                            <div class="control-group">
+                                <label>Texto del Encabezado:</label>
+                                <textarea id="header-text" class="form-control" rows="3" onchange="updatePreview()">SISTEMA DE PARKING
+Control de Acceso</textarea>
+                            </div>
+                            
+                            <div class="control-group">
+                                <label>Texto del Pie:</label>
+                                <textarea id="footer-text" class="form-control" rows="2" onchange="updatePreview()">Conserve este ticket
+Gracias por su visita</textarea>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-8">
+                        <h6>Vista Previa en Tiempo Real:</h6>
+                        <div class="d-flex justify-content-center">
+                            <div id="customize-preview" class="ticket-preview">
+                                <!-- Contenido se genera dinámicamente -->
+                            </div>
+                        </div>
+                        
+                        <div class="mt-4">
+                            <h6>Plantillas Predefinidas:</h6>
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="card template-card" onclick="loadTemplate('minimal')">
+                                        <div class="card-body text-center">
+                                            <i class="fas fa-file-alt fa-2x mb-2"></i>
+                                            <h6>Minimal</h6>
+                                            <small>Solo datos esenciales</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="card template-card" onclick="loadTemplate('completo')">
+                                        <div class="card-body text-center">
+                                            <i class="fas fa-file-invoice fa-2x mb-2"></i>
+                                            <h6>Completo</h6>
+                                            <small>Todos los elementos</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="card template-card" onclick="loadTemplate('empresarial')">
+                                        <div class="card-body text-center">
+                                            <i class="fas fa-building fa-2x mb-2"></i>
+                                            <h6>Empresarial</h6>
+                                            <small>Formal y profesional</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="saveDesignSettings()">
+                    <i class="fas fa-save"></i> Guardar Configuración
+                </button>
+                <button type="button" class="btn btn-success" onclick="printCustomPreview()">
+                    <i class="fas fa-print"></i> Imprimir Prueba
+                </button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- Modal para mensajes -->
@@ -493,6 +777,323 @@ function showMessage(title, message, type) {
         icon: type,
         timer: 3000,
         showConfirmButton: type === 'error'
+    });
+}
+
+// Variables globales para configuración de diseño
+let designConfig = {
+    font: 'courier',
+    fontSize: 12,
+    ticketWidth: 80,
+    showLogo: true,
+    showFecha: true,
+    showQr: true,
+    showFooter: true,
+    headerText: 'SISTEMA DE PARKING\nControl de Acceso',
+    footerText: 'Conserve este ticket\nGracias por su visita'
+};
+
+// Botón de previsualización
+document.getElementById('preview-design')?.addEventListener('click', function() {
+    updatePreview();
+    new bootstrap.Modal(document.getElementById('previewModal')).show();
+});
+
+// Botón de personalización
+document.getElementById('customize-design')?.addEventListener('click', function() {
+    openCustomizeModal();
+});
+
+// Función para actualizar la previsualización
+function updatePreview() {
+    const cedula = document.getElementById('preview-cedula')?.value || '12345678';
+    const nombre = document.getElementById('preview-nombre')?.value || 'Juan Pérez';
+    const vehiculo = document.getElementById('preview-vehiculo')?.value || 'auto';
+    const placa = document.getElementById('preview-placa')?.value || 'ABC-123';
+    
+    const fecha = new Date().toLocaleString('es-ES');
+    
+    let ticketHtml = '';
+    
+    // Header
+    if (designConfig.showLogo) {
+        ticketHtml += `<div class="ticket-header">`;
+        ticketHtml += `<div style="font-size: ${designConfig.fontSize + 2}px; font-weight: bold;">`;
+        ticketHtml += designConfig.headerText.replace(/\n/g, '<br>');
+        ticketHtml += `</div>`;
+        ticketHtml += `</div>`;
+    }
+    
+    // Body
+    ticketHtml += `<div class="ticket-body" style="font-size: ${designConfig.fontSize}px;">`;
+    if (designConfig.showFecha) {
+        ticketHtml += `<div><strong>Fecha:</strong> ${fecha}</div>`;
+    }
+    ticketHtml += `<div><strong>Cédula:</strong> ${cedula}</div>`;
+    ticketHtml += `<div><strong>Nombre:</strong> ${nombre}</div>`;
+    ticketHtml += `<div><strong>Vehículo:</strong> ${vehiculo.toUpperCase()}</div>`;
+    ticketHtml += `<div><strong>Placa:</strong> ${placa}</div>`;
+    ticketHtml += `</div>`;
+    
+    // QR Code
+    if (designConfig.showQr) {
+        ticketHtml += `<div class="ticket-qr">`;
+        ticketHtml += `<div style="border: 1px solid #000; width: 60px; height: 60px; margin: 0 auto; display: flex; align-items: center; justify-content: center; font-size: 8px;">QR CODE</div>`;
+        ticketHtml += `</div>`;
+    }
+    
+    // Footer
+    if (designConfig.showFooter) {
+        ticketHtml += `<div class="ticket-footer" style="font-size: ${designConfig.fontSize - 2}px;">`;
+        ticketHtml += designConfig.footerText.replace(/\n/g, '<br>');
+        ticketHtml += `</div>`;
+    }
+    
+    // Actualizar ambas vistas
+    const previewElement = document.getElementById('ticket-preview');
+    const customizePreviewElement = document.getElementById('customize-preview');
+    
+    if (previewElement) {
+        previewElement.innerHTML = ticketHtml;
+        previewElement.style.fontFamily = getFontFamily(designConfig.font);
+        previewElement.style.width = designConfig.ticketWidth + 'mm';
+    }
+    
+    if (customizePreviewElement) {
+        customizePreviewElement.innerHTML = ticketHtml;
+        customizePreviewElement.style.fontFamily = getFontFamily(designConfig.font);
+        customizePreviewElement.style.width = designConfig.ticketWidth + 'mm';
+    }
+}
+
+// Función para obtener la familia de fuente
+function getFontFamily(font) {
+    switch(font) {
+        case 'courier': return "'Courier New', monospace";
+        case 'arial': return "Arial, sans-serif";
+        case 'times': return "'Times New Roman', serif";
+        default: return "'Courier New', monospace";
+    }
+}
+
+// Función para abrir el modal de personalización
+function openCustomizeModal() {
+    // Cerrar modal de previsualización si está abierto
+    const previewModal = bootstrap.Modal.getInstance(document.getElementById('previewModal'));
+    if (previewModal) {
+        previewModal.hide();
+    }
+    
+    // Cargar configuración actual en los controles
+    loadCurrentConfig();
+    
+    // Mostrar modal de personalización
+    new bootstrap.Modal(document.getElementById('customizeModal')).show();
+    
+    // Actualizar previsualización
+    updatePreview();
+}
+
+// Función para cargar configuración actual
+function loadCurrentConfig() {
+    document.getElementById('font-size').value = designConfig.fontSize;
+    document.getElementById('font-size-display').textContent = designConfig.fontSize + 'px';
+    
+    document.getElementById('ticket-width').value = designConfig.ticketWidth;
+    document.getElementById('width-display').textContent = designConfig.ticketWidth + 'mm';
+    
+    document.getElementById('show-logo').checked = designConfig.showLogo;
+    document.getElementById('show-fecha').checked = designConfig.showFecha;
+    document.getElementById('show-qr').checked = designConfig.showQr;
+    document.getElementById('show-footer').checked = designConfig.showFooter;
+    
+    document.getElementById('header-text').value = designConfig.headerText;
+    document.getElementById('footer-text').value = designConfig.footerText;
+    
+    // Actualizar selección de fuente
+    document.querySelectorAll('.font-option').forEach(option => {
+        option.classList.remove('active');
+        if (option.dataset.font === designConfig.font) {
+            option.classList.add('active');
+        }
+    });
+}
+
+// Función para seleccionar fuente
+function selectFont(font) {
+    designConfig.font = font;
+    document.querySelectorAll('.font-option').forEach(option => {
+        option.classList.remove('active');
+    });
+    document.querySelector(`[data-font="${font}"]`).classList.add('active');
+    updatePreview();
+}
+
+// Función para actualizar tamaño de fuente
+function updateFontSize(size) {
+    designConfig.fontSize = parseInt(size);
+    document.getElementById('font-size-display').textContent = size + 'px';
+    updatePreview();
+}
+
+// Función para actualizar ancho del ticket
+function updateTicketWidth(width) {
+    designConfig.ticketWidth = parseInt(width);
+    document.getElementById('width-display').textContent = width + 'mm';
+    updatePreview();
+}
+
+// Función para cargar plantillas predefinidas
+function loadTemplate(template) {
+    // Remover selección anterior
+    document.querySelectorAll('.template-card').forEach(card => {
+        card.classList.remove('selected');
+    });
+    
+    // Seleccionar nueva plantilla
+    event.target.closest('.template-card').classList.add('selected');
+    
+    switch(template) {
+        case 'minimal':
+            designConfig = {
+                font: 'courier',
+                fontSize: 10,
+                ticketWidth: 58,
+                showLogo: false,
+                showFecha: true,
+                showQr: true,
+                showFooter: false,
+                headerText: 'PARKING',
+                footerText: ''
+            };
+            break;
+        case 'completo':
+            designConfig = {
+                font: 'courier',
+                fontSize: 12,
+                ticketWidth: 80,
+                showLogo: true,
+                showFecha: true,
+                showQr: true,
+                showFooter: true,
+                headerText: 'SISTEMA DE PARKING\nControl de Acceso Vehicular\nSecurity & Control',
+                footerText: 'Conserve este ticket para salir\nGracias por elegirnos\nwww.empresa.com'
+            };
+            break;
+        case 'empresarial':
+            designConfig = {
+                font: 'arial',
+                fontSize: 11,
+                ticketWidth: 80,
+                showLogo: true,
+                showFecha: true,
+                showQr: true,
+                showFooter: true,
+                headerText: 'CORPORATIVO PARKING\nSistema Empresarial',
+                footerText: 'Documento oficial\nConservar hasta la salida'
+            };
+            break;
+    }
+    
+    loadCurrentConfig();
+    updatePreview();
+}
+
+// Función para guardar configuración
+function saveDesignSettings() {
+    // Obtener valores actuales de los controles
+    designConfig.showLogo = document.getElementById('show-logo').checked;
+    designConfig.showFecha = document.getElementById('show-fecha').checked;
+    designConfig.showQr = document.getElementById('show-qr').checked;
+    designConfig.showFooter = document.getElementById('show-footer').checked;
+    designConfig.headerText = document.getElementById('header-text').value;
+    designConfig.footerText = document.getElementById('footer-text').value;
+    
+    // Enviar configuración al servidor
+    fetch('{% url "save_design_config" %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(designConfig)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            Swal.fire('Guardado', 'Configuración de diseño guardada exitosamente', 'success');
+            // Cerrar modal
+            bootstrap.Modal.getInstance(document.getElementById('customizeModal')).hide();
+        } else {
+            Swal.fire('Error', data.message, 'error');
+        }
+    })
+    .catch(error => {
+        Swal.fire('Error', 'Error al guardar configuración', 'error');
+    });
+}
+
+// Función para imprimir previsualización
+function printPreview() {
+    const cedula = document.getElementById('preview-cedula')?.value || '12345678';
+    const nombre = document.getElementById('preview-nombre')?.value || 'Juan Pérez';
+    const vehiculo = document.getElementById('preview-vehiculo')?.value || 'auto';
+    const placa = document.getElementById('preview-placa')?.value || 'ABC-123';
+    
+    fetch('{% url "print_preview" %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            cedula: cedula,
+            nombre: nombre,
+            vehiculo: vehiculo,
+            placa: placa,
+            design_config: designConfig
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        Swal.fire({
+            title: data.success ? '¡Ticket Enviado!' : 'Error',
+            text: data.message,
+            icon: data.success ? 'success' : 'error'
+        });
+    })
+    .catch(error => {
+        Swal.fire('Error', 'Error al imprimir', 'error');
+    });
+}
+
+// Función para imprimir desde personalización
+function printCustomPreview() {
+    // Usar datos de ejemplo para la impresión personalizada
+    fetch('{% url "print_preview" %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            cedula: '12345678',
+            nombre: 'Cliente de Prueba',
+            vehiculo: 'auto',
+            placa: 'TEST-123',
+            design_config: designConfig
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        Swal.fire({
+            title: data.success ? '¡Ticket de Prueba Enviado!' : 'Error',
+            text: data.message,
+            icon: data.success ? 'success' : 'error'
+        });
+    })
+    .catch(error => {
+        Swal.fire('Error', 'Error al imprimir', 'error');
     });
 }
 </script>

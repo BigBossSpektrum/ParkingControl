@@ -289,5 +289,116 @@ class PrinterService:
                 'message': f'Error de conexión: {str(e)}'
             }
 
+    def print_preview_ticket(self, cliente_data, design_config=None):
+        """
+        Imprime un ticket de previsualización con datos personalizados
+        
+        Args:
+            cliente_data (dict): Datos del cliente para el ticket
+            design_config (dict): Configuración de diseño personalizada
+        """
+        try:
+            # Verificar modo simulación
+            simulation_mode = cache.get('printer_simulation_mode', False)
+            
+            if simulation_mode:
+                logger.info("=== MODO SIMULACIÓN ACTIVO ===")
+                logger.info(f"Simulando impresión de ticket de previsualización para: {cliente_data.get('nombre', 'Cliente')}")
+                logger.info(f"Configuración de diseño aplicada: {design_config}")
+                return True
+            
+            # Cargar configuración de diseño desde cache si no se proporciona
+            if not design_config:
+                design_config = cache.get('printer_design_config', {})
+                
+            # Configuración por defecto si no hay ninguna
+            default_config = {
+                'font': 'courier',
+                'fontSize': 12,
+                'ticketWidth': 80,
+                'showLogo': True,
+                'showFecha': True,
+                'showQr': True,
+                'showFooter': True,
+                'headerText': 'SISTEMA DE PARKING\nControl de Acceso',
+                'footerText': 'Conserve este ticket\nGracias por su visita'
+            }
+            
+            # Combinar configuración por defecto con la personalizada
+            config = {**default_config, **design_config}
+            
+            logger.info(f"Imprimiendo ticket de previsualización con configuración: {config}")
+            
+            # Verificar configuración de impresora
+            if not self.printer_config:
+                logger.error("No hay impresora configurada")
+                return False
+                
+            printer = self._get_printer_instance()
+            
+            # Configurar codificación
+            printer.charcode('CP437')
+            
+            # Encabezado personalizado
+            if config.get('showLogo', True):
+                printer.set(align='center', text_type='B', width=2, height=2)
+                header_lines = config.get('headerText', 'SISTEMA DE PARKING').split('\n')
+                for line in header_lines:
+                    printer.text(line + '\n')
+                    
+                printer.text('=' * 32 + '\n')
+                printer.text('\n')
+            
+            # Información del cliente con formato personalizado
+            printer.set(align='left', text_type='normal')
+            
+            if config.get('showFecha', True):
+                fecha_actual = timezone.now()
+                printer.text(f"Fecha: {fecha_actual.strftime('%d/%m/%Y %H:%M')}\n")
+                
+            printer.text(f"Cedula: {cliente_data.get('cedula', 'N/A')}\n")
+            printer.text(f"Nombre: {cliente_data.get('nombre', 'N/A')}\n")
+            printer.text(f"Vehiculo: {cliente_data.get('tipo_vehiculo', 'auto').upper()}\n")
+            printer.text(f"Placa: {cliente_data.get('placa', 'N/A')}\n")
+            
+            printer.text('\n')
+            
+            # Código QR personalizado
+            if config.get('showQr', True):
+                qr_data = f"PREVIEW_{cliente_data.get('cedula', '000000')}_{fecha_actual.strftime('%Y%m%d%H%M')}"
+                printer.set(align='center')
+                printer.text('Codigo QR:\n')
+                try:
+                    printer.qr(qr_data, size=6)
+                except Exception as qr_error:
+                    logger.warning(f"Error generando QR, usando texto: {qr_error}")
+                    printer.text(f"[QR: {qr_data}]\n")
+                
+                printer.text('\n')
+            
+            # Pie de página personalizado
+            if config.get('showFooter', True):
+                printer.set(align='center', text_type='normal')
+                printer.text('-' * 32 + '\n')
+                footer_lines = config.get('footerText', 'Gracias por su visita').split('\n')
+                for line in footer_lines:
+                    printer.text(line + '\n')
+                    
+                printer.text('** TICKET DE PREVISUALIZACIÓN **\n')
+            
+            # Cortar papel
+            printer.text('\n' * 3)
+            printer.cut()
+            
+            printer.close()
+            
+            logger.info(f"Ticket de previsualización impreso exitosamente para {cliente_data.get('nombre', 'Cliente')}")
+            return True
+            
+        except Exception as e:
+            error_msg = f"Error imprimiendo ticket de previsualización: {str(e)}"
+            logger.error(error_msg)
+            return False
+
 # Instancia global del servicio
 printer_service = PrinterService()

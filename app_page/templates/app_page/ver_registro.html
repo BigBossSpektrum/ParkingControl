@@ -32,7 +32,67 @@
         </div>
     </div>
     <div class="text-center">
-        <a href="{% url 'lista_clientes' %}" class="btn btn-dark">Volver a la lista</a>
+        <a href="{% url 'lista_clientes' %}" class="btn btn-dark me-2">
+            <i class="fas fa-arrow-left"></i> Volver a la lista
+        </a>
+        <button id="reimprimir-ticket" class="btn btn-primary" onclick="reimprimirTicket({{ cliente.id }}, '{{ cliente.nombre|escapejs }}')">
+            <i class="fas fa-print"></i> Reimprimir Ticket
+        </button>
     </div>
 </div>
+
+<!-- JavaScript para la funcionalidad de reimpresión -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+function reimprimirTicket(clienteId, nombreCliente) {
+    Swal.fire({
+        title: '¿Reimprimir ticket?',
+        text: `Se imprimirá nuevamente el ticket para ${nombreCliente}`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: '<i class="fas fa-print"></i> Sí, reimprimir',
+        cancelButtonText: 'Cancelar',
+        showLoaderOnConfirm: true,
+        preConfirm: () => {
+            return fetch(`/impresora/print/${clienteId}/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Error en la respuesta del servidor');
+                }
+                return response.json();
+            })
+            .catch(error => {
+                Swal.showValidationMessage(`Error: ${error.message}`);
+            });
+        },
+        allowOutsideClick: () => !Swal.isLoading()
+    }).then((result) => {
+        if (result.isConfirmed && result.value) {
+            if (result.value.success) {
+                Swal.fire({
+                    title: '¡Ticket Enviado!',
+                    text: result.value.message,
+                    icon: 'success',
+                    timer: 3000,
+                    showConfirmButton: false
+                });
+            } else {
+                Swal.fire({
+                    title: 'Error',
+                    text: result.value.message || 'Error al reimprimir el ticket',
+                    icon: 'error'
+                });
+            }
+        }
+    });
+}
+</script>
 {% endblock %}

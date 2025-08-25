@@ -17,4 +17,7 @@ urlpatterns = [
     path('toggle/', views.toggle_printer_status, name='toggle_printer_status'),
     path('simulation/', views.toggle_simulation, name='toggle_simulation'),
     path('api/auto-print/', views.auto_print_qr, name='auto_print_qr'),
+    path('design/save/', views.save_design_config, name='save_design_config'),
+    path('design/get/', views.get_design_config, name='get_design_config'),
+    path('preview/print/', views.print_preview, name='print_preview'),
 ]
