@@ -55,11 +55,11 @@
     <div class="row mb-4">
         <div class="col-md-8">
             <h2><i class="fas fa-print text-primary"></i> Panel de Control de Impresoras</h2>
-            <p class="text-muted">Gestiona tus impresoras térmicas para el sistema de parking</p>
+            <p class="text-white">Gestiona tus impresoras térmicas para el sistema de parking</p>
         </div>
         <div class="col-md-4 text-end">
-            <a href="{% url 'add_printer' %}" class="btn btn-success btn-lg">
-                <i class="fas fa-plus"></i> Agregar Impresora
+            <a href="{% url 'add_printer' %}" class="btn btn-success btn-lg text-dark">
+            <i class="fas fa-plus-circle"></i> Agregar Impresora
             </a>
         </div>
     </div>
@@ -84,11 +84,11 @@
     <!-- Acciones Rápidas -->
     {% if printers %}
     <div class="quick-actions">
-        <h5><i class="fas fa-bolt"></i> Acciones Rápidas</h5>
+        <h5><i class="fas fa-bolt text-warning"></i> Acciones Rápidas</h5>
         <div class="row">
             <div class="col-md-3">
                 <button id="test-active-printer" class="btn btn-primary w-100">
-                    <i class="fas fa-test-tube"></i> Probar Impresora Activa
+                    <i class="fas fa-print"></i> Probar Activa
                 </button>
             </div>
             <div class="col-md-3">
@@ -97,13 +97,13 @@
                 </button>
             </div>
             <div class="col-md-3">
-                <button id="refresh-status" class="btn btn-outline-primary w-100">
-                    <i class="fas fa-sync-alt"></i> Actualizar Estado
+                <button id="refresh-status" class="btn btn-outline-secondary w-100">
+                    <i class="fas fa-sync-alt"></i> Actualizar
                 </button>
             </div>
             <div class="col-md-3">
                 <a href="{% url 'print_jobs_list' %}" class="btn btn-outline-info w-100">
-                    <i class="fas fa-list"></i> Ver Trabajos
+                    <i class="fas fa-history"></i> Ver Trabajos
                 </a>
             </div>
         </div>
@@ -143,30 +143,30 @@
                         <div class="btn-group btn-action" role="group">
                             <button class="btn btn-sm btn-outline-primary" 
                                     onclick="testSpecificPrinter({{ printer.id }})"
-                                    title="Probar impresora">
-                                <i class="fas fa-test-tube"></i>
+                                    title="Probar impresora - Enviar ticket de prueba">
+                                <i class="fas fa-print"></i> Probar
                             </button>
                             
                             {% if not printer.is_active %}
-                            <button class="btn btn-sm btn-outline-success" 
+                            <button class="btn btn-sm btn-success" 
                                     onclick="activatePrinter({{ printer.id }})"
                                     title="Activar impresora">
-                                <i class="fas fa-play"></i>
+                                <i class="fas fa-power-off"></i> Activar
                             </button>
                             {% else %}
-                            <button class="btn btn-sm btn-outline-warning" 
+                            <button class="btn btn-sm btn-warning" 
                                     onclick="deactivatePrinter({{ printer.id }})"
                                     title="Desactivar impresora"
                                     {% if printers|length == 1 %}disabled title="No puedes desactivar la única impresora"{% endif %}>
-                                <i class="fas fa-pause"></i>
+                                <i class="fas fa-pause-circle"></i> Pausar
                             </button>
                             {% endif %}
                             
-                            <button class="btn btn-sm btn-outline-danger" 
+                            <button class="btn btn-sm btn-danger" 
                                     onclick="deletePrinter({{ printer.id }}, '{{ printer.name|escapejs }}')"
-                                    title="Eliminar impresora"
+                                    title="Eliminar impresora permanentemente"
                                     {% if printer.is_active and printers|length == 1 %}disabled title="No puedes eliminar la única impresora activa"{% endif %}>
-                                <i class="fas fa-trash"></i>
+                                <i class="fas fa-trash-alt"></i> Eliminar
                             </button>
                         </div>
                     </div>
@@ -178,11 +178,11 @@
     {% else %}
     <!-- Sin impresoras configuradas -->
     <div class="empty-state">
-        <i class="fas fa-print fa-5x text-muted mb-3"></i>
+        <i class="fas fa-printer fa-5x text-muted mb-3"></i>
         <h4>No hay impresoras configuradas</h4>
         <p class="text-muted mb-4">Agrega tu primera impresora para comenzar a imprimir tickets QR automáticamente</p>
         <a href="{% url 'add_printer' %}" class="btn btn-success btn-lg">
-            <i class="fas fa-plus"></i> Agregar Primera Impresora
+            <i class="fas fa-plus-circle"></i> Agregar Primera Impresora
         </a>
     </div>
     {% endif %}
@@ -192,9 +192,9 @@
     <div class="row mt-4">
         <div class="col-12">
             <div class="d-flex justify-content-between align-items-center mb-3">
-                <h4><i class="fas fa-history"></i> Trabajos Recientes</h4>
+                <h4><i class="fas fa-clock text-info"></i> Trabajos Recientes</h4>
                 <a href="{% url 'print_jobs_list' %}" class="btn btn-outline-primary btn-sm">
-                    <i class="fas fa-list"></i> Ver Todos
+                    <i class="fas fa-external-link-alt"></i> Ver Todos
                 </a>
             </div>
             
@@ -228,8 +228,8 @@
                             <td>{{ job.created_at|date:"d/m H:i" }}</td>
                             <td>
                                 {% if job.status == 'FAILED' %}
-                                    <button class="btn btn-sm btn-outline-warning" onclick="retryPrintJob({{ job.id }})">
-                                        <i class="fas fa-redo"></i>
+                                    <button class="btn btn-sm btn-outline-warning" onclick="retryPrintJob({{ job.id }})" title="Reintentar impresión">
+                                        <i class="fas fa-redo-alt"></i>
                                     </button>
                                 {% endif %}
                             </td>
@@ -299,7 +299,7 @@ document.getElementById('test-active-printer')?.addEventListener('click', functi
     })
     .finally(() => {
         this.disabled = false;
-        this.innerHTML = '<i class="fas fa-test-tube"></i> Probar Impresora Activa';
+        this.innerHTML = '<i class="fas fa-print"></i> Probar Activa';
     });
 });
 

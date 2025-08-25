@@ -310,8 +310,76 @@ def print_jobs_list(request):
     return render(request, 'app_impresora/jobs_list.html', context)
 
 @login_required
-def delete_printer(request, printer_id):
-    """Elimina una configuración de impresora"""
+def delete_printer(request):
+    """Elimina una configuración de impresora (nueva versión JSON)"""
+    if request.method == 'POST':
+        try:
+            logger.info(f"Delete printer request - Method: {request.method}")
+            logger.info(f"Request body: {request.body}")
+            logger.info(f"Content type: {request.content_type}")
+            
+            # Obtener datos desde JSON
+            data = json.loads(request.body)
+            printer_id = data.get('printer_id')
+            
+            logger.info(f"Parsed printer_id: {printer_id}")
+            
+            if not printer_id:
+                return JsonResponse({
+                    'success': False,
+                    'message': 'ID de impresora requerido'
+                })
+            
+            printer = get_object_or_404(PrinterConfiguration, id=printer_id)
+            printer_name = printer.name
+            
+            logger.info(f"Found printer: {printer_name}")
+            
+            # Verificar si es la única impresora activa
+            active_printers = PrinterConfiguration.objects.filter(is_active=True).count()
+            if printer.is_active and active_printers == 1:
+                logger.warning(f"Attempting to delete only active printer: {printer_name}")
+                return JsonResponse({
+                    'success': False,
+                    'message': 'No puedes eliminar la única impresora activa. Configura otra impresora primero.'
+                })
+            
+            # Verificar si tiene trabajos de impresión asociados
+            jobs_count = PrintJob.objects.filter(printer=printer).count()
+            
+            if jobs_count > 0:
+                logger.info(f"Deleting {jobs_count} associated jobs")
+                # Eliminar trabajos asociados automáticamente
+                PrintJob.objects.filter(printer=printer).delete()
+            
+            # Eliminar la impresora
+            printer.delete()
+            logger.info(f"Printer {printer_name} deleted successfully")
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Impresora "{printer_name}" eliminada correctamente'
+            })
+            
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON decode error: {e}")
+            return JsonResponse({
+                'success': False,
+                'message': 'Datos JSON inválidos'
+            })
+        except Exception as e:
+            logger.error(f"Error eliminando impresora: {e}")
+            return JsonResponse({
+                'success': False,
+                'message': f'Error eliminando impresora: {str(e)}'
+            })
+    
+    logger.warning(f"Invalid method for delete_printer: {request.method}")
+    return JsonResponse({'success': False, 'message': 'Método no permitido'})
+
+@login_required
+def delete_printer_old(request, printer_id):
+    """Elimina una configuración de impresora (versión antigua)"""
     if request.method == 'POST':
         try:
             printer = get_object_or_404(PrinterConfiguration, id=printer_id)
@@ -376,8 +444,65 @@ def delete_printer(request, printer_id):
     return JsonResponse({'success': False, 'message': 'Método no permitido'})
 
 @login_required
-def toggle_printer_status(request, printer_id):
-    """Activa o desactiva una impresora"""
+def toggle_printer_status(request):
+    """Activa o desactiva una impresora (nueva versión JSON)"""
+    if request.method == 'POST':
+        try:
+            # Obtener datos desde JSON
+            data = json.loads(request.body)
+            printer_id = data.get('printer_id')
+            activate = data.get('activate', True)
+            
+            if not printer_id:
+                return JsonResponse({
+                    'success': False,
+                    'message': 'ID de impresora requerido'
+                })
+            
+            printer = get_object_or_404(PrinterConfiguration, id=printer_id)
+            
+            if activate:
+                # Activar impresora (desactivar otras primero)
+                PrinterConfiguration.objects.update(is_active=False)
+                printer.is_active = True
+                printer.save()
+                message = f'Impresora "{printer.name}" activada'
+            else:
+                # Verificar que no sea la única activa
+                active_count = PrinterConfiguration.objects.filter(is_active=True).count()
+                if printer.is_active and active_count == 1:
+                    return JsonResponse({
+                        'success': False,
+                        'message': 'No puedes desactivar la única impresora activa'
+                    })
+                
+                # Desactivar impresora
+                printer.is_active = False
+                printer.save()
+                message = f'Impresora "{printer.name}" desactivada'
+            
+            # Recargar configuración del servicio
+            printer_service.reload_printer_config()
+            
+            return JsonResponse({
+                'success': True,
+                'message': message,
+                'printer_id': printer.id,
+                'is_active': printer.is_active
+            })
+            
+        except Exception as e:
+            logger.error(f"Error toggling printer status: {e}")
+            return JsonResponse({
+                'success': False,
+                'message': f'Error: {str(e)}'
+            })
+    
+    return JsonResponse({'success': False, 'message': 'Método no permitido'})
+
+@login_required
+def toggle_printer_status_old(request, printer_id):
+    """Activa o desactiva una impresora (versión antigua)"""
     if request.method == 'POST':
         try:
             printer = get_object_or_404(PrinterConfiguration, id=printer_id)
