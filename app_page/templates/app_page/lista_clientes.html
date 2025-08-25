@@ -55,6 +55,19 @@
             background-color: #138496;
             border-color: #117a8b;
         }
+        .tiempo-parking {
+            font-weight: bold;
+            color: #0d6efd;
+        }
+        .tiempo-activo {
+            color: #dc3545;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
     </style>
 {% endblock %}
 {% block content %}
@@ -69,9 +82,16 @@
             <div class="col-md-2">
                 <select id="filtroTipo" class="form-control">
                     <option value="">Todos los tipos</option>
-                    <option value="carro">Carro</option>
+                    <option value="auto">Auto</option>
                     <option value="moto">Moto</option>
                     <option value="otro">Otro</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select id="filtroEstado" class="form-control">
+                    <option value="">Todos los estados</option>
+                    <option value="activo">En parking</option>
+                    <option value="salido">Salido</option>
                 </select>
             </div>
             <div class="col-md-2">
@@ -95,6 +115,7 @@
                         <th>Tipo</th>
                         <th>Entrada</th>
                         <th>Salida</th>
+                        <th>Tiempo</th>
                         <th>Estado</th>
                         <th>Acciones</th>
                     </tr>
@@ -109,6 +130,13 @@
                             <td><span class="tipo">{{ cliente.get_tipo_vehiculo_display }}</span></td>
                             <td><span class="fecha-entrada">{{ cliente.fecha_entrada|date:"d/m/Y H:i" }}</span></td>
                             <td><span class="fecha-salida">{{ cliente.fecha_salida|date:"d/m/Y H:i"|default:"" }}</span></td>
+                            <td>
+                                {% if cliente.fecha_salida %}
+                                    <span class="tiempo-parking" title="Tiempo total: {{ cliente.tiempo_detallado }}">{{ cliente.tiempo_formateado }}</span>
+                                {% else %}
+                                    <span class="tiempo-parking tiempo-activo" title="Tiempo transcurrido: {{ cliente.tiempo_detallado }} (contando...)">{{ cliente.tiempo_formateado }}</span>
+                                {% endif %}
+                            </td>
                             <td>
                                 {% if cliente.fecha_salida %}
                                     <span class="status-badge status-salido">Salido</span>
@@ -182,6 +210,7 @@
             let filtroTimeout;
             const filtroTiempoReal = document.getElementById('filtroTiempoReal');
             const filtroTipo = document.getElementById('filtroTipo');
+            const filtroEstado = document.getElementById('filtroEstado');
             const fechaDesde = document.getElementById('fechaDesde');
             const fechaHasta = document.getElementById('fechaHasta');
             const limpiarFiltros = document.getElementById('limpiarFiltros');
@@ -192,6 +221,7 @@
             function filtrarTabla() {
                 const textoBusqueda = filtroTiempoReal.value.toLowerCase();
                 const tipoSeleccionado = filtroTipo.value.toLowerCase();
+                const estadoSeleccionado = filtroEstado.value.toLowerCase();
                 const fechaDesdeVal = fechaDesde.value;
                 const fechaHastaVal = fechaHasta.value;
 
@@ -204,6 +234,7 @@
                     const matricula = fila.querySelector('.matricula').textContent.toLowerCase();
                     const tipo = fila.querySelector('.tipo').textContent.toLowerCase();
                     const fechaEntrada = fila.querySelector('.fecha-entrada').textContent;
+                    const fechaSalida = fila.querySelector('.fecha-salida').textContent;
 
                     // Filtro de texto
                     const coincideTexto = !textoBusqueda || 
@@ -215,24 +246,44 @@
                     // Filtro de tipo
                     const coincideTipo = !tipoSeleccionado || tipo.includes(tipoSeleccionado);
 
-                    // Filtro de fechas
+                    // Filtro de estado
+                    let coincideEstado = true;
+                    if (estadoSeleccionado) {
+                        const tieneFechaSalida = fechaSalida.trim() !== '';
+                        if (estadoSeleccionado === 'activo') {
+                            coincideEstado = !tieneFechaSalida; // No tiene fecha de salida
+                        } else if (estadoSeleccionado === 'salido') {
+                            coincideEstado = tieneFechaSalida; // Tiene fecha de salida
+                        }
+                    }
+
+                    // Filtro de fechas mejorado
                     let coincideFecha = true;
                     if (fechaDesdeVal || fechaHastaVal) {
-                        const fechaEntradaDate = new Date(fechaEntrada.split(' ')[0].split('/').reverse().join('-'));
-                        
-                        if (fechaDesdeVal) {
-                            const fechaDesdeDate = new Date(fechaDesdeVal);
-                            coincideFecha = coincideFecha && fechaEntradaDate >= fechaDesdeDate;
-                        }
-                        
-                        if (fechaHastaVal) {
-                            const fechaHastaDate = new Date(fechaHastaVal);
-                            coincideFecha = coincideFecha && fechaEntradaDate <= fechaHastaDate;
+                        try {
+                            // Convertir fecha de formato DD/MM/YYYY HH:MM a Date
+                            const fechaTexto = fechaEntrada.split(' ')[0]; // Solo la fecha
+                            const [dia, mes, año] = fechaTexto.split('/');
+                            const fechaEntradaDate = new Date(año, mes - 1, dia); // mes es 0-indexado
+                            
+                            if (fechaDesdeVal) {
+                                const fechaDesdeDate = new Date(fechaDesdeVal);
+                                coincideFecha = coincideFecha && fechaEntradaDate >= fechaDesdeDate;
+                            }
+                            
+                            if (fechaHastaVal) {
+                                const fechaHastaDate = new Date(fechaHastaVal);
+                                fechaHastaDate.setHours(23, 59, 59, 999); // Incluir todo el día
+                                coincideFecha = coincideFecha && fechaEntradaDate <= fechaHastaDate;
+                            }
+                        } catch (error) {
+                            console.warn('Error al procesar fecha:', fechaEntrada, error);
+                            coincideFecha = true; // En caso de error, no filtrar por fecha
                         }
                     }
 
                     // Mostrar/ocultar fila
-                    if (coincideTexto && coincideTipo && coincideFecha) {
+                    if (coincideTexto && coincideTipo && coincideEstado && coincideFecha) {
                         fila.style.display = '';
                     } else {
                         fila.style.display = 'none';
@@ -247,6 +298,7 @@
             });
 
             filtroTipo.addEventListener('change', filtrarTabla);
+            filtroEstado.addEventListener('change', filtrarTabla);
             fechaDesde.addEventListener('change', filtrarTabla);
             fechaHasta.addEventListener('change', filtrarTabla);
 
@@ -254,6 +306,7 @@
             limpiarFiltros.addEventListener('click', function() {
                 filtroTiempoReal.value = '';
                 filtroTipo.value = '';
+                filtroEstado.value = '';
                 fechaDesde.value = '';
                 fechaHasta.value = '';
                 filtrarTabla();
@@ -381,7 +434,7 @@
                                     <div class="mb-3">
                                         <label class="form-label">Tipo de Vehículo:</label>
                                         <select class="form-control" name="tipo_vehiculo" required>
-                                            <option value="carro" ${data.tipo_vehiculo === 'carro' ? 'selected' : ''}>Carro</option>
+                                            <option value="auto" ${data.tipo_vehiculo === 'auto' ? 'selected' : ''}>Auto</option>
                                             <option value="moto" ${data.tipo_vehiculo === 'moto' ? 'selected' : ''}>Moto</option>
                                             <option value="otro" ${data.tipo_vehiculo === 'otro' ? 'selected' : ''}>Otro</option>
                                         </select>

@@ -122,6 +122,68 @@ class Cliente(models.Model):
 	def get_display_telefono(self):
 		"""Devuelve el teléfono del cliente o un valor por defecto"""
 		return self.telefono or 'Sin teléfono'
+	
+	def tiempo_formateado(self):
+		"""Calcula y formatea el tiempo transcurrido en el parking"""
+		if not self.fecha_entrada:
+			return "Sin entrada"
+		
+		# Determinar fecha final: salida si existe, sino fecha actual
+		fecha_fin = self.fecha_salida if self.fecha_salida else timezone.now()
+		
+		# Calcular diferencia
+		diferencia = fecha_fin - self.fecha_entrada
+		
+		# Extraer componentes
+		total_segundos = int(diferencia.total_seconds())
+		horas = total_segundos // 3600
+		minutos = (total_segundos % 3600) // 60
+		
+		# Formatear resultado
+		if horas > 0:
+			if minutos > 0:
+				return f"{horas}h {minutos}m"
+			else:
+				return f"{horas}h"
+		elif minutos > 0:
+			return f"{minutos}m"
+		else:
+			return "< 1m"
+	
+	def tiempo_en_minutos(self):
+		"""Devuelve el tiempo total en minutos para cálculos"""
+		if not self.fecha_entrada:
+			return 0
+		
+		fecha_fin = self.fecha_salida if self.fecha_salida else timezone.now()
+		diferencia = fecha_fin - self.fecha_entrada
+		return int(diferencia.total_seconds() // 60)
+	
+	def tiempo_detallado(self):
+		"""Devuelve información detallada del tiempo para tooltips o reportes"""
+		if not self.fecha_entrada:
+			return "Sin fecha de entrada"
+		
+		fecha_fin = self.fecha_salida if self.fecha_salida else timezone.now()
+		diferencia = fecha_fin - self.fecha_entrada
+		
+		total_segundos = int(diferencia.total_seconds())
+		dias = total_segundos // 86400
+		horas = (total_segundos % 86400) // 3600
+		minutos = (total_segundos % 3600) // 60
+		
+		partes = []
+		if dias > 0:
+			partes.append(f"{dias} día{'s' if dias != 1 else ''}")
+		if horas > 0:
+			partes.append(f"{horas} hora{'s' if horas != 1 else ''}")
+		if minutos > 0:
+			partes.append(f"{minutos} minuto{'s' if minutos != 1 else ''}")
+		
+		if not partes:
+			return "Menos de 1 minuto"
+		
+		return ", ".join(partes)
 
 	def __str__(self):
 		nombre = self.nombre or 'Sin nombre'
