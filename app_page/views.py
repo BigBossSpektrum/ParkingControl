@@ -16,6 +16,14 @@ from django.core.files.base import ContentFile
 from .models import Cliente, Costo
 from .decorators import require_edit_permission, require_delete_permission, require_view_list_permission, get_user_profile
 
+# Importar el servicio de impresión
+try:
+    from app_impresora.printer_service import printer_service
+    PRINTER_AVAILABLE = True
+except ImportError:
+    PRINTER_AVAILABLE = False
+    printer_service = None
+
 # Configurar logger
 logger = logging.getLogger(__name__)
 
@@ -134,10 +142,30 @@ def dashboard(request):
 					cliente.save()
 					logger.info("Cliente saved again after QR generation")
 					
+					# Intentar impresión automática del ticket
+					print_success = False
+					print_message = ""
+					
+					if PRINTER_AVAILABLE and printer_service:
+						try:
+							print_success = printer_service.print_qr_ticket(cliente)
+							if print_success:
+								print_message = "Ticket impreso automáticamente"
+								logger.info(f"Ticket printed successfully for client {cliente.id}")
+							else:
+								print_message = "Error al imprimir ticket automáticamente"
+								logger.warning(f"Failed to print ticket for client {cliente.id}")
+						except Exception as print_error:
+							print_message = f"Error de impresión: {str(print_error)}"
+							logger.error(f"Printing error for client {cliente.id}: {print_error}")
+					else:
+						print_message = "Servicio de impresión no disponible"
+						logger.info("Printer service not available")
+					
 					# Si es petición AJAX, devolver JSON
 					if is_ajax:
 						logger.info("Returning AJAX success response")
-						return JsonResponse({
+						response_data = {
 							'success': True,
 							'mensaje': 'Cliente registrado exitosamente',
 							'cliente': {
@@ -148,10 +176,20 @@ def dashboard(request):
 								'tipo_vehiculo': cliente.get_tipo_vehiculo_display(),
 								'fecha_entrada': cliente.fecha_entrada.strftime('%d/%m/%Y %H:%M'),
 								'qr_url': cliente.qr_image.url if cliente.qr_image else None
+							},
+							'print_result': {
+								'success': print_success,
+								'message': print_message
 							}
-						})
+						}
+						return JsonResponse(response_data)
 					
-					message_success = 'Cliente registrado correctamente.'
+					# Para requests normales, agregar mensaje de impresión
+					if print_success:
+						message_success = 'Cliente registrado correctamente. Ticket impreso.'
+					else:
+						message_success = f'Cliente registrado correctamente. {print_message}'
+					
 					registro_form = ClienteForm()  # Limpiar formulario
 					logger.info("Registration completed successfully")
 				except Exception as e:

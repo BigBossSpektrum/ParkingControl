@@ -1,7 +1,291 @@
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from django.views.decorators.csrf import csrf_exempt
+import json
+import logging
 
+from .models import PrinterConfiguration, PrintJob
+from .printer_service import printer_service
+from app_page.models import Cliente
+
+logger = logging.getLogger(__name__)
+
+@login_required
+def printer_dashboard(request):
+    """Dashboard principal para gestión de impresoras"""
+    printers = PrinterConfiguration.objects.all()
+    recent_jobs = PrintJob.objects.all()[:10]
+    printer_status = printer_service.get_printer_status()
+    
+    context = {
+        'printers': printers,
+        'recent_jobs': recent_jobs,
+        'printer_status': printer_status,
+    }
+    
+    return render(request, 'app_impresora/dashboard.html', context)
+
+@login_required 
 def test_printer(request):
-	return HttpResponse('Prueba de impresora térmica OK')
-from django.shortcuts import render
+    """Prueba la impresora configurada"""
+    if request.method == 'POST':
+        success, message = printer_service.test_printer()
+        
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': success,
+                'message': message
+            })
+        
+        if success:
+            messages.success(request, message)
+        else:
+            messages.error(request, message)
+            
+        return redirect('printer_dashboard')
+    
+    return HttpResponse('Método no permitido', status=405)
 
-# Create your views here.
+@login_required
+def print_client_qr(request, client_id):
+    """Imprime el código QR de un cliente específico"""
+    try:
+        cliente = get_object_or_404(Cliente, id=client_id)
+        
+        # Verificar que el cliente tenga QR generado
+        if not cliente.qr_image:
+            # Intentar generar el QR si no existe
+            cliente.generate_qr_with_data()
+            cliente.save()
+        
+        success = printer_service.print_qr_ticket(cliente)
+        
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': success,
+                'message': 'Ticket impreso exitosamente' if success else 'Error al imprimir ticket'
+            })
+        
+        if success:
+            messages.success(request, f'Ticket impreso para {cliente.get_display_name()}')
+        else:
+            messages.error(request, 'Error al imprimir el ticket')
+            
+        return redirect('dashboard')
+        
+    except Exception as e:
+        logger.error(f"Error imprimiendo QR para cliente {client_id}: {e}")
+        
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': False,
+                'message': f'Error: {str(e)}'
+            })
+        
+        messages.error(request, f'Error al imprimir: {str(e)}')
+        return redirect('dashboard')
+
+@login_required
+def printer_config(request):
+    """Configuración de impresoras"""
+    if request.method == 'POST':
+        # Aquí manejaremos la configuración de la impresora
+        name = request.POST.get('name')
+        printer_type = request.POST.get('printer_type')
+        connection_string = request.POST.get('connection_string')
+        
+        # Desactivar otras impresoras si esta se marca como activa
+        if request.POST.get('is_active'):
+            PrinterConfiguration.objects.update(is_active=False)
+        
+        printer_config = PrinterConfiguration.objects.create(
+            name=name,
+            printer_type=printer_type,
+            connection_string=connection_string,
+            is_active=True
+        )
+        
+        messages.success(request, 'Impresora configurada exitosamente')
+        return redirect('printer_dashboard')
+    
+    return render(request, 'app_impresora/config.html')
+
+@login_required
+def printer_status(request):
+    """Obtiene el estado de la impresora en formato JSON"""
+    status = printer_service.get_printer_status()
+    return JsonResponse(status)
+
+@login_required
+def print_jobs_list(request):
+    """Lista todos los trabajos de impresión"""
+    jobs = PrintJob.objects.all()[:50]  # Últimos 50 trabajos
+    
+    context = {
+        'jobs': jobs
+    }
+    
+    return render(request, 'app_impresora/jobs_list.html', context)
+
+@login_required
+def delete_printer(request, printer_id):
+    """Elimina una configuración de impresora"""
+    if request.method == 'POST':
+        try:
+            printer = get_object_or_404(PrinterConfiguration, id=printer_id)
+            printer_name = printer.name
+            
+            # Verificar si es la única impresora activa
+            active_printers = PrinterConfiguration.objects.filter(is_active=True).count()
+            if printer.is_active and active_printers == 1:
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return JsonResponse({
+                        'success': False,
+                        'message': 'No puede eliminar la única impresora activa. Configure otra impresora primero.'
+                    })
+                
+                messages.error(request, 'No puede eliminar la única impresora activa.')
+                return redirect('printer_dashboard')
+            
+            # Verificar si tiene trabajos de impresión asociados
+            jobs_count = PrintJob.objects.filter(printer=printer).count()
+            
+            if jobs_count > 0:
+                # Preguntar si quiere eliminar también los trabajos
+                force_delete = request.POST.get('force_delete') == 'true'
+                if not force_delete:
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                        return JsonResponse({
+                            'success': False,
+                            'message': f'Esta impresora tiene {jobs_count} trabajos asociados. ¿Desea eliminarlos también?',
+                            'needs_confirmation': True,
+                            'jobs_count': jobs_count
+                        })
+                    
+                    messages.warning(request, f'Esta impresora tiene {jobs_count} trabajos asociados.')
+                    return redirect('printer_dashboard')
+                else:
+                    # Eliminar trabajos asociados
+                    PrintJob.objects.filter(printer=printer).delete()
+            
+            printer.delete()
+            
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': True,
+                    'message': f'Impresora "{printer_name}" eliminada correctamente'
+                })
+            
+            messages.success(request, f'Impresora "{printer_name}" eliminada correctamente')
+            return redirect('printer_dashboard')
+            
+        except Exception as e:
+            logger.error(f"Error eliminando impresora {printer_id}: {e}")
+            
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': False,
+                    'message': f'Error al eliminar la impresora: {str(e)}'
+                })
+            
+            messages.error(request, f'Error al eliminar la impresora: {str(e)}')
+            return redirect('printer_dashboard')
+    
+    return JsonResponse({'success': False, 'message': 'Método no permitido'})
+
+@login_required
+def toggle_printer_status(request, printer_id):
+    """Activa o desactiva una impresora"""
+    if request.method == 'POST':
+        try:
+            printer = get_object_or_404(PrinterConfiguration, id=printer_id)
+            
+            if printer.is_active:
+                # Desactivar impresora
+                printer.is_active = False
+                printer.save()
+                message = f'Impresora "{printer.name}" desactivada'
+            else:
+                # Activar impresora (desactivar otras primero)
+                PrinterConfiguration.objects.update(is_active=False)
+                printer.is_active = True
+                printer.save()
+                message = f'Impresora "{printer.name}" activada'
+            
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': True,
+                    'message': message,
+                    'is_active': printer.is_active
+                })
+            
+            messages.success(request, message)
+            return redirect('printer_dashboard')
+            
+        except Exception as e:
+            logger.error(f"Error cambiando estado de impresora {printer_id}: {e}")
+            
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': False,
+                    'message': f'Error: {str(e)}'
+                })
+            
+            messages.error(request, f'Error: {str(e)}')
+            return redirect('printer_dashboard')
+    
+    return JsonResponse({'success': False, 'message': 'Método no permitido'})
+
+@login_required
+def toggle_simulation_mode(request):
+    """Habilita/deshabilita el modo simulación de impresora"""
+    if request.method == 'POST':
+        enable = request.POST.get('enable') == 'true'
+        printer_service.enable_simulation_mode(enable)
+        
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': True,
+                'simulation_mode': printer_service.simulation_mode,
+                'message': f'Modo simulación {"habilitado" if enable else "deshabilitado"}'
+            })
+        
+        message = f'Modo simulación {"habilitado" if enable else "deshabilitado"}'
+        messages.success(request, message)
+        return redirect('printer_dashboard')
+    
+    return JsonResponse({'success': False, 'message': 'Método no permitido'})
+
+# Vista API para imprimir automáticamente cuando se registra un cliente
+@csrf_exempt
+def auto_print_qr(request):
+    """API para impresión automática de QR al registrar cliente"""
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            client_id = data.get('client_id')
+            
+            if not client_id:
+                return JsonResponse({
+                    'success': False,
+                    'message': 'ID de cliente requerido'
+                })
+            
+            cliente = get_object_or_404(Cliente, id=client_id)
+            success = printer_service.print_qr_ticket(cliente)
+            
+            return JsonResponse({
+                'success': success,
+                'message': 'Ticket impreso automáticamente' if success else 'Error en impresión automática'
+            })
+            
+        except Exception as e:
+            logger.error(f"Error en impresión automática: {e}")
+            return JsonResponse({
+                'success': False,
+                'message': f'Error: {str(e)}'
+            })
+    
+    return JsonResponse({'success': False, 'message': 'Método no permitido'})

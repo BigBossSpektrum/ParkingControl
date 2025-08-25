@@ -171,6 +171,9 @@
             <a href="{% url 'admin:index' %}" class="btn btn-secondary">
                 <i class="bi bi-gear me-2"></i>Panel de Administración
             </a>
+            <a href="{% url 'printer_dashboard' %}" class="btn btn-info">
+                <i class="bi bi-printer me-2"></i>Configurar Impresora
+            </a>
             {% endif %}
         </div>
     </div>
@@ -391,10 +394,21 @@ document.addEventListener('DOMContentLoaded', function() {
                         
                         if (response.success) {
                             console.log('Registration successful');
+                            
+                            // Preparar mensaje con información de impresión
+                            let message = response.message;
+                            if (response.print_result) {
+                                if (response.print_result.success) {
+                                    message += '\n\n✅ ' + response.print_result.message;
+                                } else {
+                                    message += '\n\n⚠️ ' + response.print_result.message;
+                                }
+                            }
+                            
                             Swal.fire({
                                 icon: 'success',
                                 title: 'Cliente registrado',
-                                text: response.message,
+                                text: message,
                                 confirmButtonColor: '#198754'
                             }).then(() => {
                                 limpiarFormularioRegistro();

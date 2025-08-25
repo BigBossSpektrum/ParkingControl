@@ -1,0 +1,424 @@
+{% extends 'app_page/base.html' %}
+{% load static %}
+
+{% block title %}Panel de Impresora{% endblock %}
+
+{% block extra_head %}
+<style>
+    .printer-status {
+        padding: 1rem;
+        border-radius: 0.5rem;
+        margin-bottom: 1rem;
+    }
+    .status-connected {
+        background-color: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
+    .status-disconnected {
+        background-color: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+    }
+    .status-not-configured {
+        background-color: #fff3cd;
+        color: #856404;
+        border: 1px solid #ffeaa7;
+    }
+    .printer-card {
+        border: 1px solid #ddd;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    .job-status {
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.25rem;
+        font-size: 0.875rem;
+        font-weight: bold;
+    }
+    .job-success { background-color: #d4edda; color: #155724; }
+    .job-failed { background-color: #f8d7da; color: #721c24; }
+    .job-pending { background-color: #fff3cd; color: #856404; }
+    .job-printing { background-color: #cce5ff; color: #004085; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h2><i class="fas fa-print"></i> Panel de Control de Impresora</h2>
+            <hr>
+        </div>
+    </div>
+
+    <!-- Estado de la Impresora -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="printer-status {% if printer_status.connected %}status-connected{% elif printer_status.configured %}status-disconnected{% else %}status-not-configured{% endif %}">
+                <h5>
+                    <i class="fas fa-{% if printer_status.connected %}check-circle{% elif printer_status.configured %}exclamation-triangle{% else %}times-circle{% endif %}"></i>
+                    Estado de la Impresora
+                </h5>
+                <p><strong>{{ printer_status.message }}</strong></p>
+                {% if printer_status.configured %}
+                    <p><strong>Impresora:</strong> {{ printer_status.printer_name }}</p>
+                    <p><strong>Modelo:</strong> {{ printer_status.printer_model }}</p>
+                    <p><strong>Conexión:</strong> {{ printer_status.connection_type }}</p>
+                {% endif %}
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="d-grid gap-2">
+                <button id="test-printer" class="btn btn-primary">
+                    <i class="fas fa-test-tube"></i> Probar Impresora
+                </button>
+                <a href="{% url 'printer_config' %}" class="btn btn-secondary">
+                    <i class="fas fa-cog"></i> Configurar Impresora
+                </a>
+                <button id="refresh-status" class="btn btn-outline-primary">
+                    <i class="fas fa-sync-alt"></i> Actualizar Estado
+                </button>
+                <button id="toggle-simulation" class="btn btn-warning">
+                    <i class="fas fa-flask"></i> <span id="simulation-text">Habilitar Simulación</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Configuraciones de Impresora -->
+    {% if printers %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <h4>Impresoras Configuradas</h4>
+            {% for printer in printers %}
+            <div class="printer-card">
+                <div class="row">
+                    <div class="col-md-8">
+                        <h6>{{ printer.name }}</h6>
+                        <p><strong>Modelo:</strong> {{ printer.model }}</p>
+                        <p><strong>Tipo:</strong> {{ printer.get_printer_type_display }}</p>
+                        <p><strong>Conexión:</strong> {{ printer.connection_string }}</p>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="d-flex align-items-center justify-content-end gap-2">
+                            {% if printer.is_active %}
+                                <span class="badge bg-success">Activa</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Inactiva</span>
+                            {% endif %}
+                            
+                            <div class="btn-group btn-group-sm" role="group">
+                                <button class="btn btn-outline-primary" 
+                                        onclick="testSpecificPrinter({{ printer.id }})"
+                                        title="Probar impresora">
+                                    <i class="fas fa-test-tube"></i>
+                                </button>
+                                
+                                <button class="btn btn-outline-{% if printer.is_active %}warning{% else %}success{% endif %}" 
+                                        onclick="togglePrinterStatus({{ printer.id }}, {{ printer.is_active|yesno:'true,false' }})"
+                                        title="{% if printer.is_active %}Desactivar{% else %}Activar{% endif %} impresora">
+                                    <i class="fas fa-{% if printer.is_active %}pause{% else %}play{% endif %}"></i>
+                                </button>
+                                
+                                <button class="btn btn-outline-danger" 
+                                        onclick="deletePrinter({{ printer.id }}, '{{ printer.name|escapejs }}')"
+                                        title="Eliminar impresora">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Trabajos de Impresión Recientes -->
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4>Trabajos de Impresión Recientes</h4>
+                <a href="{% url 'print_jobs_list' %}" class="btn btn-outline-primary btn-sm">
+                    <i class="fas fa-list"></i> Ver Todos
+                </a>
+            </div>
+            
+            {% if recent_jobs %}
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Cliente</th>
+                            <th>Tipo</th>
+                            <th>Estado</th>
+                            <th>Impresora</th>
+                            <th>Fecha</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for job in recent_jobs %}
+                        <tr>
+                            <td>{{ job.id }}</td>
+                            <td>{{ job.client_id }}</td>
+                            <td>{{ job.content_type }}</td>
+                            <td>
+                                <span class="job-status job-{{ job.status|lower }}">
+                                    {{ job.get_status_display }}
+                                </span>
+                            </td>
+                            <td>{{ job.printer.name }}</td>
+                            <td>{{ job.created_at|date:"d/m/Y H:i" }}</td>
+                            <td>
+                                {% if job.status == 'FAILED' %}
+                                    <button class="btn btn-sm btn-outline-warning" onclick="retryPrintJob({{ job.id }})">
+                                        <i class="fas fa-redo"></i> Reintentar
+                                    </button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i> No hay trabajos de impresión recientes.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal para mensajes -->
+<div class="modal fade" id="messageModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="messageModalTitle">Resultado</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="messageModalBody">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Prueba de impresora
+    $('#test-printer').click(function() {
+        var btn = $(this);
+        btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Probando...');
+        
+        $.post('{% url "test_printer" %}', {
+            'csrfmiddlewaretoken': '{{ csrf_token }}'
+        })
+        .done(function(data) {
+            showMessage(data.success ? 'Éxito' : 'Error', data.message, data.success ? 'success' : 'danger');
+            if (data.success) {
+                setTimeout(function() { location.reload(); }, 2000);
+            }
+        })
+        .fail(function() {
+            showMessage('Error', 'Error de conexión al probar la impresora', 'danger');
+        })
+        .always(function() {
+            btn.prop('disabled', false).html('<i class="fas fa-test-tube"></i> Probar Impresora');
+        });
+    });
+    
+    // Actualizar estado
+    $('#refresh-status').click(function() {
+        var btn = $(this);
+        btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Actualizando...');
+        
+        $.get('{% url "printer_status" %}')
+        .done(function(data) {
+            setTimeout(function() { location.reload(); }, 1000);
+        })
+        .fail(function() {
+            showMessage('Error', 'Error al actualizar el estado', 'danger');
+        })
+        .always(function() {
+            btn.prop('disabled', false).html('<i class="fas fa-sync-alt"></i> Actualizar Estado');
+        });
+    });
+    
+    // Toggle modo simulación
+    $('#toggle-simulation').click(function() {
+        var btn = $(this);
+        var isSimulation = btn.hasClass('btn-success');
+        var enable = !isSimulation;
+        
+        btn.prop('disabled', true);
+        
+        $.post('{% url "toggle_simulation_mode" %}', {
+            'csrfmiddlewaretoken': '{{ csrf_token }}',
+            'enable': enable
+        })
+        .done(function(data) {
+            if (data.success) {
+                if (data.simulation_mode) {
+                    btn.removeClass('btn-warning').addClass('btn-success');
+                    $('#simulation-text').text('Deshabilitar Simulación');
+                    showMessage('Éxito', 'Modo simulación habilitado - Las impresiones se simularán', 'success');
+                } else {
+                    btn.removeClass('btn-success').addClass('btn-warning');
+                    $('#simulation-text').text('Habilitar Simulación');
+                    showMessage('Éxito', 'Modo simulación deshabilitado - Se usará impresora real', 'success');
+                }
+            } else {
+                showMessage('Error', data.message, 'danger');
+            }
+        })
+        .fail(function() {
+            showMessage('Error', 'Error al cambiar modo simulación', 'danger');
+        })
+        .always(function() {
+            btn.prop('disabled', false);
+        });
+    });
+});
+
+function showMessage(title, message, type) {
+    $('#messageModalTitle').text(title);
+    $('#messageModalBody').html('<div class="alert alert-' + type + '">' + message + '</div>');
+    $('#messageModal').modal('show');
+}
+
+function testSpecificPrinter(printerId) {
+    Swal.fire({
+        title: 'Probando impresora...',
+        text: 'Por favor espere',
+        allowOutsideClick: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
+    
+    // Por ahora usar la prueba general
+    $.post('{% url "test_printer" %}', {
+        'csrfmiddlewaretoken': '{{ csrf_token }}'
+    })
+    .done(function(data) {
+        Swal.fire({
+            icon: data.success ? 'success' : 'error',
+            title: data.success ? 'Prueba exitosa' : 'Error en prueba',
+            text: data.message
+        });
+    })
+    .fail(function() {
+        Swal.fire('Error', 'Error de conexión al probar la impresora', 'error');
+    });
+}
+
+function togglePrinterStatus(printerId, isActive) {
+    var action = isActive ? 'desactivar' : 'activar';
+    var title = isActive ? '¿Desactivar impresora?' : '¿Activar impresora?';
+    var text = isActive ? 'Esta impresora dejará de usarse para impresiones.' : 'Esta impresora se convertirá en la activa.';
+    
+    Swal.fire({
+        title: title,
+        text: text,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, ' + action,
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: isActive ? '#ffc107' : '#198754'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            $.post('{% url "toggle_printer_status" 0 %}'.replace('0', printerId), {
+                'csrfmiddlewaretoken': '{{ csrf_token }}'
+            })
+            .done(function(data) {
+                if (data.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Estado cambiado',
+                        text: data.message,
+                        timer: 2000
+                    }).then(() => {
+                        location.reload();
+                    });
+                } else {
+                    Swal.fire('Error', data.message, 'error');
+                }
+            })
+            .fail(function() {
+                Swal.fire('Error', 'Error al cambiar el estado de la impresora', 'error');
+            });
+        }
+    });
+}
+
+function deletePrinter(printerId, printerName) {
+    Swal.fire({
+        title: '¿Eliminar impresora?',
+        html: `¿Está seguro de que desea eliminar la impresora <strong>"${printerName}"</strong>?<br><br><small class="text-muted">Esta acción no se puede deshacer.</small>`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#dc3545'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            performDelete(printerId, printerName, false);
+        }
+    });
+}
+
+function performDelete(printerId, printerName, forceDelete) {
+    $.post('{% url "delete_printer" 0 %}'.replace('0', printerId), {
+        'csrfmiddlewaretoken': '{{ csrf_token }}',
+        'force_delete': forceDelete
+    })
+    .done(function(data) {
+        if (data.success) {
+            Swal.fire({
+                icon: 'success',
+                title: 'Impresora eliminada',
+                text: data.message,
+                timer: 2000
+            }).then(() => {
+                location.reload();
+            });
+        } else if (data.needs_confirmation) {
+            // Confirmar eliminación con trabajos asociados
+            Swal.fire({
+                title: 'Trabajos asociados',
+                html: `${data.message}<br><br><strong>${data.jobs_count}</strong> trabajos de impresión serán eliminados también.`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Sí, eliminar todo',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#dc3545'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    performDelete(printerId, printerName, true);
+                }
+            });
+        } else {
+            Swal.fire('Error', data.message, 'error');
+        }
+    })
+    .fail(function() {
+        Swal.fire('Error', 'Error al eliminar la impresora', 'error');
+    });
+}
+
+function retryPrintJob(jobId) {
+    showMessage('Info', 'Función de reintento en desarrollo', 'info');
+}
+</script>
+{% endblock %}

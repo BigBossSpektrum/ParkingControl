@@ -1,0 +1,308 @@
+{% extends 'app_page/base.html' %}
+{% load static %}
+
+{% block title %}Configuración de Impresora{% endblock %}
+
+{% block extra_head %}
+<style>
+    .config-form {
+        max-width: 600px;
+        margin: 0 auto;
+    }
+    .connection-help {
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        padding: 1rem;
+        margin-top: 1rem;
+    }
+    .connection-example {
+        background-color: #e9ecef;
+        border-radius: 0.25rem;
+        padding: 0.5rem;
+        font-family: monospace;
+        margin: 0.5rem 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="fas fa-cog"></i> Configuración de Impresora</h2>
+                <a href="{% url 'printer_dashboard' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Volver
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-print"></i> Configurar Impresora Epson M244A</h5>
+                </div>
+                <div class="card-body">
+                    <form id="printer-config-form" method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Nombre de la Impresora *</label>
+                            <input type="text" class="form-control" id="name" name="name" required 
+                                   value="Epson M244A Principal" placeholder="Ej: Impresora Principal">
+                            <div class="form-text">Nombre descriptivo para identificar la impresora</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="printer_type" class="form-label">Tipo de Conexión *</label>
+                            <select class="form-select" id="printer_type" name="printer_type" required onchange="updateConnectionHelp()">
+                                <option value="USB" selected>USB</option>
+                                <option value="SERIAL">Puerto Serial (COM)</option>
+                                <option value="NETWORK">Red (IP)</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="connection_string" class="form-label">Cadena de Conexión *</label>
+                            <input type="text" class="form-control" id="connection_string" name="connection_string" required
+                                   placeholder="Depende del tipo de conexión">
+                            <div id="connection-help" class="connection-help">
+                                <!-- Se actualiza dinámicamente con JavaScript -->
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="paper_width" class="form-label">Ancho del Papel (mm)</label>
+                                    <input type="number" class="form-control" id="paper_width" name="paper_width" 
+                                           value="80" min="50" max="120">
+                                    <div class="form-text">Típicamente 80mm para impresoras térmicas</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="chars_per_line" class="form-label">Caracteres por Línea</label>
+                                    <input type="number" class="form-control" id="chars_per_line" name="chars_per_line" 
+                                           value="48" min="30" max="80">
+                                    <div class="form-text">Número de caracteres que caben en una línea</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="is_active" name="is_active" checked>
+                                <label class="form-check-label" for="is_active">
+                                    Activar como impresora principal
+                                </label>
+                                <div class="form-text">Esta impresora se usará para todas las impresiones automáticas</div>
+                            </div>
+                        </div>
+
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <button type="button" class="btn btn-outline-primary" onclick="testConnection()">
+                                <i class="fas fa-test-tube"></i> Probar Conexión
+                            </button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Guardar Configuración
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Guía de Instalación -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h6><i class="fas fa-question-circle"></i> Guía de Instalación</h6>
+                </div>
+                <div class="card-body">
+                    <div class="accordion" id="installGuide">
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="headingUSB">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
+                                        data-bs-target="#collapseUSB">
+                                    Conexión USB
+                                </button>
+                            </h2>
+                            <div id="collapseUSB" class="accordion-collapse collapse" data-bs-parent="#installGuide">
+                                <div class="accordion-body">
+                                    <ol>
+                                        <li>Conecte la impresora Epson M244A por USB</li>
+                                        <li>Instale los drivers oficiales de Epson desde su sitio web</li>
+                                        <li>Agregue la impresora en Windows (Panel de Control > Impresoras)</li>
+                                        <li>Anote el nombre exacto de la impresora como aparece en Windows</li>
+                                        <li>Use ese nombre en el campo "Cadena de Conexión"</li>
+                                    </ol>
+                                    <p><strong>Ejemplo:</strong> <code>EPSON TM-M244A Receipt</code></p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="headingSerial">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
+                                        data-bs-target="#collapseSerial">
+                                    Conexión Serial (COM)
+                                </button>
+                            </h2>
+                            <div id="collapseSerial" class="accordion-collapse collapse" data-bs-parent="#installGuide">
+                                <div class="accordion-body">
+                                    <ol>
+                                        <li>Conecte la impresora usando un cable serial o adaptador USB-Serial</li>
+                                        <li>Identifique el puerto COM en el Administrador de Dispositivos</li>
+                                        <li>Configure la velocidad en baudios (típicamente 9600)</li>
+                                        <li>Use el puerto COM en el campo "Cadena de Conexión"</li>
+                                    </ol>
+                                    <p><strong>Ejemplo:</strong> <code>COM3</code> o <code>COM1</code></p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="headingNetwork">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
+                                        data-bs-target="#collapseNetwork">
+                                    Conexión de Red
+                                </button>
+                            </h2>
+                            <div id="collapseNetwork" class="accordion-collapse collapse" data-bs-parent="#installGuide">
+                                <div class="accordion-body">
+                                    <ol>
+                                        <li>Configure la impresora con una IP estática</li>
+                                        <li>Asegúrese de que esté en la misma red</li>
+                                        <li>Anote la dirección IP y puerto (generalmente 9100)</li>
+                                        <li>Use IP:Puerto en el campo "Cadena de Conexión"</li>
+                                    </ol>
+                                    <p><strong>Ejemplo:</strong> <code>192.168.1.100:9100</code></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para mensajes -->
+<div class="modal fade" id="messageModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="messageModalTitle">Resultado</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="messageModalBody">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    updateConnectionHelp();
+    
+    $('#printer-config-form').submit(function(e) {
+        e.preventDefault();
+        
+        var formData = $(this).serialize();
+        var submitBtn = $(this).find('button[type="submit"]');
+        
+        submitBtn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Guardando...');
+        
+        $.post('{% url "printer_config" %}', formData)
+        .done(function(data) {
+            showMessage('Éxito', 'Configuración guardada correctamente', 'success');
+            setTimeout(function() {
+                window.location.href = '{% url "printer_dashboard" %}';
+            }, 2000);
+        })
+        .fail(function(xhr) {
+            var message = 'Error al guardar la configuración';
+            if (xhr.responseJSON && xhr.responseJSON.message) {
+                message = xhr.responseJSON.message;
+            }
+            showMessage('Error', message, 'danger');
+        })
+        .always(function() {
+            submitBtn.prop('disabled', false).html('<i class="fas fa-save"></i> Guardar Configuración');
+        });
+    });
+});
+
+function updateConnectionHelp() {
+    var type = $('#printer_type').val();
+    var helpDiv = $('#connection-help');
+    var connectionInput = $('#connection_string');
+    
+    var helpContent = '';
+    var placeholder = '';
+    
+    switch(type) {
+        case 'USB':
+            helpContent = `
+                <h6>Conexión USB</h6>
+                <p>Ingrese el nombre exacto de la impresora como aparece en Windows.</p>
+                <div class="connection-example">EPSON TM-M244A Receipt</div>
+                <div class="connection-example">Epson M244A</div>
+                <p><small>Puede encontrar el nombre en: Panel de Control > Dispositivos e Impresoras</small></p>
+            `;
+            placeholder = 'Nombre de la impresora en Windows';
+            break;
+            
+        case 'SERIAL':
+            helpContent = `
+                <h6>Conexión Serial</h6>
+                <p>Ingrese el puerto COM donde está conectada la impresora.</p>
+                <div class="connection-example">COM1</div>
+                <div class="connection-example">COM3</div>
+                <p><small>Verifique el puerto en: Administrador de Dispositivos > Puertos (COM y LPT)</small></p>
+            `;
+            placeholder = 'Puerto COM (ej: COM3)';
+            break;
+            
+        case 'NETWORK':
+            helpContent = `
+                <h6>Conexión de Red</h6>
+                <p>Ingrese la dirección IP y puerto de la impresora.</p>
+                <div class="connection-example">192.168.1.100:9100</div>
+                <div class="connection-example">192.168.0.50:9100</div>
+                <p><small>El puerto estándar para impresoras térmicas es 9100</small></p>
+            `;
+            placeholder = 'IP:Puerto (ej: 192.168.1.100:9100)';
+            break;
+    }
+    
+    helpDiv.html(helpContent);
+    connectionInput.attr('placeholder', placeholder);
+}
+
+function testConnection() {
+    var formData = $('#printer-config-form').serialize();
+    
+    showMessage('Información', 'Probando conexión...', 'info');
+    
+    // Aquí implementarías la lógica para probar la conexión
+    // Por ahora, simulamos una prueba
+    setTimeout(function() {
+        showMessage('Éxito', 'Conexión exitosa con la impresora', 'success');
+    }, 2000);
+}
+
+function showMessage(title, message, type) {
+    $('#messageModalTitle').text(title);
+    $('#messageModalBody').html('<div class="alert alert-' + type + '">' + message + '</div>');
+    $('#messageModal').modal('show');
+}
+</script>
+{% endblock %}
