@@ -111,6 +111,43 @@ class Cliente(models.Model):
 			print(f"Error generando QR con datos para cliente {self.id}: {e}")
 			return False
 
+	def generate_clean_qr(self):
+		"""Genera un QR limpio sin información adicional"""
+		if not self.fecha_entrada:
+			return False
+			
+		try:
+			# Crear QR con el ID del cliente
+			qr_data = str(self.id)
+			qr_img = qrcode.QRCode(
+				version=1,
+				error_correction=qrcode.constants.ERROR_CORRECT_L,
+				box_size=10,
+				border=4,
+			)
+			qr_img.add_data(qr_data)
+			qr_img.make(fit=True)
+			
+			# Crear imagen del QR limpia
+			qr_image = qr_img.make_image(fill_color="black", back_color="white")
+			# Convertir a RGB si no está en RGB
+			if qr_image.mode != 'RGB':
+				qr_image = qr_image.convert('RGB')
+			
+			# Guardar imagen directamente sin agregar texto
+			buf = BytesIO()
+			qr_image.save(buf, format='PNG')
+			buf.seek(0)
+			
+			filename = f"qr_{self.id}_{self.fecha_entrada.strftime('%Y%m%d%H%M%S')}.png"
+			self.qr_image.save(filename, ContentFile(buf.read()), save=False)
+			
+			return True
+			
+		except Exception as e:
+			print(f"Error generando QR limpio para cliente {self.id}: {e}")
+			return False
+
 	def get_display_name(self):
 		"""Devuelve el nombre del cliente o un valor por defecto"""
 		return self.nombre or 'Cliente sin nombre'

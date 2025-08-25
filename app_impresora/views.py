@@ -236,8 +236,8 @@ def print_client_qr(request, client_id):
         
         # Verificar que el cliente tenga QR generado
         if not cliente.qr_image:
-            # Intentar generar el QR si no existe
-            cliente.generate_qr_with_data()
+            # Intentar generar el QR limpio si no existe
+            cliente.generate_clean_qr()
             cliente.save()
         
         success = printer_service.print_qr_ticket(cliente)

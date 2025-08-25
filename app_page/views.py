@@ -136,8 +136,8 @@ def dashboard(request):
 					cliente.save()
 					logger.info(f"Cliente saved with ID: {cliente.id}")
 					
-					# Generar QR con datos adicionales
-					qr_generated = cliente.generate_qr_with_data()
+					# Generar QR limpio sin datos adicionales
+					qr_generated = cliente.generate_clean_qr()
 					logger.info(f"QR generation result: {qr_generated}")
 					cliente.save()
 					logger.info("Cliente saved again after QR generation")

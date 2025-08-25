@@ -38,13 +38,13 @@ class Command(BaseCommand):
         
         self.stdout.write(f'Cliente creado con ID: {cliente.id}')
         
-        # Generar QR
-        qr_generated = cliente.generate_qr_with_data()
+        # Generar QR limpio
+        qr_generated = cliente.generate_clean_qr()
         if qr_generated:
-            self.stdout.write(self.style.SUCCESS('Código QR generado exitosamente'))
+            self.stdout.write(self.style.SUCCESS('Código QR limpio generado exitosamente'))
             cliente.save()
         else:
-            self.stdout.write(self.style.ERROR('Error generando código QR'))
+            self.stdout.write(self.style.ERROR('Error generando código QR limpio'))
             return
         
         # Intentar impresión

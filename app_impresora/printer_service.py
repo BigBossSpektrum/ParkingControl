@@ -256,15 +256,13 @@ class PrinterService:
                             qr_image = qr_image.convert('RGB')
                         
                         printer.set(align='center')
-                        printer.text('Codigo QR:\n')
                         printer.image(qr_image, center=True)
                         printer.text('\n')
                         
                 except Exception as qr_error:
                     logger.warning(f"Error procesando QR: {qr_error}")
-                    printer.set(align='center')
-                    printer.text('Codigo QR: Ver imagen adjunta\n')
-                    printer.text('\n')
+                    # En caso de error, no imprimir nada para mantener el QR limpio
+                    pass
             
             # Pie de página personalizado
             if config.get('showFooter', True):
@@ -443,12 +441,12 @@ class PrinterService:
             if config.get('showQr', True):
                 qr_data = f"PREVIEW_{cliente_data.get('cedula', '000000')}_{fecha_actual.strftime('%Y%m%d%H%M')}"
                 printer.set(align='center')
-                printer.text('Codigo QR:\n')
                 try:
                     printer.qr(qr_data, size=6)
                 except Exception as qr_error:
-                    logger.warning(f"Error generando QR, usando texto: {qr_error}")
-                    printer.text(f"[QR: {qr_data}]\n")
+                    logger.warning(f"Error generando QR: {qr_error}")
+                    # En caso de error, no imprimir nada para mantener el QR limpio
+                    pass
                 
                 printer.text('\n')
             
