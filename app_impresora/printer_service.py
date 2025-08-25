@@ -7,6 +7,7 @@ import os
 import logging
 from io import BytesIO
 from PIL import Image
+import pytz
 from django.conf import settings
 from django.utils import timezone
 from django.core.cache import cache
@@ -15,6 +16,14 @@ from escpos.exceptions import Error as EscposError
 from .models import PrinterConfiguration, PrintJob
 
 logger = logging.getLogger(__name__)
+
+def get_bogota_time(dt=None):
+    """Convierte una fecha/hora a la zona horaria de Bogotá"""
+    if dt is None:
+        dt = timezone.now()
+    
+    bogota_tz = pytz.timezone('America/Bogota')
+    return dt.astimezone(bogota_tz)
 
 class PrinterService:
     """Servicio para manejar la impresión en impresoras térmicas"""
@@ -227,7 +236,7 @@ class PrinterService:
             printer.set(align='left', bold=False, double_width=False, double_height=False)
             
             if config.get('showFecha', True):
-                fecha_actual = timezone.now()
+                fecha_actual = get_bogota_time()
                 printer.text(f"Fecha: {fecha_actual.strftime('%d/%m/%Y %H:%M')}\n")
             
             printer.text(f"ID: {cliente.id}\n")
@@ -237,7 +246,8 @@ class PrinterService:
             printer.text(f"Matricula: {cliente.matricula}\n")
             
             if cliente.fecha_entrada:
-                fecha_entrada = cliente.fecha_entrada.strftime('%d/%m/%Y %H:%M')
+                fecha_entrada_bogota = get_bogota_time(cliente.fecha_entrada)
+                fecha_entrada = fecha_entrada_bogota.strftime('%d/%m/%Y %H:%M')
                 printer.text(f"Entrada: {fecha_entrada}\n")
             
             printer.text('\n')
@@ -313,7 +323,8 @@ class PrinterService:
             printer.set(align='left', font='a', bold=False, double_height=False)
             printer.text(f"Modelo: {self.printer_config.model}\n")
             printer.text(f"Conexion: {self.printer_config.printer_type}\n")
-            printer.text(f"Fecha: {timezone.now().strftime('%d/%m/%Y %H:%M')}\n")
+            fecha_bogota = get_bogota_time()
+            printer.text(f"Fecha: {fecha_bogota.strftime('%d/%m/%Y %H:%M')}\n")
             
             printer.text("-" * self.printer_config.chars_per_line + "\n")
             printer.text("Si puede leer este texto,\n")
@@ -427,7 +438,7 @@ class PrinterService:
             printer.set(align='left', bold=False)
             
             if config.get('showFecha', True):
-                fecha_actual = timezone.now()
+                fecha_actual = get_bogota_time()
                 printer.text(f"Fecha: {fecha_actual.strftime('%d/%m/%Y %H:%M')}\n")
                 
             printer.text(f"Cedula: {cliente_data.get('cedula', 'N/A')}\n")
