@@ -185,6 +185,89 @@ class Cliente(models.Model):
 		
 		return ", ".join(partes)
 
+	def calcular_costo(self):
+		"""Calcula el costo total basado en el tiempo y tipo de vehículo"""
+		if not self.fecha_entrada:
+			return 0.00
+		
+		# Obtener costos actuales
+		costos = Costo.get_costos_actuales()
+		
+		# Calcular tiempo en minutos REAL (no mínimo 1 hora)
+		tiempo_minutos = self.tiempo_en_minutos()
+		if tiempo_minutos <= 0:
+			return 0.00
+		
+		# Obtener costo por hora según tipo de vehículo
+		costo_por_hora = costos.get_costo_por_tipo(self.tipo_vehiculo)
+		
+		# Calcular costo proporcional al tiempo real (por minutos)
+		costo_por_minuto = float(costo_por_hora) / 60
+		monto_final = costo_por_minuto * tiempo_minutos
+		
+		return monto_final
+
+	def monto_final_formateado(self):
+		"""Devuelve el monto final formateado como string"""
+		monto = self.calcular_costo()
+		return f"${monto:,.0f}"
+	
+	def costo_formateado(self):
+		"""Devuelve el costo formateado como string"""
+		costo = self.calcular_costo()
+		return f"${costo:,.2f}"
+
+	def costo_por_tiempo(self):
+		"""Calcula el costo por hora del tipo de vehículo"""
+		if not hasattr(self, '_costo_por_tiempo'):
+			costos = Costo.get_costos_actuales()
+			self._costo_por_tiempo = costos.get_costo_por_tipo(self.tipo_vehiculo)
+		return float(self._costo_por_tiempo)
+	
+	def tiempo_por_costo(self):
+		"""Calcula la relación tiempo transcurrido dividido por el costo total"""
+		costo_total = self.calcular_costo()
+		if costo_total == 0:
+			return 0
+		
+		tiempo_minutos = self.tiempo_en_minutos()
+		if tiempo_minutos == 0:
+			return 0
+		
+		# Retorna minutos por peso gastado
+		return tiempo_minutos / costo_total
+	
+	def tiempo_por_costo_formateado(self):
+		"""Devuelve la relación tiempo/costo formateada"""
+		if not self.fecha_entrada:
+			return "Sin entrada"
+		
+		relacion = self.tiempo_por_costo()
+		if relacion == 0:
+			return "0 min/$"
+		
+		if relacion >= 1:
+			return f"{relacion:.1f} min/$"
+		else:
+			# Si es menos de 1 minuto por peso, mostrar como centavos por minuto
+			costo_por_minuto = 1 / relacion if relacion > 0 else 0
+			return f"${costo_por_minuto:.0f}/min"
+	
+	def tarifa_completa(self):
+		"""Devuelve el monto final con información de eficiencia"""
+		if not self.fecha_entrada:
+			return "Sin entrada"
+		
+		monto_final = self.calcular_costo()
+		tiempo_costo = self.tiempo_por_costo_formateado()
+		
+		return f"${monto_final:,.0f} ({tiempo_costo})"
+	
+	def costo_por_tiempo_formateado(self):
+		"""Devuelve el costo por hora formateado"""
+		costo_hora = self.costo_por_tiempo()
+		return f"${costo_hora:,.2f}/h"
+
 	def __str__(self):
 		nombre = self.nombre or 'Sin nombre'
 		cedula = self.cedula or f'ID:{self.id}'
@@ -234,6 +317,64 @@ class Perfil(models.Model):
 		# Tanto administrador como empleado pueden ver la lista completa
 		return True
 	
+	def puede_editar_costos(self):
+		# Solo administrador puede editar costos
+		return self.es_administrador()
+	
 	class Meta:
 		verbose_name = 'Perfil'
 		verbose_name_plural = 'Perfiles'
+
+
+class Costo(models.Model):
+	"""Modelo para manejar los costos del parking por tipo de vehículo"""
+	costo_auto = models.DecimalField(
+		max_digits=10, 
+		decimal_places=2, 
+		default=0.00,
+		verbose_name="Costo por hora - Auto",
+		help_text="Costo en pesos por hora de estacionamiento para autos"
+	)
+	costo_moto = models.DecimalField(
+		max_digits=10, 
+		decimal_places=2, 
+		default=0.00,
+		verbose_name="Costo por hora - Moto",
+		help_text="Costo en pesos por hora de estacionamiento para motos"
+	)
+	fecha_actualizacion = models.DateTimeField(auto_now=True)
+	actualizado_por = models.ForeignKey(
+		User, 
+		on_delete=models.SET_NULL, 
+		null=True, 
+		blank=True,
+		verbose_name="Actualizado por"
+	)
+	
+	def __str__(self):
+		return f"Auto: ${self.costo_auto}/h - Moto: ${self.costo_moto}/h"
+	
+	def get_costo_por_tipo(self, tipo_vehiculo):
+		"""Devuelve el costo según el tipo de vehículo"""
+		if tipo_vehiculo.lower() == 'auto':
+			return self.costo_auto
+		elif tipo_vehiculo.lower() == 'moto':
+			return self.costo_moto
+		else:
+			return self.costo_auto  # Por defecto auto
+	
+	@classmethod
+	def get_costos_actuales(cls):
+		"""Obtiene los costos actuales, creando registro si no existe"""
+		costo, created = cls.objects.get_or_create(
+			id=1,  # Solo un registro de costos
+			defaults={
+				'costo_auto': 50.00,  # Valores por defecto
+				'costo_moto': 30.00
+			}
+		)
+		return costo
+	
+	class Meta:
+		verbose_name = 'Configuración de Costos'
+		verbose_name_plural = 'Configuración de Costos'

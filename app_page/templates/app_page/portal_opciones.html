@@ -38,6 +38,13 @@
         <a href="{% url 'index' %}" class="btn btn-success w-100 mb-3" style="color: #000; font-weight: bold;">Registrar Entrada</a>
         <a href="{% url 'salida_qr' %}" class="btn btn-dark w-100 mb-3" style="color: #0f0; font-weight: bold;">Registrar Salida</a>
         <a href="{% url 'lista_clientes' %}" class="btn btn-info w-100 mb-3" style="color:#111;background:#0ff;border:none; font-weight: bold;">Ver lista de clientes</a>
+        
+        {% if user.perfil.puede_editar_costos %}
+            <a href="{% url 'configurar_costos' %}" class="btn btn-warning w-100 mb-3" style="color:#111; font-weight: bold;">
+                <i class="bi bi-currency-dollar"></i>
+                Configurar Costos
+            </a>
+        {% endif %}
         <hr style="border-color:#0f0;">
         <h5 class="mt-4 mb-3">Últimos registros</h5>
         <ul class="list-group mb-2">

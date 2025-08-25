@@ -68,6 +68,30 @@
             50% { opacity: 0.7; }
             100% { opacity: 1; }
         }
+        .tarifa-parking {
+            font-weight: bold;
+            font-size: 0.8rem;
+        }
+        .costo-parking {
+            font-weight: bold;
+            font-size: 0.85rem;
+        }
+        .tiempo-costo-parking {
+            font-weight: bold;
+            font-size: 0.8rem;
+            font-style: italic;
+        }
+        .tarifa-completa {
+            font-weight: bold;
+            font-size: 0.85rem;
+            white-space: nowrap;
+        }
+        .monto-final {
+            font-weight: bold;
+            font-size: 0.9rem;
+            white-space: nowrap;
+            color: #ffc107 !important;
+        }
     </style>
 {% endblock %}
 {% block content %}
@@ -116,6 +140,9 @@
                         <th>Entrada</th>
                         <th>Salida</th>
                         <th>Tiempo</th>
+                        {% if user.perfil.es_administrador %}
+                            <th>Monto Final <small class="text-muted">(Admin)</small></th>
+                        {% endif %}
                         <th>Estado</th>
                         <th>Acciones</th>
                     </tr>
@@ -137,6 +164,15 @@
                                     <span class="tiempo-parking tiempo-activo" title="Tiempo transcurrido: {{ cliente.tiempo_detallado }} (contando...)">{{ cliente.tiempo_formateado }}</span>
                                 {% endif %}
                             </td>
+                            {% if user.perfil.es_administrador %}
+                                <td>
+                                    <span class="monto-final text-warning" 
+                                          data-cliente-id="{{ cliente.id }}"
+                                          title="Monto final calculado por tiempo real: {{ cliente.monto_final_formateado }} - Eficiencia: {{ cliente.tiempo_por_costo_formateado }}">
+                                        {{ cliente.tarifa_completa }}
+                                    </span>
+                                </td>
+                            {% endif %}
                             <td>
                                 {% if cliente.fecha_salida %}
                                     <span class="status-badge status-salido">Salido</span>
@@ -581,6 +617,52 @@
                             confirmButtonColor: '#0f0'
                         });
                     });
+            }
+        });
+    </script>
+
+    <!-- Script para actualización en tiempo real de montos -->
+    <script>
+        let actualizacionInterval;
+        
+        function actualizarMontos() {
+            // Solo actualizar si hay clientes activos (sin fecha de salida)
+            const clientesActivos = document.querySelectorAll('.tiempo-activo');
+            
+            if (clientesActivos.length > 0) {
+                // Recargar la página cada 30 segundos para actualizar montos
+                location.reload();
+            }
+        }
+        
+        function iniciarActualizacionTiempoReal() {
+            // Verificar si hay clientes activos
+            const clientesActivos = document.querySelectorAll('.tiempo-activo');
+            
+            if (clientesActivos.length > 0) {
+                // Actualizar cada 30 segundos
+                actualizacionInterval = setInterval(actualizarMontos, 30000);
+                
+                // Mostrar indicador de tiempo real
+                const header = document.querySelector('h1');
+                if (header) {
+                    const indicator = document.createElement('small');
+                    indicator.className = 'text-success ms-2';
+                    indicator.innerHTML = '<i class="bi bi-circle-fill" style="animation: pulse 2s infinite;"></i> Tiempo Real';
+                    header.appendChild(indicator);
+                }
+            }
+        }
+        
+        // Iniciar al cargar la página
+        document.addEventListener('DOMContentLoaded', function() {
+            iniciarActualizacionTiempoReal();
+        });
+        
+        // Limpiar interval al salir de la página
+        window.addEventListener('beforeunload', function() {
+            if (actualizacionInterval) {
+                clearInterval(actualizacionInterval);
             }
         });
     </script>

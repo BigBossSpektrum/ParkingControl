@@ -11,6 +11,14 @@
             <p class="card-text"><b>Tipo de Vehículo:</b> {{ cliente.get_tipo_vehiculo_display }}</p>
             <p class="card-text"><b>Fecha Entrada:</b> {{ cliente.fecha_entrada|date:'Y-m-d H:i' }}</p>
             <p class="card-text"><b>Fecha Salida:</b> {{ cliente.fecha_salida|date:'Y-m-d H:i' }}</p>
+            <p class="card-text"><b>Tiempo en Parking:</b> {{ cliente.tiempo_formateado }}</p>
+            {% if user.perfil.es_administrador %}
+                <hr class="text-success">
+                <h6 class="text-warning">Información de Monto Final (Solo Administrador)</h6>
+                <p class="card-text text-warning"><b>Monto Final:</b> {{ cliente.monto_final_formateado }}</p>
+                <p class="card-text text-info"><b>Tarifa Base ({{ cliente.get_tipo_vehiculo_display }}):</b> {{ cliente.costo_por_tiempo_formateado }}</p>
+                <p class="card-text text-muted"><b>Cálculo:</b> Proporcional al tiempo real - {{ cliente.tiempo_por_costo_formateado }}</p>
+            {% endif %}
             <div class="row">
                 <div class="col-12 text-center my-3">
                     {% if cliente.qr_image %}

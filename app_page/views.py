@@ -13,7 +13,7 @@ from django.core.paginator import Paginator
 from django import forms
 from django.db import models
 from django.core.files.base import ContentFile
-from .models import Cliente
+from .models import Cliente, Costo
 from .decorators import require_edit_permission, require_delete_permission, require_view_list_permission, get_user_profile
 
 # Configurar logger
@@ -213,7 +213,13 @@ def ver_registro(request, pk):
 		}
 		return JsonResponse(data)
 	
-	return render(request, 'app_page/ver_registro.html', {'cliente': cliente})
+	# Obtener perfil del usuario para el template
+	perfil = get_user_profile(request.user)
+	
+	return render(request, 'app_page/ver_registro.html', {
+		'cliente': cliente,
+		'perfil': perfil
+	})
 
 # --- FORMULARIOS ---
 class ClienteForm(forms.ModelForm):
@@ -553,3 +559,84 @@ def salida_qr(request):
 	else:
 		form = SalidaQRForm()
 		return render(request, 'app_page/salida_qr.html', {'form': form})
+
+
+class CostoForm(forms.ModelForm):
+	"""Formulario para configurar los costos del parking"""
+	class Meta:
+		model = Costo
+		fields = ['costo_auto', 'costo_moto']
+		widgets = {
+			'costo_auto': forms.NumberInput(attrs={
+				'class': 'form-control', 
+				'placeholder': 'Ej: 50.00',
+				'step': '0.01',
+				'min': '0'
+			}),
+			'costo_moto': forms.NumberInput(attrs={
+				'class': 'form-control', 
+				'placeholder': 'Ej: 30.00',
+				'step': '0.01',
+				'min': '0'
+			}),
+		}
+
+
+@login_required
+def configurar_costos(request):
+	"""Vista para configurar los costos del parking - Solo administradores"""
+	try:
+		perfil = get_user_profile(request.user)
+		if not perfil.puede_editar_costos():
+			return render(request, 'app_page/sin_permiso.html', {
+				'mensaje': 'No tiene permisos para configurar los costos del parking.'
+			})
+	except:
+		return render(request, 'app_page/sin_permiso.html', {
+			'mensaje': 'No tiene un perfil asignado.'
+		})
+	
+	# Obtener o crear la configuración de costos
+	costo = Costo.get_costos_actuales()
+	
+	if request.method == 'POST':
+		form = CostoForm(request.POST, instance=costo)
+		if form.is_valid():
+			costo_obj = form.save(commit=False)
+			costo_obj.actualizado_por = request.user
+			costo_obj.save()
+			
+			return render(request, 'app_page/configurar_costos.html', {
+				'form': CostoForm(instance=costo_obj),
+				'mensaje_exito': 'Costos actualizados correctamente.',
+				'costo': costo_obj
+			})
+		else:
+			return render(request, 'app_page/configurar_costos.html', {
+				'form': form,
+				'mensaje_error': 'Por favor, corrija los errores en el formulario.',
+				'costo': costo
+			})
+	else:
+		form = CostoForm(instance=costo)
+	
+	return render(request, 'app_page/configurar_costos.html', {
+		'form': form,
+		'costo': costo
+	})
+
+
+@login_required
+def portal_opciones(request):
+	"""Vista del portal de opciones principal"""
+	# Contar clientes registrados hoy
+	hoy = timezone.now().date()
+	conteo_hoy = Cliente.objects.filter(fecha_entrada__date=hoy).count()
+	
+	# Obtener últimos 5 registros
+	ultimos = Cliente.objects.all().order_by('-fecha_entrada')[:5]
+	
+	return render(request, 'app_page/portal_opciones.html', {
+		'conteo_hoy': conteo_hoy,
+		'ultimos': ultimos
+	})

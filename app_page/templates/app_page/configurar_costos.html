@@ -1,0 +1,198 @@
+{% extends 'app_page/base.html' %                                <div class="card bg-secondary border-success">
+                                <div class="card-body text-center">
+                                    <h5 class="card-title text-success">
+                                        <i class="bi bi-car-front"></i>
+                                        Tarifa Actual - Auto
+                                    </h5>
+                                    <h2 class="text-warning">${{ costo.costo_auto }}/hora</h2>
+                                    <small class="text-muted">Por cada hora o fracción</small>
+                                </div>
+                            </div>lock title %}Configurar Costos - Parking Control{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card bg-dark border-success">
+                <div class="card-header bg-success text-dark">
+                    <h3 class="mb-0">
+                        <i class="bi bi-currency-dollar"></i>
+                        Configuración de Costos del Parking
+                    </h3>
+                </div>
+                <div class="card-body">
+                    {% if mensaje_exito %}
+                        <div class="alert alert-success" role="alert">
+                            <i class="bi bi-check-circle"></i>
+                            {{ mensaje_exito }}
+                        </div>
+                    {% endif %}
+
+                    {% if mensaje_error %}
+                        <div class="alert alert-danger" role="alert">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            {{ mensaje_error }}
+                        </div>
+                    {% endif %}
+
+                    <!-- Información actual -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="card bg-secondary border-success">
+                                <div class="card-body text-center">
+                                    <h5 class="card-title text-success">
+                                        <i class="bi bi-car-front"></i>
+                                        Costo Actual - Auto
+                                    </h5>
+                                    <h2 class="text-warning">${{ costo.costo_auto }}/hora</h2>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card bg-secondary border-success">
+                                <div class="card-body text-center">
+                                    <h5 class="card-title text-success">
+                                        <i class="bi bi-scooter"></i>
+                                        Tarifa Actual - Moto
+                                    </h5>
+                                    <h2 class="text-warning">${{ costo.costo_moto }}/hora</h2>
+                                    <small class="text-muted">Por cada hora o fracción</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Formulario de configuración -->
+                    <form method="post" class="needs-validation" novalidate>
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="{{ form.costo_auto.id_for_label }}" class="form-label">
+                                        <i class="bi bi-car-front"></i>
+                                        Costo por hora - Auto (COP)
+                                    </label>
+                                    {{ form.costo_auto }}
+                                    {% if form.costo_auto.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.costo_auto.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text text-success">
+                                        Costo en pesos colombianos por hora de estacionamiento para autos
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="{{ form.costo_moto.id_for_label }}" class="form-label">
+                                        <i class="bi bi-scooter"></i>
+                                        Costo por hora - Moto (COP)
+                                    </label>
+                                    {{ form.costo_moto }}
+                                    {% if form.costo_moto.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.costo_moto.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text text-success">
+                                        Costo en pesos colombianos por hora de estacionamiento para motos
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="alert alert-info" role="alert">
+                            <i class="bi bi-info-circle"></i>
+                            <strong>Sistema de Monto Final:</strong> 
+                            El cobro es proporcional al tiempo REAL utilizado (no hay tiempo mínimo).
+                            Los montos se actualizan automáticamente en tiempo real.
+                            <br><br>
+                            <strong>Ejemplos de cálculo:</strong>
+                            <ul class="mb-0 mt-2">
+                                <li><strong>Auto 30 min = $25</strong> → Se cobra exactamente por 30 minutos</li>
+                                <li><strong>Moto 45 min = $23</strong> → Se cobra exactamente por 45 minutos</li>
+                                <li><strong>Auto 1h = $50</strong> → Se cobra por 60 minutos completos</li>
+                                <li>El monto final se actualiza cada 30 segundos para clientes activos</li>
+                            </ul>
+                        </div>
+
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{% url 'portal_opciones' %}" class="btn btn-secondary me-md-2">
+                                <i class="bi bi-arrow-left"></i>
+                                Volver
+                            </a>
+                            <button type="submit" class="btn btn-success">
+                                <i class="bi bi-save"></i>
+                                Actualizar Costos
+                            </button>
+                        </div>
+                    </form>
+
+                    {% if costo.fecha_actualizacion %}
+                        <div class="mt-4 text-center">
+                            <small class="text-muted">
+                                <i class="bi bi-clock"></i>
+                                Última actualización: {{ costo.fecha_actualizacion|date:"d/m/Y H:i" }}
+                                {% if costo.actualizado_por %}
+                                    por {{ costo.actualizado_por.get_full_name|default:costo.actualizado_por.username }}
+                                {% endif %}
+                            </small>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Validación de formulario
+(function() {
+    'use strict';
+    window.addEventListener('load', function() {
+        var forms = document.getElementsByClassName('needs-validation');
+        var validation = Array.prototype.filter.call(forms, function(form) {
+            form.addEventListener('submit', function(event) {
+                if (form.checkValidity() === false) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+                form.classList.add('was-validated');
+            }, false);
+        });
+    }, false);
+})();
+
+// Confirmar antes de actualizar
+document.querySelector('form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const costoAuto = document.querySelector('#id_costo_auto').value;
+    const costoMoto = document.querySelector('#id_costo_moto').value;
+    
+    Swal.fire({
+        title: '¿Confirmar cambios?',
+        html: `
+            <p>Los nuevos costos serán:</p>
+            <p><strong>Auto:</strong> $${costoAuto}/hora</p>
+            <p><strong>Moto:</strong> $${costoMoto}/hora</p>
+        `,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#0f0',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Sí, actualizar',
+        cancelButtonText: 'Cancelar',
+        background: '#222',
+        color: '#0f0'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            this.submit();
+        }
+    });
+});
+</script>
+{% endblock %}
