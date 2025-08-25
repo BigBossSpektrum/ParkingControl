@@ -107,13 +107,17 @@ class PrinterService:
             raise
     
     def print_qr_ticket(self, cliente):
-        """Imprime un ticket con código QR para el cliente"""
+        """Imprime un ticket con código QR para el cliente usando configuración personalizada"""
         # Recargar configuración antes de cada impresión
         self.reload_printer_config()
         
         if not self.printer_config:
             logger.error("No hay impresora configurada")
             return False
+        
+        # Cargar configuración de diseño personalizada desde BD o cache
+        design_config = self._load_design_config()
+        logger.info(f"Usando configuración de diseño: {design_config}")
             
         # Crear registro de trabajo de impresión
         print_job = PrintJob.objects.create(
@@ -133,6 +137,7 @@ class PrinterService:
                 logger.info(f"   - Datos: {cliente.get_display_name()} - {cliente.matricula}")
                 logger.info(f"   - QR: {cliente.qr_image.url if cliente.qr_image else 'No disponible'}")
                 logger.info(f"   - Impresora: {self.printer_config.name}")
+                logger.info(f"   - Configuración de diseño aplicada: {design_config}")
                 
                 print_job.status = 'SUCCESS'
                 print_job.completed_at = timezone.now()
@@ -140,77 +145,9 @@ class PrinterService:
                 
                 logger.info(f"✅ SIMULACIÓN: Ticket 'impreso' exitosamente para cliente {cliente.id}")
                 return True
-            
-            printer = self._get_printer_instance()
-            
-            # Configurar la impresora
-            printer.set(align='center', font='a', bold=True, double_height=True)
-            
-            # Encabezado
-            printer.text("SISTEMA DE PARKING\n")
-            printer.text("=" * self.printer_config.chars_per_line + "\n")
-            
-            # Información del cliente
-            printer.set(align='left', font='a', bold=False, double_height=False)
-            printer.text(f"ID: {cliente.id}\n")
-            
-            if cliente.nombre:
-                nombre_truncado = cliente.nombre[:30]  # Truncar si es muy largo
-                printer.text(f"Cliente: {nombre_truncado}\n")
-            
-            if cliente.cedula:
-                printer.text(f"Cedula: {cliente.cedula}\n")
-                
-            printer.text(f"Matricula: {cliente.matricula}\n")
-            printer.text(f"Vehiculo: {cliente.get_tipo_vehiculo_display()}\n")
-            
-            if cliente.fecha_entrada:
-                fecha_str = cliente.fecha_entrada.strftime('%d/%m/%Y %H:%M')
-                printer.text(f"Entrada: {fecha_str}\n")
-            
-            printer.text("-" * self.printer_config.chars_per_line + "\n")
-            
-            # Imprimir código QR si existe
-            if cliente.qr_image and os.path.exists(cliente.qr_image.path):
-                try:
-                    # Cargar y procesar la imagen QR
-                    qr_image = Image.open(cliente.qr_image.path)
-                    
-                    # Redimensionar para impresora térmica (aproximadamente 200px para papel de 80mm)
-                    qr_size = min(200, self.printer_config.paper_width * 2)
-                    qr_image = qr_image.resize((qr_size, qr_size), Image.Resampling.LANCZOS)
-                    
-                    # Convertir a modo compatible con la impresora
-                    if qr_image.mode != 'RGB':
-                        qr_image = qr_image.convert('RGB')
-                    
-                    # Imprimir la imagen QR
-                    printer.image(qr_image, center=True)
-                    
-                except Exception as e:
-                    logger.error(f"Error imprimiendo imagen QR: {e}")
-                    printer.text("ERROR: No se pudo imprimir QR\n")
-            
-            # Pie de página
-            printer.text("\n")
-            printer.set(align='center', font='a', bold=False)
-            printer.text("Conserve este ticket\n")
-            printer.text("para la salida\n")
-            printer.text("=" * self.printer_config.chars_per_line + "\n")
-            
-            # Cortar papel
-            printer.cut()
-            
-            # Cerrar conexión
-            printer.close()
-            
-            # Actualizar estado del trabajo
-            print_job.status = 'SUCCESS'
-            print_job.completed_at = timezone.now()
-            print_job.save()
-            
-            logger.info(f"Ticket impreso exitosamente para cliente {cliente.id}")
-            return True
+
+            # Imprimir con configuración personalizada
+            return self._print_with_custom_design(cliente, print_job, design_config)
             
         except Exception as e:
             error_msg = f"Error imprimiendo ticket: {str(e)}"
@@ -222,7 +159,146 @@ class PrinterService:
             print_job.save()
             
             return False
-    
+
+    def _load_design_config(self):
+        """Carga la configuración de diseño desde BD o cache"""
+        try:
+            from .models import TicketDesignConfiguration
+            
+            # Intentar cargar desde la base de datos
+            active_config = TicketDesignConfiguration.objects.filter(is_active=True).first()
+            
+            if active_config:
+                config = active_config.to_dict()
+                logger.info(f"Configuración cargada desde BD: {active_config.name}")
+                return config
+            else:
+                # Fallback al cache
+                config = cache.get('printer_design_config', {})
+                if config:
+                    logger.info("Configuración cargada desde cache")
+                    return config
+                else:
+                    logger.info("Usando configuración por defecto")
+                    return {}
+                    
+        except Exception as e:
+            logger.warning(f"Error cargando configuración de diseño: {e}, usando por defecto")
+            return {}
+
+    def _print_with_custom_design(self, cliente, print_job, design_config=None):
+        """Imprime el ticket aplicando la configuración de diseño personalizada"""
+        if not design_config:
+            design_config = {}
+            
+        # Configuración por defecto
+        default_config = {
+            'font': 'courier',
+            'fontSize': 12,
+            'ticketWidth': 80,
+            'showLogo': True,
+            'showFecha': True,
+            'showQr': True,
+            'showFooter': True,
+            'headerText': 'SISTEMA DE PARKING\nControl de Acceso',
+            'footerText': 'Conserve este ticket\nGracias por su visita'
+        }
+        
+        # Combinar configuración por defecto con la personalizada
+        config = {**default_config, **design_config}
+        
+        try:
+            printer = self._get_printer_instance()
+            
+            # Configurar codificación
+            printer.charcode('CP437')
+            
+            # Encabezado personalizado
+            if config.get('showLogo', True):
+                printer.set(align='center', bold=True, double_width=True, double_height=True)
+                header_lines = config.get('headerText', 'SISTEMA DE PARKING').split('\n')
+                for line in header_lines:
+                    printer.text(line + '\n')
+                    
+                printer.text('=' * 32 + '\n')
+                printer.text('\n')
+            
+            # Información del cliente con formato personalizado
+            printer.set(align='left', bold=False, double_width=False, double_height=False)
+            
+            if config.get('showFecha', True):
+                fecha_actual = timezone.now()
+                printer.text(f"Fecha: {fecha_actual.strftime('%d/%m/%Y %H:%M')}\n")
+            
+            printer.text(f"ID: {cliente.id}\n")
+            printer.text(f"Cedula: {cliente.cedula or 'N/A'}\n")
+            printer.text(f"Nombre: {cliente.nombre or 'N/A'}\n")
+            printer.text(f"Vehiculo: {cliente.get_tipo_vehiculo_display()}\n")
+            printer.text(f"Matricula: {cliente.matricula}\n")
+            
+            if cliente.fecha_entrada:
+                fecha_entrada = cliente.fecha_entrada.strftime('%d/%m/%Y %H:%M')
+                printer.text(f"Entrada: {fecha_entrada}\n")
+            
+            printer.text('\n')
+            
+            # Código QR personalizado
+            if config.get('showQr', True) and cliente.qr_image:
+                try:
+                    if os.path.exists(cliente.qr_image.path):
+                        qr_image = Image.open(cliente.qr_image.path)
+                        
+                        # Redimensionar según la configuración
+                        qr_size = min(200, int(config.get('ticketWidth', 80)) * 2)
+                        qr_image = qr_image.resize((qr_size, qr_size), Image.Resampling.LANCZOS)
+                        
+                        if qr_image.mode != 'RGB':
+                            qr_image = qr_image.convert('RGB')
+                        
+                        printer.set(align='center')
+                        printer.text('Codigo QR:\n')
+                        printer.image(qr_image, center=True)
+                        printer.text('\n')
+                        
+                except Exception as qr_error:
+                    logger.warning(f"Error procesando QR: {qr_error}")
+                    printer.set(align='center')
+                    printer.text('Codigo QR: Ver imagen adjunta\n')
+                    printer.text('\n')
+            
+            # Pie de página personalizado
+            if config.get('showFooter', True):
+                printer.set(align='center', bold=False)
+                printer.text('-' * 32 + '\n')
+                footer_lines = config.get('footerText', 'Gracias por su visita').split('\n')
+                for line in footer_lines:
+                    printer.text(line + '\n')
+            
+            # Cortar papel
+            printer.text('\n' * 3)
+            printer.cut()
+            
+            printer.close()
+            
+            # Actualizar estado del trabajo
+            print_job.status = 'SUCCESS'
+            print_job.completed_at = timezone.now()
+            print_job.save()
+            
+            logger.info(f"Ticket impreso exitosamente para cliente {cliente.id} con configuración personalizada")
+            return True
+            
+        except Exception as e:
+            error_msg = f"Error en _print_with_custom_design: {str(e)}"
+            logger.error(error_msg)
+            
+            print_job.status = 'FAILED'
+            print_job.error_message = error_msg
+            print_job.completed_at = timezone.now()
+            print_job.save()
+            
+            return False
+
     def test_printer(self):
         """Prueba la conexión y funcionalidad de la impresora"""
         if not self.printer_config:
@@ -307,9 +383,9 @@ class PrinterService:
                 logger.info(f"Configuración de diseño aplicada: {design_config}")
                 return True
             
-            # Cargar configuración de diseño desde cache si no se proporciona
+            # Cargar configuración de diseño desde BD si no se proporciona
             if not design_config:
-                design_config = cache.get('printer_design_config', {})
+                design_config = self._load_design_config()
                 
             # Configuración por defecto si no hay ninguna
             default_config = {
@@ -341,7 +417,7 @@ class PrinterService:
             
             # Encabezado personalizado
             if config.get('showLogo', True):
-                printer.set(align='center', text_type='B', width=2, height=2)
+                printer.set(align='center', bold=True, double_width=True, double_height=True)
                 header_lines = config.get('headerText', 'SISTEMA DE PARKING').split('\n')
                 for line in header_lines:
                     printer.text(line + '\n')
@@ -350,7 +426,7 @@ class PrinterService:
                 printer.text('\n')
             
             # Información del cliente con formato personalizado
-            printer.set(align='left', text_type='normal')
+            printer.set(align='left', bold=False)
             
             if config.get('showFecha', True):
                 fecha_actual = timezone.now()
@@ -378,7 +454,7 @@ class PrinterService:
             
             # Pie de página personalizado
             if config.get('showFooter', True):
-                printer.set(align='center', text_type='normal')
+                printer.set(align='center', bold=False)
                 printer.text('-' * 32 + '\n')
                 footer_lines = config.get('footerText', 'Gracias por su visita').split('\n')
                 for line in footer_lines:

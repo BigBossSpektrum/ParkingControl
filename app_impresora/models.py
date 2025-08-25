@@ -39,6 +39,85 @@ class PrinterConfiguration(models.Model):
     def __str__(self):
         return f"{self.name} - {self.model}"
 
+
+class TicketDesignConfiguration(models.Model):
+    """Configuración de diseño para los tickets"""
+    FONT_CHOICES = [
+        ('courier', 'Courier New'),
+        ('arial', 'Arial'),
+        ('times', 'Times New Roman'),
+    ]
+    
+    name = models.CharField(max_length=100, verbose_name="Nombre de la configuración", default="Configuración por defecto")
+    
+    # Configuración de fuente y tamaño
+    font = models.CharField(max_length=20, choices=FONT_CHOICES, default='courier', verbose_name="Fuente")
+    font_size = models.IntegerField(default=12, verbose_name="Tamaño de fuente")
+    ticket_width = models.IntegerField(default=80, verbose_name="Ancho del ticket (mm)")
+    
+    # Elementos a mostrar
+    show_logo = models.BooleanField(default=True, verbose_name="Mostrar logo/encabezado")
+    show_fecha = models.BooleanField(default=True, verbose_name="Mostrar fecha y hora")
+    show_qr = models.BooleanField(default=True, verbose_name="Mostrar código QR")
+    show_footer = models.BooleanField(default=True, verbose_name="Mostrar pie de página")
+    
+    # Textos personalizables
+    header_text = models.TextField(
+        default="SISTEMA DE PARKING\nControl de Acceso", 
+        verbose_name="Texto del encabezado",
+        help_text="Use \\n para saltos de línea"
+    )
+    footer_text = models.TextField(
+        default="Conserve este ticket\nGracias por su visita", 
+        verbose_name="Texto del pie de página",
+        help_text="Use \\n para saltos de línea"
+    )
+    
+    # Configuración activa
+    is_active = models.BooleanField(default=False, verbose_name="Configuración activa")
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Configuración de Diseño de Ticket"
+        verbose_name_plural = "Configuraciones de Diseño de Tickets"
+    
+    def __str__(self):
+        return self.name
+    
+    def save(self, *args, **kwargs):
+        # Solo una configuración puede estar activa a la vez
+        if self.is_active:
+            TicketDesignConfiguration.objects.filter(is_active=True).update(is_active=False)
+        super().save(*args, **kwargs)
+    
+    def to_dict(self):
+        """Convierte la configuración a diccionario para usar en el servicio de impresión"""
+        return {
+            'font': self.font,
+            'fontSize': self.font_size,
+            'ticketWidth': self.ticket_width,
+            'showLogo': self.show_logo,
+            'showFecha': self.show_fecha,
+            'showQr': self.show_qr,
+            'showFooter': self.show_footer,
+            'headerText': self.header_text,
+            'footerText': self.footer_text
+        }
+    
+    @classmethod
+    def get_active_config(cls):
+        """Obtiene la configuración activa o crea una por defecto"""
+        active_config = cls.objects.filter(is_active=True).first()
+        if not active_config:
+            active_config = cls.objects.create(
+                name="Configuración por defecto",
+                is_active=True
+            )
+        return active_config
+
+
 class PrintJob(models.Model):
     """Registro de trabajos de impresión"""
     STATUS_CHOICES = [

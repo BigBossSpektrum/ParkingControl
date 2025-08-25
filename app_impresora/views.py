@@ -683,23 +683,55 @@ def save_design_config(request):
         try:
             data = json.loads(request.body)
             
-            # Guardar configuración en cache o base de datos
-            design_config = {
-                'font': data.get('font', 'courier'),
-                'fontSize': data.get('fontSize', 12),
-                'ticketWidth': data.get('ticketWidth', 80),
-                'showLogo': data.get('showLogo', True),
-                'showFecha': data.get('showFecha', True),
-                'showQr': data.get('showQr', True),
-                'showFooter': data.get('showFooter', True),
-                'headerText': data.get('headerText', 'SISTEMA DE PARKING\nControl de Acceso'),
-                'footerText': data.get('footerText', 'Conserve este ticket\nGracias por su visita')
-            }
+            # Validar datos
+            font = data.get('font', 'courier')
+            if font not in ['courier', 'arial', 'times']:
+                font = 'courier'
             
-            # Guardar en cache por ahora (puedes crear un modelo específico después)
+            font_size = int(data.get('fontSize', 12))
+            if font_size < 8 or font_size > 16:
+                font_size = 12
+                
+            ticket_width = int(data.get('ticketWidth', 80))
+            if ticket_width < 58 or ticket_width > 80:
+                ticket_width = 80
+            
+            # Obtener o crear configuración activa
+            from .models import TicketDesignConfiguration
+            config, created = TicketDesignConfiguration.objects.get_or_create(
+                is_active=True,
+                defaults={
+                    'name': 'Configuración personalizada',
+                    'font': font,
+                    'font_size': font_size,
+                    'ticket_width': ticket_width,
+                    'show_logo': data.get('showLogo', True),
+                    'show_fecha': data.get('showFecha', True),
+                    'show_qr': data.get('showQr', True),
+                    'show_footer': data.get('showFooter', True),
+                    'header_text': data.get('headerText', 'SISTEMA DE PARKING\nControl de Acceso'),
+                    'footer_text': data.get('footerText', 'Conserve este ticket\nGracias por su visita')
+                }
+            )
+            
+            if not created:
+                # Actualizar configuración existente
+                config.font = font
+                config.font_size = font_size
+                config.ticket_width = ticket_width
+                config.show_logo = data.get('showLogo', True)
+                config.show_fecha = data.get('showFecha', True)
+                config.show_qr = data.get('showQr', True)
+                config.show_footer = data.get('showFooter', True)
+                config.header_text = data.get('headerText', 'SISTEMA DE PARKING\nControl de Acceso')
+                config.footer_text = data.get('footerText', 'Conserve este ticket\nGracias por su visita')
+                config.save()
+            
+            # También guardar en cache para compatibilidad
+            design_config = config.to_dict()
             cache.set('printer_design_config', design_config, timeout=None)
             
-            logger.info(f"Design configuration saved: {design_config}")
+            logger.info(f"Design configuration saved to database and cache: {design_config}")
             
             return JsonResponse({
                 'success': True,
@@ -720,17 +752,26 @@ def save_design_config(request):
 def get_design_config(request):
     """Obtener configuración de diseño actual"""
     try:
-        design_config = cache.get('printer_design_config', {
-            'font': 'courier',
-            'fontSize': 12,
-            'ticketWidth': 80,
-            'showLogo': True,
-            'showFecha': True,
-            'showQr': True,
-            'showFooter': True,
-            'headerText': 'SISTEMA DE PARKING\nControl de Acceso',
-            'footerText': 'Conserve este ticket\nGracias por su visita'
-        })
+        from .models import TicketDesignConfiguration
+        
+        # Intentar obtener desde la base de datos primero
+        active_config = TicketDesignConfiguration.objects.filter(is_active=True).first()
+        
+        if active_config:
+            design_config = active_config.to_dict()
+        else:
+            # Fallback al cache si no hay configuración en BD
+            design_config = cache.get('printer_design_config', {
+                'font': 'courier',
+                'fontSize': 12,
+                'ticketWidth': 80,
+                'showLogo': True,
+                'showFecha': True,
+                'showQr': True,
+                'showFooter': True,
+                'headerText': 'SISTEMA DE PARKING\nControl de Acceso',
+                'footerText': 'Conserve este ticket\nGracias por su visita'
+            })
         
         return JsonResponse({
             'success': True,
