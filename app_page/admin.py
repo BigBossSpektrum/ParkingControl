@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import User
-from .models import Cliente, Perfil, Costo
+from .models import Cliente, Perfil, Costo, TarifaPlena
 
 @admin.register(Cliente)
 class ClienteAdmin(admin.ModelAdmin):
@@ -42,6 +42,55 @@ class CostoAdmin(admin.ModelAdmin):
 	
 	def save_model(self, request, obj, form, change):
 		"""Guarda quién actualizó los costos"""
+		obj.actualizado_por = request.user
+		super().save_model(request, obj, form, change)
+	
+	def get_queryset(self, request):
+		"""Limita a un solo registro de configuración"""
+		qs = super().get_queryset(request)
+		return qs.filter(id=1)  # Solo el registro principal
+
+@admin.register(TarifaPlena)
+class TarifaPlenaAdmin(admin.ModelAdmin):
+	list_display = ('activa', 'costo_fijo_auto', 'costo_fijo_moto', 'fecha_actualizacion', 'actualizado_por')
+	readonly_fields = ('fecha_actualizacion', 'actualizado_por')
+	
+	fieldsets = (
+		('Estado de la Tarifa', {
+			'fields': ('activa',),
+			'description': 'Activar o desactivar la tarifa plena con costo fijo'
+		}),
+		('Costos Fijos', {
+			'fields': ('costo_fijo_auto', 'costo_fijo_moto'),
+			'description': 'Costos fijos cuando la tarifa plena está activa'
+		}),
+		('Información del Sistema', {
+			'fields': ('fecha_actualizacion', 'actualizado_por'),
+			'classes': ('collapse',)
+		})
+	)
+	
+	def has_change_permission(self, request, obj=None):
+		"""Solo administradores pueden modificar la tarifa plena"""
+		if request.user.is_superuser:
+			return True
+		
+		try:
+			perfil = request.user.perfil
+			return perfil.puede_editar_costos()
+		except:
+			return False
+	
+	def has_delete_permission(self, request, obj=None):
+		"""No se puede eliminar la configuración de tarifa plena"""
+		return False
+	
+	def has_add_permission(self, request):
+		"""Solo se permite un registro de tarifa plena"""
+		return not TarifaPlena.objects.exists()
+	
+	def save_model(self, request, obj, form, change):
+		"""Guarda quién actualizó la tarifa plena"""
 		obj.actualizado_por = request.user
 		super().save_model(request, obj, form, change)
 	

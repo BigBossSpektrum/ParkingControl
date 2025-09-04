@@ -21,6 +21,9 @@ urlpatterns = [
     path('clientes/editar/<int:pk>/', views.editar_cliente, name='editar_cliente'),
     path('clientes/eliminar/<int:pk>/', views.eliminar_cliente, name='eliminar_cliente'),
     path('clientes/registro/<int:pk>/', views.ver_registro, name='ver_registro'),
+    
+    # URLs para configuración
     path('configurar-costos/', views.configurar_costos, name='configurar_costos'),
+    path('toggle-tarifa-plena/', views.toggle_tarifa_plena, name='toggle_tarifa_plena'),
 ]
 

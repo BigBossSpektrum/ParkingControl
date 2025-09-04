@@ -93,6 +93,41 @@
     <div class="container-fluid px-3 py-2">
         <h1 class="mb-4">Clientes Registrados</h1>
         <a href="/" class="btn btn-success mb-3" style="font-weight: bold; color: #000;">Registrar nuevo cliente</a>
+        
+        <!-- Panel de Control de Tarifa Plena -->
+        {% if perfil.puede_editar_costos %}
+        <div class="card bg-dark border-warning mb-3">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-6">
+                        <h6 class="card-title text-warning mb-2">
+                            <i class="bi bi-speedometer2 me-2"></i>Control de Tarifa Plena
+                        </h6>
+                        <p class="mb-0 small text-muted">
+                            Estado actual: 
+                            <span id="estadoTarifaPlena" class="badge {% if tarifa_plena.activa %}bg-success{% else %}bg-secondary{% endif %}">
+                                {% if tarifa_plena.activa %}ACTIVA{% else %}INACTIVA{% endif %}
+                            </span>
+                        </p>
+                        {% if tarifa_plena.activa %}
+                        <small class="text-success">
+                            Auto: ${{ tarifa_plena.costo_fijo_auto }} | Moto: ${{ tarifa_plena.costo_fijo_moto }}
+                        </small>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6 text-end">
+                        <button type="button" id="toggleTarifaPlena" 
+                                class="btn {% if tarifa_plena.activa %}btn-danger{% else %}btn-success{% endif %}" 
+                                data-activa="{{ tarifa_plena.activa|yesno:'true,false' }}">
+                            <i class="bi {% if tarifa_plena.activa %}bi-pause-circle{% else %}bi-play-circle{% endif %} me-1"></i>
+                            {% if tarifa_plena.activa %}Desactivar{% else %}Activar{% endif %} Tarifa Plena
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
         <div class="row g-2 mb-3">
             <div class="col-md-3">
                 <input type="text" id="filtroTiempoReal" class="form-control" placeholder="Buscar por cédula, nombre, teléfono, torre, apartamento o matrícula..." value="{{ query }}">
@@ -713,5 +748,100 @@
                 });
             }
         });
+
+        // Control de Tarifa Plena
+        {% if perfil.puede_editar_costos %}
+        const toggleBtn = document.getElementById('toggleTarifaPlena');
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', function() {
+                const estaActiva = this.dataset.activa === 'true';
+                const accion = estaActiva ? 'desactivar' : 'activar';
+                const titulo = estaActiva ? '¿Desactivar Tarifa Plena?' : '¿Activar Tarifa Plena?';
+                const texto = estaActiva ? 
+                    'Se volverá al cálculo por minutos normal' : 
+                    'Se aplicará costo fijo a todos los vehículos';
+
+                Swal.fire({
+                    title: titulo,
+                    text: texto,
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: estaActiva ? '#dc3545' : '#198754',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: `Sí, ${accion}`,
+                    cancelButtonText: 'Cancelar',
+                    background: '#222',
+                    color: '#0f0'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        // Realizar petición AJAX
+                        fetch('{% url "toggle_tarifa_plena" %}', {
+                            method: 'POST',
+                            headers: {
+                                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                                'Content-Type': 'application/json',
+                                'X-Requested-With': 'XMLHttpRequest'
+                            },
+                            body: JSON.stringify({
+                                'activar': !estaActiva
+                            })
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                // Actualizar la interfaz
+                                const estadoSpan = document.getElementById('estadoTarifaPlena');
+                                const newActiva = data.activa;
+                                
+                                // Actualizar el estado visual
+                                estadoSpan.textContent = newActiva ? 'ACTIVA' : 'INACTIVA';
+                                estadoSpan.className = `badge ${newActiva ? 'bg-success' : 'bg-secondary'}`;
+                                
+                                // Actualizar el botón
+                                toggleBtn.dataset.activa = newActiva.toString();
+                                toggleBtn.className = `btn ${newActiva ? 'btn-danger' : 'btn-success'}`;
+                                toggleBtn.innerHTML = `
+                                    <i class="bi ${newActiva ? 'bi-pause-circle' : 'bi-play-circle'} me-1"></i>
+                                    ${newActiva ? 'Desactivar' : 'Activar'} Tarifa Plena
+                                `;
+                                
+                                Swal.fire({
+                                    title: 'Éxito',
+                                    text: data.mensaje,
+                                    icon: 'success',
+                                    background: '#222',
+                                    color: '#0f0',
+                                    timer: 2000,
+                                    showConfirmButton: false
+                                });
+                                
+                                // Recargar la página después de 2 segundos para actualizar los costos
+                                setTimeout(() => {
+                                    window.location.reload();
+                                }, 2000);
+                            } else {
+                                Swal.fire({
+                                    title: 'Error',
+                                    text: data.mensaje || 'Error al cambiar el estado de la tarifa plena',
+                                    icon: 'error',
+                                    background: '#222',
+                                    color: '#0f0'
+                                });
+                            }
+                        })
+                        .catch(error => {
+                            Swal.fire({
+                                title: 'Error',
+                                text: 'Error de conexión: ' + error.message,
+                                icon: 'error',
+                                background: '#222',
+                                color: '#0f0'
+                            });
+                        });
+                    }
+                });
+            });
+        }
+        {% endif %}
     </script>
 {% endblock %}

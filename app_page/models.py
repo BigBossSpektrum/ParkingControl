@@ -263,25 +263,36 @@ class Cliente(models.Model):
 		if not self.fecha_entrada:
 			return 0.00
 		
-		# Obtener costos actuales
-		costos = Costo.get_costos_actuales()
+		# Verificar si la tarifa plena está activa
+		tarifa_plena = TarifaPlena.get_tarifa_actual()
 		
-		# Calcular tiempo en horas (mínimo 1 hora)
-		tiempo_minutos = self.tiempo_en_minutos()
-		tiempo_horas = max(1, (tiempo_minutos + 59) // 60)  # Redondear hacia arriba
-		
-		# Obtener costo por hora según tipo de vehículo
-		costo_por_hora = costos.get_costo_por_tipo(self.tipo_vehiculo)
-		
-		return float(costo_por_hora) * tiempo_horas
+		if tarifa_plena.activa:
+			# Si la tarifa plena está activa, usar costo fijo
+			return float(tarifa_plena.get_costo_por_tipo(self.tipo_vehiculo))
+		else:
+			# Si no, usar el cálculo por minutos normal
+			costos = Costo.get_costos_actuales()
+			tiempo_minutos = max(1, self.tiempo_en_minutos())
+			costo_por_minuto = costos.get_costo_por_tipo(self.tipo_vehiculo)
+			return float(costo_por_minuto) * tiempo_minutos
 	
 	def costo_formateado(self):
 		"""Devuelve el costo formateado como string"""
 		costo = self.calcular_costo()
-		return f"${costo:,.2f}"
+		tarifa_plena = TarifaPlena.get_tarifa_actual()
+		
+		if tarifa_plena.activa:
+			return f"${costo:,.2f} (Tarifa Plena)"
+		else:
+			return f"${costo:,.2f}"
+	
+	def es_tarifa_plena(self):
+		"""Verifica si este cliente está usando tarifa plena"""
+		tarifa_plena = TarifaPlena.get_tarifa_actual()
+		return tarifa_plena.activa
 
 	def costo_por_tiempo(self):
-		"""Calcula el costo por hora del tipo de vehículo"""
+		"""Calcula el costo por minuto del tipo de vehículo"""
 		if not hasattr(self, '_costo_por_tiempo'):
 			costos = Costo.get_costos_actuales()
 			self._costo_por_tiempo = costos.get_costo_por_tipo(self.tipo_vehiculo)
@@ -447,15 +458,15 @@ class Costo(models.Model):
 		max_digits=10, 
 		decimal_places=2, 
 		default=0.00,
-		verbose_name="Costo por hora - Auto",
-		help_text="Costo en pesos por hora de estacionamiento para autos"
+		verbose_name="Costo por minuto - Auto",
+		help_text="Costo en pesos por minuto de estacionamiento para autos"
 	)
 	costo_moto = models.DecimalField(
 		max_digits=10, 
 		decimal_places=2, 
 		default=0.00,
-		verbose_name="Costo por hora - Moto",
-		help_text="Costo en pesos por hora de estacionamiento para motos"
+		verbose_name="Costo por minuto - Moto",
+		help_text="Costo en pesos por minuto de estacionamiento para motos"
 	)
 	fecha_actualizacion = models.DateTimeField(auto_now=True)
 	actualizado_por = models.ForeignKey(
@@ -467,10 +478,10 @@ class Costo(models.Model):
 	)
 	
 	def __str__(self):
-		return f"Auto: ${self.costo_auto}/h - Moto: ${self.costo_moto}/h"
+		return f"Auto: ${self.costo_auto}/min - Moto: ${self.costo_moto}/min"
 	
 	def get_costo_por_tipo(self, tipo_vehiculo):
-		"""Devuelve el costo según el tipo de vehículo"""
+		"""Devuelve el costo por minuto según el tipo de vehículo"""
 		if tipo_vehiculo.lower() == 'auto':
 			return self.costo_auto
 		elif tipo_vehiculo.lower() == 'moto':
@@ -484,8 +495,8 @@ class Costo(models.Model):
 		costo, created = cls.objects.get_or_create(
 			id=1,  # Solo un registro de costos
 			defaults={
-				'costo_auto': 50.00,  # Valores por defecto
-				'costo_moto': 30.00
+				'costo_auto': 1.00,  # Valores por defecto: $1 por minuto
+				'costo_moto': 0.50   # $0.50 por minuto
 			}
 		)
 		return costo
@@ -493,3 +504,64 @@ class Costo(models.Model):
 	class Meta:
 		verbose_name = 'Configuración de Costos'
 		verbose_name_plural = 'Configuración de Costos'
+
+
+class TarifaPlena(models.Model):
+	"""Modelo para manejar la tarifa plena con costo fijo"""
+	activa = models.BooleanField(
+		default=False,
+		verbose_name="Tarifa plena activa",
+		help_text="Activar/desactivar la tarifa plena con costo fijo"
+	)
+	costo_fijo_auto = models.DecimalField(
+		max_digits=10, 
+		decimal_places=2, 
+		default=0.00,
+		verbose_name="Costo fijo - Auto",
+		help_text="Costo fijo en pesos para autos cuando la tarifa plena está activa"
+	)
+	costo_fijo_moto = models.DecimalField(
+		max_digits=10, 
+		decimal_places=2, 
+		default=0.00,
+		verbose_name="Costo fijo - Moto",
+		help_text="Costo fijo en pesos para motos cuando la tarifa plena está activa"
+	)
+	fecha_actualizacion = models.DateTimeField(auto_now=True)
+	actualizado_por = models.ForeignKey(
+		User, 
+		on_delete=models.SET_NULL, 
+		null=True, 
+		blank=True,
+		verbose_name="Actualizado por"
+	)
+	
+	def __str__(self):
+		estado = "Activa" if self.activa else "Inactiva"
+		return f"Tarifa Plena ({estado}) - Auto: ${self.costo_fijo_auto} - Moto: ${self.costo_fijo_moto}"
+	
+	def get_costo_por_tipo(self, tipo_vehiculo):
+		"""Devuelve el costo fijo según el tipo de vehículo"""
+		if tipo_vehiculo.lower() == 'auto':
+			return self.costo_fijo_auto
+		elif tipo_vehiculo.lower() == 'moto':
+			return self.costo_fijo_moto
+		else:
+			return self.costo_fijo_auto  # Por defecto auto
+	
+	@classmethod
+	def get_tarifa_actual(cls):
+		"""Obtiene la configuración actual de tarifa plena, creando registro si no existe"""
+		tarifa, created = cls.objects.get_or_create(
+			id=1,  # Solo un registro de tarifa plena
+			defaults={
+				'activa': False,
+				'costo_fijo_auto': 5000.00,  # Valores por defecto
+				'costo_fijo_moto': 3000.00
+			}
+		)
+		return tarifa
+	
+	class Meta:
+		verbose_name = 'Tarifa Plena'
+		verbose_name_plural = 'Tarifa Plena'

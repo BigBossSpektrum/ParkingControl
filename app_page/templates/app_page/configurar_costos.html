@@ -44,7 +44,8 @@
                                         <i class="bi bi-car-front"></i>
                                         Costo Actual - Auto
                                     </h5>
-                                    <h2 class="text-warning">${{ costo.costo_auto }}/hora</h2>
+                                    <h2 class="text-warning">${{ costo.costo_auto }}/min</h2>
+                                    <small class="text-muted">Por cada minuto</small>
                                 </div>
                             </div>
                         </div>
@@ -53,10 +54,10 @@
                                 <div class="card-body text-center">
                                     <h5 class="card-title text-success">
                                         <i class="bi bi-scooter"></i>
-                                        Tarifa Actual - Moto
+                                        Costo Actual - Moto
                                     </h5>
-                                    <h2 class="text-warning">${{ costo.costo_moto }}/hora</h2>
-                                    <small class="text-muted">Por cada hora o fracción</small>
+                                    <h2 class="text-warning">${{ costo.costo_moto }}/min</h2>
+                                    <small class="text-muted">Por cada minuto</small>
                                 </div>
                             </div>
                         </div>
@@ -71,7 +72,7 @@
                                 <div class="mb-3">
                                     <label for="{{ form.costo_auto.id_for_label }}" class="form-label">
                                         <i class="bi bi-car-front"></i>
-                                        Costo por hora - Auto (COP)
+                                        Costo por minuto - Auto (COP)
                                     </label>
                                     {{ form.costo_auto }}
                                     {% if form.costo_auto.errors %}
@@ -80,7 +81,7 @@
                                         </div>
                                     {% endif %}
                                     <div class="form-text text-success">
-                                        Costo en pesos colombianos por hora de estacionamiento para autos
+                                        Costo en pesos colombianos por minuto de estacionamiento para autos
                                     </div>
                                 </div>
                             </div>
@@ -89,7 +90,7 @@
                                 <div class="mb-3">
                                     <label for="{{ form.costo_moto.id_for_label }}" class="form-label">
                                         <i class="bi bi-scooter"></i>
-                                        Costo por hora - Moto (COP)
+                                        Costo por minuto - Moto (COP)
                                     </label>
                                     {{ form.costo_moto }}
                                     {% if form.costo_moto.errors %}
@@ -98,7 +99,7 @@
                                         </div>
                                     {% endif %}
                                     <div class="form-text text-success">
-                                        Costo en pesos colombianos por hora de estacionamiento para motos
+                                        Costo en pesos colombianos por minuto de estacionamiento para motos
                                     </div>
                                 </div>
                             </div>
@@ -108,13 +109,13 @@
                             <i class="bi bi-info-circle"></i>
                             <strong>Importante:</strong> 
                             Los cambios en los costos se aplicarán inmediatamente para nuevos cálculos.
-                            El sistema redondea el tiempo hacia arriba (mínimo 1 hora).
+                            El sistema calcula por minutos exactos (mínimo 1 minuto).
                             <br><br>
-                            <strong>Formato de Tarifa mostrada:</strong>
+                            <strong>Ejemplos de cálculo:</strong>
                             <ul class="mb-0 mt-2">
-                                <li><strong>$100 (1.2 min/$)</strong> → $100 total, cada peso da 1.2 minutos</li>
-                                <li><strong>$50 ($83/min)</strong> → $50 total, cada minuto cuesta $83</li>
-                                <li>La tarifa combina el costo total y la eficiencia en un solo valor</li>
+                                <li><strong>Auto 30 minutos x $1.00/min</strong> = $30.00 total</li>
+                                <li><strong>Moto 45 minutos x $0.50/min</strong> = $22.50 total</li>
+                                <li>Cálculo preciso: cada minuto se factura individualmente</li>
                             </ul>
                         </div>
 
@@ -176,8 +177,8 @@ document.querySelector('form').addEventListener('submit', function(e) {
         title: '¿Confirmar cambios?',
         html: `
             <p>Los nuevos costos serán:</p>
-            <p><strong>Auto:</strong> $${costoAuto}/hora</p>
-            <p><strong>Moto:</strong> $${costoMoto}/hora</p>
+            <p><strong>Auto:</strong> $${costoAuto}/minuto</p>
+            <p><strong>Moto:</strong> $${costoMoto}/minuto</p>
         `,
         icon: 'question',
         showCancelButton: true,

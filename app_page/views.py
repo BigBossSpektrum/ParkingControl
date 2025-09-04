@@ -13,7 +13,7 @@ from django.core.paginator import Paginator
 from django import forms
 from django.db import models
 from django.core.files.base import ContentFile
-from .models import Cliente, Costo, Visitante
+from .models import Cliente, Costo, Visitante, TarifaPlena
 from .decorators import require_edit_permission, require_delete_permission, require_view_list_permission, get_user_profile
 
 # Importar el servicio de impresión
@@ -388,6 +388,9 @@ def lista_clientes(request):
 	# Obtener perfil del usuario
 	perfil = get_user_profile(request.user)
 	
+	# Obtener configuración de tarifa plena
+	tarifa_plena = TarifaPlena.get_tarifa_actual()
+	
 	context = {
 		'page_obj': page_obj,
 		'estado': estado,
@@ -395,6 +398,7 @@ def lista_clientes(request):
 		'fecha_inicio': fecha_inicio,
 		'fecha_fin': fecha_fin,
 		'perfil': perfil,
+		'tarifa_plena': tarifa_plena,
 	}
 	
 	return render(request, 'app_page/lista_clientes.html', context)
@@ -628,16 +632,20 @@ class CostoForm(forms.ModelForm):
 		widgets = {
 			'costo_auto': forms.NumberInput(attrs={
 				'class': 'form-control', 
-				'placeholder': 'Ej: 50.00',
+				'placeholder': 'Ej: 1.00',
 				'step': '0.01',
 				'min': '0'
 			}),
 			'costo_moto': forms.NumberInput(attrs={
 				'class': 'form-control', 
-				'placeholder': 'Ej: 30.00',
+				'placeholder': 'Ej: 0.50',
 				'step': '0.01',
 				'min': '0'
 			}),
+		}
+		labels = {
+			'costo_auto': 'Costo por minuto - Auto ($)',
+			'costo_moto': 'Costo por minuto - Moto ($)',
 		}
 
 
@@ -803,7 +811,63 @@ def lista_visitantes(request):
 	}
 	
 	return render(request, 'app_page/lista_visitantes.html', context)
+
+# --- TOGGLE TARIFA PLENA ---
+@login_required
+def toggle_tarifa_plena(request):
+	"""Vista para activar/desactivar la tarifa plena"""
+	if request.method != 'POST':
+		return JsonResponse({'success': False, 'mensaje': 'Método no permitido'})
 	
+	# Verificar permisos
+	try:
+		perfil = get_user_profile(request.user)
+		if not perfil.puede_editar_costos():
+			return JsonResponse({
+				'success': False, 
+				'mensaje': 'No tiene permisos para cambiar la tarifa plena'
+			})
+	except:
+		return JsonResponse({
+			'success': False, 
+			'mensaje': 'No tiene un perfil asignado'
+		})
+	
+	# Detectar petición AJAX
+	is_ajax = (
+		request.headers.get('X-Requested-With') == 'XMLHttpRequest' or
+		request.content_type == 'application/json'
+	)
+	
+	if not is_ajax:
+		return JsonResponse({'success': False, 'mensaje': 'Solo se permiten peticiones AJAX'})
+	
+	try:
+		import json
+		data = json.loads(request.body)
+		activar = data.get('activar', False)
+		
+		# Obtener o crear la configuración de tarifa plena
+		tarifa_plena = TarifaPlena.get_tarifa_actual()
+		tarifa_plena.activa = activar
+		tarifa_plena.actualizado_por = request.user
+		tarifa_plena.save()
+		
+		mensaje = f"Tarifa plena {'activada' if activar else 'desactivada'} exitosamente"
+		
+		return JsonResponse({
+			'success': True,
+			'mensaje': mensaje,
+			'activa': tarifa_plena.activa,
+			'costo_fijo_auto': float(tarifa_plena.costo_fijo_auto),
+			'costo_fijo_moto': float(tarifa_plena.costo_fijo_moto)
+		})
+		
+	except json.JSONDecodeError:
+		return JsonResponse({'success': False, 'mensaje': 'Datos JSON inválidos'})
+	except Exception as e:
+		return JsonResponse({'success': False, 'mensaje': f'Error: {str(e)}'})
+
 	return render(request, 'app_page/portal_opciones.html', {
 		'conteo_hoy': conteo_hoy,
 		'ultimos': ultimos
