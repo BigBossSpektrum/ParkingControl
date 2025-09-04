@@ -246,6 +246,11 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Función para enfocar automáticamente el campo de código (salida)
     function enfocarCodigo() {
+        // No enfocar si hay un modal de SweetAlert2 abierto
+        if (document.querySelector('.swal2-container') || document.querySelector('.swal2-shown')) {
+            return;
+        }
+        
         if (codigoInput) {
             codigoInput.focus();
         }
@@ -256,9 +261,14 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Re-enfocar cuando se pierde el foco (útil para scanners)
     document.addEventListener('click', function(e) {
-        if (!e.target.closest('form') && !e.target.closest('.alert')) {
-            setTimeout(enfocarCodigo, 100);
+        // No re-enfocar si hay un modal abierto o si se hizo clic en un modal
+        if (document.querySelector('.swal2-container') || 
+            e.target.closest('.swal2-container') ||
+            e.target.closest('form') || 
+            e.target.closest('.alert')) {
+            return;
         }
+        setTimeout(enfocarCodigo, 100);
     });
     
     // Manejo del formulario de salida
@@ -310,22 +320,19 @@ document.addEventListener('DOMContentLoaded', function() {
                         const response = JSON.parse(xhr.responseText);
                         
                         if (response.success) {
-                            Swal.fire({
-                                icon: 'success',
-                                title: 'Salida registrada',
-                                text: response.message,
-                                confirmButtonColor: '#198754'
-                            }).then(() => {
-                                salidaForm.reset();
-                                enfocarCodigo();
-                                // Actualizar estadísticas si existen
-                                location.reload();
-                            });
+                            // Verificar si necesitamos mostrar confirmación o si ya se registró la salida
+                            if (response.mostrar_confirmacion) {
+                                // Primera respuesta: mostrar modal de confirmación para cobrar
+                                mostrarModalConfirmacion(response.cliente);
+                            } else if (response.salida_confirmada) {
+                                // Segunda respuesta: salida confirmada y registrada
+                                mostrarModalSalidaCompletada(response.cliente);
+                            }
                         } else {
                             Swal.fire({
                                 icon: 'error',
                                 title: 'Error',
-                                text: response.message || 'Error al registrar la salida',
+                                text: response.mensaje || 'Error al procesar la solicitud',
                                 confirmButtonColor: '#198754'
                             });
                         }
@@ -495,6 +502,197 @@ document.addEventListener('DOMContentLoaded', function() {
         if (codigoInput) {
             codigoInput.focus();
         }
+    }
+    
+    // Funciones para el nuevo flujo de salida con confirmación
+    function mostrarModalConfirmacion(cliente) {
+        const tipoTarifa = cliente.es_tarifa_plena ? 'Tarifa Plena (Costo Fijo)' : 'Tarifa por Minutos';
+        
+        Swal.fire({
+            icon: 'info',
+            title: '💰 Confirmar Pago',
+            html: `
+                <div class="text-start">
+                    <h5 class="text-success mb-3">Información del Cliente:</h5>
+                    <p><strong>Nombre:</strong> ${cliente.nombre}</p>
+                    <p><strong>Cédula:</strong> ${cliente.cedula}</p>
+                    <p><strong>Matrícula:</strong> ${cliente.matricula}</p>
+                    <p><strong>Tipo:</strong> ${cliente.tipo_vehiculo}</p>
+                    <hr>
+                    <h5 class="text-info mb-3">Tiempo y Costo:</h5>
+                    <p><strong>Entrada:</strong> ${cliente.fecha_entrada}</p>
+                    <p><strong>Salida Estimada:</strong> ${cliente.fecha_salida_estimada}</p>
+                    <p><strong>Tiempo Total:</strong> ${cliente.tiempo_total}</p>
+                    <p><strong>Modalidad:</strong> ${tipoTarifa}</p>
+                    <hr>
+                    <div class="alert alert-warning text-center">
+                        <h4 class="mb-2">💰 Total a Cobrar:</h4>
+                        <h2 class="text-danger mb-0">${cliente.costo_formateado}</h2>
+                    </div>
+                    <div class="alert alert-info">
+                        <small><i class="fas fa-info-circle me-1"></i>
+                        Confirme después de haber cobrado el monto para registrar la salida definitivamente.</small>
+                    </div>
+                </div>
+            `,
+            confirmButtonText: 'Pago Confirmado - Registrar Salida',
+            confirmButtonColor: '#198754',
+            showCancelButton: true,
+            cancelButtonText: 'Cancelar',
+            cancelButtonColor: '#6c757d',
+            width: '600px',
+            allowOutsideClick: false,
+            focusConfirm: true,
+            customClass: {
+                popup: 'text-dark'
+            },
+            didOpen: () => {
+                // Asegurar que el foco esté en el botón de confirmar
+                const confirmButton = Swal.getConfirmButton();
+                if (confirmButton) {
+                    confirmButton.focus();
+                }
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // Enviar confirmación de salida
+                confirmarSalida(cliente.id);
+            } else {
+                // Si se cancela, re-enfocar el campo de código después de un delay
+                setTimeout(() => {
+                    enfocarCodigo();
+                }, 100);
+            }
+        });
+    }
+    
+    function mostrarModalSalidaCompletada(cliente) {
+        const tipoTarifa = cliente.es_tarifa_plena ? 'Tarifa Plena (Costo Fijo)' : 'Tarifa por Minutos';
+        
+        Swal.fire({
+            icon: 'success',
+            title: '✅ Salida Registrada Exitosamente',
+            html: `
+                <div class="text-start">
+                    <h5 class="text-success mb-3">Información del Cliente:</h5>
+                    <p><strong>Nombre:</strong> ${cliente.nombre}</p>
+                    <p><strong>Cédula:</strong> ${cliente.cedula}</p>
+                    <p><strong>Matrícula:</strong> ${cliente.matricula}</p>
+                    <p><strong>Tipo:</strong> ${cliente.tipo_vehiculo}</p>
+                    <hr>
+                    <h5 class="text-info mb-3">Tiempo y Costo Final:</h5>
+                    <p><strong>Entrada:</strong> ${cliente.fecha_entrada}</p>
+                    <p><strong>Salida:</strong> ${cliente.fecha_salida}</p>
+                    <p><strong>Tiempo Total:</strong> ${cliente.tiempo_total}</p>
+                    <p><strong>Modalidad:</strong> ${tipoTarifa}</p>
+                    <hr>
+                    <div class="alert alert-success text-center">
+                        <h4 class="mb-2">✅ Pagado:</h4>
+                        <h2 class="text-success mb-0">${cliente.costo_formateado}</h2>
+                    </div>
+                </div>
+            `,
+            confirmButtonText: 'Cerrar',
+            confirmButtonColor: '#198754',
+            width: '600px',
+            allowOutsideClick: false,
+            focusConfirm: true,
+            customClass: {
+                popup: 'text-dark'
+            },
+            didOpen: () => {
+                // Asegurar que el foco esté en el botón de cerrar
+                const confirmButton = Swal.getConfirmButton();
+                if (confirmButton) {
+                    confirmButton.focus();
+                }
+            }
+        }).then(() => {
+            salidaForm.reset();
+            // Re-enfocar el campo de código después de un delay
+            setTimeout(() => {
+                enfocarCodigo();
+            }, 100);
+            // Actualizar estadísticas si existen
+            location.reload();
+        });
+    }
+    
+    function confirmarSalida(clienteId) {
+        // Mostrar spinner
+        Swal.fire({
+            title: 'Registrando Salida...',
+            text: 'Procesando la salida del cliente',
+            allowOutsideClick: false,
+            showConfirmButton: false,
+            didOpen: () => {
+                Swal.showLoading()
+            }
+        });
+        
+        const formData = new FormData();
+        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+        formData.append('confirmar_salida', 'true');
+        formData.append('cliente_id', clienteId);
+        
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '', true);
+        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+        
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState === 4) {
+                if (xhr.status === 200) {
+                    try {
+                        const response = JSON.parse(xhr.responseText);
+                        
+                        if (response.success && response.salida_confirmada) {
+                            mostrarModalSalidaCompletada(response.cliente);
+                        } else {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: response.mensaje || 'Error al confirmar la salida',
+                                confirmButtonColor: '#198754',
+                                allowOutsideClick: false,
+                                focusConfirm: true
+                            }).then(() => {
+                                setTimeout(() => {
+                                    enfocarCodigo();
+                                }, 100);
+                            });
+                        }
+                    } catch (e) {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error de respuesta',
+                            text: 'Error al procesar la respuesta del servidor',
+                            confirmButtonColor: '#198754',
+                            allowOutsideClick: false,
+                            focusConfirm: true
+                        }).then(() => {
+                            setTimeout(() => {
+                                enfocarCodigo();
+                            }, 100);
+                        });
+                    }
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error de conexión',
+                        text: 'Error al conectar con el servidor',
+                        confirmButtonColor: '#198754',
+                        allowOutsideClick: false,
+                        focusConfirm: true
+                    }).then(() => {
+                        setTimeout(() => {
+                            enfocarCodigo();
+                        }, 100);
+                    });
+                }
+            }
+        };
+        
+        xhr.send(formData);
     }
 });
 </script>

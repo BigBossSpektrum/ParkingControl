@@ -27,6 +27,71 @@ except ImportError:
 # Configurar logger
 logger = logging.getLogger(__name__)
 
+def procesar_confirmacion_salida(request, is_ajax):
+	"""Función para procesar la confirmación de salida después de mostrar el costo"""
+	try:
+		cliente_id = request.POST.get('cliente_id')
+		if not cliente_id:
+			return JsonResponse({
+				'success': False,
+				'mensaje': 'ID de cliente no proporcionado.'
+			})
+		
+		cliente = Cliente.objects.get(id=cliente_id, fecha_salida__isnull=True)
+		
+		# Ahora sí registrar la salida
+		cliente.fecha_salida = timezone.now()
+		cliente.save()
+		
+		# Calcular tiempo en parking
+		if cliente.fecha_entrada:
+			delta = cliente.fecha_salida - cliente.fecha_entrada
+			minutos = int(delta.total_seconds() // 60)
+			tiempo_str = f"{minutos} minutos"
+		else:
+			tiempo_str = "Tiempo no disponible"
+		
+		# Calcular costo total final
+		costo_total = cliente.calcular_costo()
+		costo_formateado = cliente.costo_formateado()
+		
+		# Si es petición AJAX, devolver JSON
+		if is_ajax:
+			return JsonResponse({
+				'success': True,
+				'salida_confirmada': True,
+				'mensaje': f'Salida registrada exitosamente para {cliente.get_display_name()}',
+				'cliente': {
+					'nombre': cliente.get_display_name(),
+					'cedula': cliente.get_display_cedula(),
+					'matricula': cliente.matricula,
+					'tipo_vehiculo': cliente.get_tipo_vehiculo_display(),
+					'fecha_entrada': cliente.fecha_entrada.strftime('%d/%m/%Y %H:%M') if cliente.fecha_entrada else 'No registrada',
+					'fecha_salida': cliente.fecha_salida.strftime('%d/%m/%Y %H:%M'),
+					'tiempo_total': tiempo_str,
+					'costo_total': costo_total,
+					'costo_formateado': costo_formateado,
+					'es_tarifa_plena': cliente.es_tarifa_plena()
+				}
+			})
+		
+		return JsonResponse({
+			'success': True,
+			'mensaje': f'Salida registrada para {cliente.get_display_name()}.'
+		})
+		
+	except Cliente.DoesNotExist:
+		return JsonResponse({
+			'success': False,
+			'mensaje': 'Cliente no encontrado o ya tiene salida registrada.'
+		})
+	except Exception as e:
+		logger.error(f"Error en procesar_confirmacion_salida: {str(e)}")
+		return JsonResponse({
+			'success': False,
+			'mensaje': 'Error interno del servidor.'
+		})
+
 # --- DASHBOARD: Panel principal con ambos formularios ---
 @login_required
 @csrf_protect
@@ -59,8 +124,15 @@ def dashboard_parking(request):
 		)
 		logger.info(f"Is AJAX request: {is_ajax}")
 		
+		# Verificar PRIMERO si es confirmación de salida
+		if request.POST.get('confirmar_salida') == 'true':
+			logger.info("Processing salida confirmation")
+			return procesar_confirmacion_salida(request, is_ajax)
+		
 		if 'codigo' in request.POST:
 			logger.info("Processing salida (exit) form")
+			
+			# Si no es confirmación, solo obtener información del cliente
 			salida_form = SalidaQRForm(request.POST)
 			if salida_form.is_valid():
 				codigo = salida_form.cleaned_data['codigo'].strip()
@@ -81,34 +153,43 @@ def dashboard_parking(request):
 						cliente = None
 				
 				if cliente:
-					cliente.fecha_salida = timezone.now()
-					cliente.save()
+					# NO registrar salida aún, solo calcular información
+					fecha_salida_temporal = timezone.now()
 					
 					# Calcular tiempo en parking
 					if cliente.fecha_entrada:
-						delta = cliente.fecha_salida - cliente.fecha_entrada
+						delta = fecha_salida_temporal - cliente.fecha_entrada
 						minutos = int(delta.total_seconds() // 60)
 						tiempo_str = f"{minutos} minutos"
 					else:
 						tiempo_str = "Tiempo no disponible"
 					
-					# Si es petición AJAX, devolver JSON
+					# Calcular costo total (sin registrar salida)
+					costo_total = cliente.calcular_costo_temporal(fecha_salida_temporal)
+					costo_formateado = cliente.costo_formateado_temporal(fecha_salida_temporal)
+					
+					# Si es petición AJAX, devolver JSON con información para confirmar
 					if is_ajax:
 						return JsonResponse({
 							'success': True,
-							'mensaje': f'Salida registrada exitosamente para {cliente.get_display_name()}',
+							'mostrar_confirmacion': True,
+							'mensaje': f'Cliente encontrado: {cliente.get_display_name()}',
 							'cliente': {
+								'id': cliente.id,
 								'nombre': cliente.get_display_name(),
 								'cedula': cliente.get_display_cedula(),
 								'matricula': cliente.matricula,
 								'tipo_vehiculo': cliente.get_tipo_vehiculo_display(),
 								'fecha_entrada': cliente.fecha_entrada.strftime('%d/%m/%Y %H:%M') if cliente.fecha_entrada else 'No registrada',
-								'fecha_salida': cliente.fecha_salida.strftime('%d/%m/%Y %H:%M'),
-								'tiempo_total': tiempo_str
+								'fecha_salida_estimada': fecha_salida_temporal.strftime('%d/%m/%Y %H:%M'),
+								'tiempo_total': tiempo_str,
+								'costo_total': costo_total,
+								'costo_formateado': costo_formateado,
+								'es_tarifa_plena': cliente.es_tarifa_plena()
 							}
 						})
 					
-					mensaje_salida = f'Salida registrada para {cliente.get_display_name()}.'
+					mensaje_salida = f'Cliente encontrado: {cliente.get_display_name()}. Confirme para registrar salida.'
 				else:
 					# Si es petición AJAX, devolver JSON
 					if is_ajax:
@@ -565,19 +646,26 @@ def salida_qr(request):
 				else:
 					tiempo_str = "Tiempo no disponible"
 				
+				# Calcular costo total
+				costo_total = cliente.calcular_costo()
+				costo_formateado = cliente.costo_formateado()
+				
 				# Si es petición AJAX, devolver JSON
 				if is_ajax:
 					return JsonResponse({
 						'success': True,
-						'mensaje': f'Salida registrada exitosamente para {cliente.nombre}',
+						'mensaje': f'Salida registrada exitosamente para {cliente.get_display_name()}',
 						'cliente': {
-							'nombre': cliente.nombre,
-							'cedula': cliente.cedula,
+							'nombre': cliente.get_display_name(),
+							'cedula': cliente.get_display_cedula(),
 							'matricula': cliente.matricula,
 							'tipo_vehiculo': cliente.get_tipo_vehiculo_display(),
 							'fecha_entrada': cliente.fecha_entrada.strftime('%d/%m/%Y %H:%M') if cliente.fecha_entrada else 'No registrada',
 							'fecha_salida': cliente.fecha_salida.strftime('%d/%m/%Y %H:%M'),
-							'tiempo_total': tiempo_str
+							'tiempo_total': tiempo_str,
+							'costo_total': costo_total,
+							'costo_formateado': costo_formateado,
+							'es_tarifa_plena': cliente.es_tarifa_plena()
 						}
 					})
 				

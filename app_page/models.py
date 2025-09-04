@@ -298,6 +298,36 @@ class Cliente(models.Model):
 			self._costo_por_tiempo = costos.get_costo_por_tipo(self.tipo_vehiculo)
 		return float(self._costo_por_tiempo)
 	
+	def calcular_costo_temporal(self, fecha_salida_temporal):
+		"""Calcula el costo total basado en una fecha de salida temporal (sin modificar el registro)"""
+		if not self.fecha_entrada:
+			return 0.00
+		
+		# Verificar si la tarifa plena está activa
+		tarifa_plena = TarifaPlena.get_tarifa_actual()
+		
+		if tarifa_plena.activa:
+			# Si la tarifa plena está activa, usar costo fijo
+			return float(tarifa_plena.get_costo_por_tipo(self.tipo_vehiculo))
+		else:
+			# Si no, usar el cálculo por minutos normal
+			costos = Costo.get_costos_actuales()
+			# Calcular minutos temporalmente
+			delta = fecha_salida_temporal - self.fecha_entrada
+			tiempo_minutos = max(1, int(delta.total_seconds() // 60))
+			costo_por_minuto = costos.get_costo_por_tipo(self.tipo_vehiculo)
+			return float(costo_por_minuto) * tiempo_minutos
+	
+	def costo_formateado_temporal(self, fecha_salida_temporal):
+		"""Devuelve el costo temporal formateado como string"""
+		costo = self.calcular_costo_temporal(fecha_salida_temporal)
+		tarifa_plena = TarifaPlena.get_tarifa_actual()
+		
+		if tarifa_plena.activa:
+			return f"${costo:,.2f} (Tarifa Plena)"
+		else:
+			return f"${costo:,.2f}"
+	
 	def tiempo_por_costo(self):
 		"""Calcula la relación tiempo transcurrido dividido por el costo total"""
 		costo_total = self.calcular_costo()
