@@ -389,6 +389,58 @@ class Perfil(models.Model):
 		verbose_name_plural = 'Perfiles'
 
 
+class Visitante(models.Model):
+	cedula = models.CharField(max_length=20, blank=True, null=True, verbose_name="Cédula")
+	nombre = models.CharField(max_length=100, blank=True, null=True, verbose_name="Nombre completo")
+	telefono = models.CharField(max_length=20, blank=True, null=True, verbose_name="Número de teléfono")
+	torre = models.CharField(max_length=10, blank=True, null=True, help_text='Torre del apartamento que visita', verbose_name="Torre")
+	apartamento = models.CharField(max_length=10, blank=True, null=True, help_text='Número de apartamento que visita', verbose_name="Apartamento")
+	fecha_registro = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de registro")
+	fecha_actualizacion = models.DateTimeField(auto_now=True, verbose_name="Última actualización")
+	
+	def get_display_name(self):
+		"""Devuelve el nombre del visitante o un valor por defecto"""
+		return self.nombre or 'Visitante sin nombre'
+	
+	def get_display_cedula(self):
+		"""Devuelve la cédula del visitante o un valor por defecto"""
+		return self.cedula or 'Sin cédula'
+	
+	def get_display_telefono(self):
+		"""Devuelve el teléfono del visitante o un valor por defecto"""
+		return self.telefono or 'Sin teléfono'
+	
+	def get_display_torre(self):
+		"""Devuelve la torre que visita o un valor por defecto"""
+		return self.torre or 'Sin torre'
+	
+	def get_display_apartamento(self):
+		"""Devuelve el apartamento que visita o un valor por defecto"""
+		return self.apartamento or 'Sin apartamento'
+	
+	def get_ubicacion_completa(self):
+		"""Devuelve la ubicación completa (torre + apartamento)"""
+		if self.torre and self.apartamento:
+			return f"Torre {self.torre} - Apt {self.apartamento}"
+		elif self.torre:
+			return f"Torre {self.torre}"
+		elif self.apartamento:
+			return f"Apartamento {self.apartamento}"
+		else:
+			return "Sin ubicación especificada"
+	
+	def __str__(self):
+		nombre = self.nombre or 'Sin nombre'
+		cedula = self.cedula or f'ID:{self.id}'
+		ubicacion = self.get_ubicacion_completa()
+		return f"{nombre} ({cedula}) - {ubicacion}"
+	
+	class Meta:
+		verbose_name = 'Visitante'
+		verbose_name_plural = 'Visitantes'
+		ordering = ['-fecha_registro']
+
+
 class Costo(models.Model):
 	"""Modelo para manejar los costos del parking por tipo de vehículo"""
 	costo_auto = models.DecimalField(

@@ -61,6 +61,10 @@
                             <i class="bi bi-car-front me-1"></i>
                             <span class="d-none d-sm-inline">Parking: </span>{{ clientes_en_parking|default:0 }}
                         </span>
+                        <span class="badge bg-info text-dark px-2 py-1 d-flex align-items-center" title="Visitantes registrados hoy">
+                            <i class="bi bi-people me-1"></i>
+                            <span class="d-none d-sm-inline">Visitantes: </span>{{ visitantes_hoy|default:0 }}
+                        </span>
                     </div>
                     <span class="badge bg-success text-dark px-3 py-2">
                         <i class="bi bi-person-badge me-1"></i>
@@ -71,9 +75,15 @@
                     </span>
                     {% if perfil.puede_ver_lista_completa %}
                         <a href="{% url 'lista_clientes' %}" class="btn btn-success" style="color: #111 !important;">
-                            <i class="bi bi-list-ul me-1"></i>Lista de Usuarios
+                            <i class="bi bi-list-ul me-1"></i>Lista autos parkeados
                         </a>
                     {% endif %}
+                    <a href="{% url 'dashboard_visitante' %}" class="btn btn-success" style="color: #111 !important;">
+                        <i class="bi bi-person-plus me-1"></i>Visitante
+                    </a>
+                    <a href="{% url 'dashboard_parking' %}" class="btn btn-success" style="color: #111 !important;">
+                        <i class="bi bi-car-front-fill me-1"></i>Parking
+                    </a>
                     <a href="{% url 'logout' %}" class="btn btn-dark">
                         <i class="bi bi-box-arrow-right me-1"></i>Salir
                     </a>

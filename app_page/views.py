@@ -13,7 +13,7 @@ from django.core.paginator import Paginator
 from django import forms
 from django.db import models
 from django.core.files.base import ContentFile
-from .models import Cliente, Costo
+from .models import Cliente, Costo, Visitante
 from .decorators import require_edit_permission, require_delete_permission, require_view_list_permission, get_user_profile
 
 # Importar el servicio de impresión
@@ -31,6 +31,12 @@ logger = logging.getLogger(__name__)
 @login_required
 @csrf_protect
 def dashboard(request):
+	return redirect('dashboard_parking')
+
+# --- DASHBOARD PARKING: Panel principal para vehículos ---
+@login_required
+@csrf_protect
+def dashboard_parking(request):
 	logger.info(f"Dashboard accessed by user: {request.user.username}")
 	logger.info(f"Request method: {request.method}")
 	if request.method == 'POST':
@@ -215,7 +221,7 @@ def dashboard(request):
 	# Obtener perfil del usuario
 	perfil = get_user_profile(request.user)
 	
-	return render(request, 'app_page/dashboard.html', {
+	return render(request, 'app_page/dashboard_parking.html', {
 		'salida_form': salida_form,
 		'registro_form': registro_form,
 		'mensaje_salida': mensaje_salida,
@@ -688,6 +694,115 @@ def portal_opciones(request):
 	
 	# Obtener últimos 5 registros
 	ultimos = Cliente.objects.all().order_by('-fecha_entrada')[:5]
+
+# --- DASHBOARD VISITANTE: Panel principal para visitantes ---
+@login_required
+@csrf_protect
+def dashboard_visitante(request):
+	mensaje_error = ''
+	message_success = ''
+
+	if request.method == 'POST':
+		action = request.POST.get('action')
+		
+		if action == 'registro_visitante':
+			# Procesar registro de visitante
+			cedula = request.POST.get('cedula', '').strip()
+			nombre = request.POST.get('nombre', '').strip()
+			telefono = request.POST.get('telefono', '').strip()
+			torre = request.POST.get('torre', '').strip()
+			apartamento = request.POST.get('apartamento', '').strip()
+			
+			# Validaciones básicas
+			if not cedula or not nombre or not torre or not apartamento:
+				mensaje_error = 'Por favor complete todos los campos obligatorios'
+			else:
+				try:
+					# Crear visitante
+					visitante = Visitante.objects.create(
+						cedula=cedula,
+						nombre=nombre,
+						telefono=telefono,
+						torre=torre,
+						apartamento=apartamento
+					)
+					message_success = f'Visitante {nombre} registrado exitosamente'
+				except Exception as e:
+					mensaje_error = f'Error al registrar visitante: {str(e)}'
+
+	# Obtener estadísticas
+	hoy = timezone.now().date()
+	visitantes_hoy = Visitante.objects.filter(fecha_registro__date=hoy).count()
+	total_visitantes = Visitante.objects.count()
+	
+	# Obtener últimos visitantes
+	ultimos_visitantes = Visitante.objects.all().order_by('-fecha_registro')[:5]
+	
+	# Obtener perfil del usuario
+	perfil = get_user_profile(request.user)
+	
+	return render(request, 'app_page/dashboard_visitante.html', {
+		'mensaje_error': mensaje_error,
+		'message_success': message_success,
+		'visitantes_hoy': visitantes_hoy,
+		'total_visitantes': total_visitantes,
+		'ultimos_visitantes': ultimos_visitantes,
+		'perfil': perfil,
+		'today': timezone.now().date(),
+	})
+
+# --- LISTA DE VISITANTES ---
+@login_required
+def lista_visitantes(request):
+	# Obtener parámetros de filtro
+	cedula_buscar = request.GET.get('cedula', '').strip()
+	nombre_buscar = request.GET.get('nombre', '').strip()
+	torre_buscar = request.GET.get('torre', '').strip()
+	apartamento_buscar = request.GET.get('apartamento', '').strip()
+	
+	# Filtrar visitantes
+	visitantes = Visitante.objects.all().order_by('-fecha_registro')
+	
+	# Aplicar filtros
+	if cedula_buscar:
+		visitantes = visitantes.filter(cedula__icontains=cedula_buscar)
+	
+	if nombre_buscar:
+		visitantes = visitantes.filter(nombre__icontains=nombre_buscar)
+	
+	if torre_buscar:
+		visitantes = visitantes.filter(torre__icontains=torre_buscar)
+	
+	if apartamento_buscar:
+		visitantes = visitantes.filter(apartamento__icontains=apartamento_buscar)
+	
+	# Paginación
+	paginator = Paginator(visitantes, 20)
+	page_number = request.GET.get('page', 1)
+	page_obj = paginator.get_page(page_number)
+	
+	# Estadísticas
+	hoy = timezone.now().date()
+	inicio_semana = hoy - timezone.timedelta(days=hoy.weekday())
+	
+	total_visitantes = Visitante.objects.count()
+	visitantes_hoy = Visitante.objects.filter(fecha_registro__date=hoy).count()
+	visitantes_semana = Visitante.objects.filter(fecha_registro__date__gte=inicio_semana).count()
+	torres_activas = Visitante.objects.exclude(torre__isnull=True).exclude(torre='').values('torre').distinct().count()
+	
+	# Obtener perfil del usuario
+	perfil = get_user_profile(request.user)
+	
+	context = {
+		'visitantes': page_obj,
+		'total_visitantes': total_visitantes,
+		'visitantes_hoy': visitantes_hoy,
+		'visitantes_semana': visitantes_semana,
+		'torres_activas': torres_activas,
+		'perfil': perfil,
+	}
+	
+	return render(request, 'app_page/lista_visitantes.html', context)
 	
 	return render(request, 'app_page/portal_opciones.html', {
 		'conteo_hoy': conteo_hoy,
