@@ -13,7 +13,7 @@ from django.core.paginator import Paginator
 from django import forms
 from django.db import models
 from django.core.files.base import ContentFile
-from .models import Cliente, Costo, Visitante, TarifaPlena
+from .models import Cliente, Costo, Visitante, TarifaPlena, Recaudacion
 from .decorators import require_edit_permission, require_delete_permission, require_view_list_permission, get_user_profile
 
 # Importar el servicio de impresión
@@ -37,7 +37,21 @@ def procesar_confirmacion_salida(request, is_ajax):
 				'mensaje': 'ID de cliente no proporcionado.'
 			})
 		
-		cliente = Cliente.objects.get(id=cliente_id, fecha_salida__isnull=True)
+		try:
+			cliente = Cliente.objects.get(id=cliente_id, fecha_salida__isnull=True)
+		except Cliente.DoesNotExist:
+			return JsonResponse({
+				'success': False,
+				'mensaje': 'Cliente no encontrado o ya tiene salida registrada.'
+			})
+		except Cliente.MultipleObjectsReturned:
+			# Si hay múltiples, tomar el más reciente
+			cliente = Cliente.objects.filter(id=cliente_id, fecha_salida__isnull=True).order_by('-fecha_entrada').first()
+			if not cliente:
+				return JsonResponse({
+					'success': False,
+					'mensaje': 'Cliente no encontrado o ya tiene salida registrada.'
+				})
 		
 		# Ahora sí registrar la salida
 		cliente.fecha_salida = timezone.now()
@@ -141,14 +155,15 @@ def dashboard_parking(request):
 				# Buscar por ID (numérico)
 				if codigo.isdigit():
 					try:
-						cliente = Cliente.objects.get(id=int(codigo), fecha_salida__isnull=True)
-					except Cliente.DoesNotExist:
+						cliente = Cliente.objects.filter(id=int(codigo), fecha_salida__isnull=True).first()
+					except (Cliente.DoesNotExist, ValueError):
 						pass
 				
 				# Si no se encontró por ID, buscar por cédula
 				if not cliente:
 					try:
-						cliente = Cliente.objects.get(cedula=codigo, fecha_salida__isnull=True)
+						# Usar filter().first() para obtener el primer cliente activo con esa cédula
+						cliente = Cliente.objects.filter(cedula=codigo, fecha_salida__isnull=True).order_by('-fecha_entrada').first()
 					except Cliente.DoesNotExist:
 						cliente = None
 				
@@ -622,14 +637,15 @@ def salida_qr(request):
 			# Buscar por ID (numérico)
 			if codigo.isdigit():
 				try:
-					cliente = Cliente.objects.get(id=int(codigo), fecha_salida__isnull=True)
-				except Cliente.DoesNotExist:
+					cliente = Cliente.objects.filter(id=int(codigo), fecha_salida__isnull=True).first()
+				except (Cliente.DoesNotExist, ValueError):
 					pass
 			
 			# Si no se encontró por ID, buscar por cédula
 			if not cliente:
 				try:
-					cliente = Cliente.objects.get(cedula=codigo, fecha_salida__isnull=True)
+					# Usar filter().first() para obtener el primer cliente activo con esa cédula
+					cliente = Cliente.objects.filter(cedula=codigo, fecha_salida__isnull=True).order_by('-fecha_entrada').first()
 				except Cliente.DoesNotExist:
 					cliente = None
 			
@@ -1078,3 +1094,111 @@ def eliminar_visitante(request, pk):
 		'success': False,
 		'mensaje': 'Método no permitido'
 	})
+
+
+# --- VISTAS DE RECAUDACIÓN ---
+
+@login_required
+def resumen_recaudacion(request):
+	"""Vista para obtener el resumen de recaudación actual"""
+	try:
+		# Obtener datos de recaudación actual
+		datos_recaudacion = Recaudacion.calcular_recaudacion_actual()
+		
+		# Obtener historial de cortes recientes (últimos 10)
+		historial_cortes = Recaudacion.objects.all()[:10]
+		
+		response_data = {
+			'success': True,
+			'resumen': {
+				'monto_total': float(datos_recaudacion['monto_total']),
+				'monto_formateado': f"${datos_recaudacion['monto_total']:,.2f}",
+				'numero_clientes': datos_recaudacion['numero_clientes'],
+				'fecha_inicio': datos_recaudacion['fecha_inicio'].strftime('%d/%m/%Y %H:%M'),
+				'fecha_actual': datos_recaudacion['fecha_actual'].strftime('%d/%m/%Y %H:%M'),
+			},
+			'historial': []
+		}
+		
+		# Agregar historial de cortes
+		for corte in historial_cortes:
+			response_data['historial'].append({
+				'id': corte.id,
+				'monto': float(corte.monto_recaudado),
+				'monto_formateado': f"${corte.monto_recaudado:,.2f}",
+				'fecha_corte': corte.fecha_corte.strftime('%d/%m/%Y %H:%M'),
+				'numero_clientes': corte.numero_clientes,
+				'usuario': corte.usuario.get_full_name() or corte.usuario.username,
+				'periodo': f"{corte.fecha_inicio.strftime('%d/%m/%Y %H:%M')} - {corte.fecha_fin.strftime('%d/%m/%Y %H:%M')}"
+			})
+		
+		return JsonResponse(response_data)
+		
+	except Exception as e:
+		logger.error(f"Error en resumen_recaudacion: {str(e)}")
+		return JsonResponse({
+			'success': False,
+			'mensaje': 'Error al obtener el resumen de recaudación.'
+		})
+
+
+@login_required
+def realizar_corte_recaudacion(request):
+	"""Vista para realizar el corte de recaudación"""
+	if request.method != 'POST':
+		return JsonResponse({
+			'success': False,
+			'mensaje': 'Método no permitido'
+		})
+	
+	try:
+		# Verificar permisos (solo supervisores o administradores)
+		perfil = get_user_profile(request.user)
+		if not (perfil.es_supervisor or perfil.es_administrador):
+			return JsonResponse({
+				'success': False,
+				'mensaje': 'No tienes permisos para realizar cortes de recaudación.'
+			})
+		
+		# Obtener datos de recaudación actual
+		datos_recaudacion = Recaudacion.calcular_recaudacion_actual()
+		
+		# Verificar que hay algo que cortar
+		if datos_recaudacion['monto_total'] <= 0:
+			return JsonResponse({
+				'success': False,
+				'mensaje': 'No hay recaudación para realizar el corte.'
+			})
+		
+		# Obtener observaciones del formulario
+		observaciones = request.POST.get('observaciones', '').strip()
+		
+		# Crear el registro de corte
+		corte = Recaudacion.objects.create(
+			usuario=request.user,
+			monto_recaudado=datos_recaudacion['monto_total'],
+			fecha_inicio=datos_recaudacion['fecha_inicio'],
+			fecha_fin=datos_recaudacion['fecha_actual'],
+			numero_clientes=datos_recaudacion['numero_clientes'],
+			observaciones=observaciones
+		)
+		
+		return JsonResponse({
+			'success': True,
+			'mensaje': f'Corte de recaudación realizado exitosamente. Total: ${datos_recaudacion["monto_total"]:,.2f}',
+			'corte': {
+				'id': corte.id,
+				'monto': float(corte.monto_recaudado),
+				'monto_formateado': f"${corte.monto_recaudado:,.2f}",
+				'numero_clientes': corte.numero_clientes,
+				'fecha_corte': corte.fecha_corte.strftime('%d/%m/%Y %H:%M'),
+				'usuario': corte.usuario.get_full_name() or corte.usuario.username
+			}
+		})
+		
+	except Exception as e:
+		logger.error(f"Error en realizar_corte_recaudacion: {str(e)}")
+		return JsonResponse({
+			'success': False,
+			'mensaje': 'Error al realizar el corte de recaudación.'
+		})

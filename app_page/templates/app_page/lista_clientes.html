@@ -86,13 +86,44 @@
             font-size: 0.85rem;
             white-space: nowrap;
         }
+        .btn-resumen-recaudacion {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            border: none;
+            color: white;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .btn-resumen-recaudacion:hover {
+            background: linear-gradient(135deg, #218838, #1aa085);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            color: white;
+        }
+        .resumen-badge {
+            background: rgba(255,255,255,0.2);
+            border-radius: 15px;
+            padding: 2px 8px;
+            font-size: 0.75rem;
+            margin-left: 5px;
+        }
     </style>
 {% endblock %}
 {% block content %}
     {% csrf_token %}
     <div class="container-fluid px-3 py-2">
-        <h1 class="mb-4">Clientes Registrados</h1>
-        <a href="/" class="btn btn-success mb-3" style="font-weight: bold; color: #000;">Registrar nuevo cliente</a>
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="mb-0">Clientes Registrados</h1>
+            <div class="d-flex gap-2">
+                {% if perfil.es_supervisor or perfil.es_administrador %}
+                <button type="button" id="btnResumenRecaudacion" class="btn btn-resumen-recaudacion">
+                    <i class="bi bi-cash-coin me-2"></i>Resumen de Recaudación
+                    <span id="montoActualBadge" class="resumen-badge">Cargando...</span>
+                </button>
+                {% endif %}
+                <a href="/" class="btn btn-success" style="font-weight: bold; color: #000;">Registrar nuevo cliente</a>
+            </div>
+        </div>
         
         <!-- Panel de Control de Tarifa Plena -->
         {% if perfil.puede_editar_costos %}
@@ -268,6 +299,90 @@
                 </ul>
             </nav>
         {% endif %}
+    </div>
+
+    <!-- Modal de Resumen de Recaudación -->
+    <div class="modal fade" id="modalResumenRecaudacion" tabindex="-1" aria-labelledby="modalResumenLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content bg-dark text-light">
+                <div class="modal-header border-secondary">
+                    <h5 class="modal-title text-success" id="modalResumenLabel">
+                        <i class="bi bi-cash-coin me-2"></i>Resumen de Recaudación
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Resumen Actual -->
+                    <div class="card bg-gradient-success mb-4">
+                        <div class="card-body text-center">
+                            <h3 class="text-white mb-1" id="montoTotalActual">Cargando...</h3>
+                            <p class="text-light mb-0">Total Recaudado</p>
+                            <small class="text-light" id="periodoActual">Desde: --</small>
+                        </div>
+                    </div>
+
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="card bg-secondary">
+                                <div class="card-body text-center">
+                                    <h4 class="text-warning mb-1" id="numeroClientesActual">0</h4>
+                                    <p class="mb-0">Clientes Atendidos</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card bg-secondary">
+                                <div class="card-body text-center">
+                                    <h4 class="text-info mb-1" id="fechaCorteActual">--</h4>
+                                    <p class="mb-0">Fecha Actual</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Botón de Corte -->
+                    {% if perfil.es_supervisor or perfil.es_administrador %}
+                    <div class="text-center mb-4">
+                        <button type="button" id="btnRealizarCorte" class="btn btn-danger btn-lg">
+                            <i class="bi bi-scissors me-2"></i>Realizar Corte de Recaudación
+                        </button>
+                        <p class="text-muted small mt-2">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Este corte reiniciará el contador de recaudación
+                        </p>
+                    </div>
+                    {% endif %}
+
+                    <!-- Historial de Cortes -->
+                    <h6 class="text-warning mb-3">
+                        <i class="bi bi-clock-history me-2"></i>Historial de Cortes
+                    </h6>
+                    <div class="table-responsive">
+                        <table class="table table-dark table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Monto</th>
+                                    <th>Clientes</th>
+                                    <th>Usuario</th>
+                                </tr>
+                            </thead>
+                            <tbody id="historialCortes">
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted">Cargando historial...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer border-secondary">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="button" id="btnActualizarResumen" class="btn btn-primary">
+                        <i class="bi bi-arrow-clockwise me-1"></i>Actualizar
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- SweetAlert2 -->
@@ -843,5 +958,160 @@
             });
         }
         {% endif %}
+
+        // Funcionalidad de Recaudación
+        const btnResumenRecaudacion = document.getElementById('btnResumenRecaudacion');
+        const montoActualBadge = document.getElementById('montoActualBadge');
+        const modalResumenRecaudacion = document.getElementById('modalResumenRecaudacion');
+        const btnRealizarCorte = document.getElementById('btnRealizarCorte');
+        const btnActualizarResumen = document.getElementById('btnActualizarResumen');
+
+        // Cargar resumen inicial
+        if (btnResumenRecaudacion) {
+            cargarResumenRecaudacion();
+            
+            // Event listener para mostrar modal
+            btnResumenRecaudacion.addEventListener('click', function() {
+                cargarResumenRecaudacion();
+                const modal = new bootstrap.Modal(modalResumenRecaudacion);
+                modal.show();
+            });
+        }
+
+        // Event listener para actualizar resumen
+        if (btnActualizarResumen) {
+            btnActualizarResumen.addEventListener('click', cargarResumenRecaudacion);
+        }
+
+        // Event listener para realizar corte
+        if (btnRealizarCorte) {
+            btnRealizarCorte.addEventListener('click', function() {
+                Swal.fire({
+                    title: '¿Realizar Corte de Recaudación?',
+                    text: 'Esta acción registrará el corte y reiniciará el contador. ¿Deseas continuar?',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#dc3545',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: 'Sí, realizar corte',
+                    cancelButtonText: 'Cancelar',
+                    background: '#222',
+                    color: '#fff',
+                    input: 'textarea',
+                    inputLabel: 'Observaciones (opcional)',
+                    inputPlaceholder: 'Agregar observaciones sobre este corte...',
+                    inputAttributes: {
+                        'aria-label': 'Observaciones del corte'
+                    }
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        realizarCorteRecaudacion(result.value || '');
+                    }
+                });
+            });
+        }
+
+        function cargarResumenRecaudacion() {
+            fetch('/resumen-recaudacion/', {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Actualizar badge en el botón
+                    if (montoActualBadge) {
+                        montoActualBadge.textContent = data.resumen.monto_formateado;
+                    }
+
+                    // Actualizar modal
+                    document.getElementById('montoTotalActual').textContent = data.resumen.monto_formateado;
+                    document.getElementById('numeroClientesActual').textContent = data.resumen.numero_clientes;
+                    document.getElementById('periodoActual').textContent = `Desde: ${data.resumen.fecha_inicio}`;
+                    document.getElementById('fechaCorteActual').textContent = data.resumen.fecha_actual;
+
+                    // Actualizar historial
+                    const historialCortes = document.getElementById('historialCortes');
+                    if (data.historial && data.historial.length > 0) {
+                        historialCortes.innerHTML = data.historial.map(corte => `
+                            <tr>
+                                <td>${corte.fecha_corte}</td>
+                                <td class="text-success">${corte.monto_formateado}</td>
+                                <td>${corte.numero_clientes}</td>
+                                <td>${corte.usuario}</td>
+                            </tr>
+                        `).join('');
+                    } else {
+                        historialCortes.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No hay cortes registrados</td></tr>';
+                    }
+                } else {
+                    console.error('Error al cargar resumen:', data.mensaje);
+                    if (montoActualBadge) {
+                        montoActualBadge.textContent = 'Error';
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                if (montoActualBadge) {
+                    montoActualBadge.textContent = 'Error';
+                }
+            });
+        }
+
+        function realizarCorteRecaudacion(observaciones) {
+            const formData = new FormData();
+            formData.append('observaciones', observaciones);
+            formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+
+            fetch('/corte-recaudacion/', {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire({
+                        title: 'Corte Realizado',
+                        text: data.mensaje,
+                        icon: 'success',
+                        background: '#222',
+                        color: '#0f0',
+                        confirmButtonColor: '#28a745'
+                    }).then(() => {
+                        // Cerrar modal y actualizar resumen
+                        const modal = bootstrap.Modal.getInstance(modalResumenRecaudacion);
+                        if (modal) modal.hide();
+                        cargarResumenRecaudacion();
+                    });
+                } else {
+                    Swal.fire({
+                        title: 'Error',
+                        text: data.mensaje,
+                        icon: 'error',
+                        background: '#222',
+                        color: '#ff4444',
+                        confirmButtonColor: '#dc3545'
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire({
+                    title: 'Error',
+                    text: 'Error de conexión al realizar el corte',
+                    icon: 'error',
+                    background: '#222',
+                    color: '#ff4444',
+                    confirmButtonColor: '#dc3545'
+                });
+            });
+        }
     </script>
 {% endblock %}

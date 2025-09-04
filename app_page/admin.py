@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import User
-from .models import Cliente, Perfil, Costo, TarifaPlena
+from .models import Cliente, Perfil, Costo, TarifaPlena, Recaudacion
 
 @admin.register(Cliente)
 class ClienteAdmin(admin.ModelAdmin):
@@ -98,6 +98,38 @@ class TarifaPlenaAdmin(admin.ModelAdmin):
 		"""Limita a un solo registro de configuración"""
 		qs = super().get_queryset(request)
 		return qs.filter(id=1)  # Solo el registro principal
+
+@admin.register(Recaudacion)
+class RecaudacionAdmin(admin.ModelAdmin):
+	list_display = ('id', 'monto_recaudado', 'numero_clientes', 'fecha_corte', 'usuario', 'fecha_inicio', 'fecha_fin')
+	list_filter = ('fecha_corte', 'usuario')
+	search_fields = ('usuario__username', 'usuario__first_name', 'usuario__last_name')
+	readonly_fields = ('fecha_corte', 'monto_recaudado', 'numero_clientes', 'fecha_inicio', 'fecha_fin', 'usuario')
+	date_hierarchy = 'fecha_corte'
+	ordering = ('-fecha_corte',)
+	
+	def has_add_permission(self, request):
+		"""No permitir agregar recaudaciones desde el admin"""
+		return False
+	
+	def has_change_permission(self, request, obj=None):
+		"""Solo permitir ver y cambiar observaciones"""
+		return request.user.is_superuser or (
+			hasattr(request.user, 'perfil') and 
+			request.user.perfil.es_administrador
+		)
+	
+	def has_delete_permission(self, request, obj=None):
+		"""Solo superusuarios pueden eliminar recaudaciones"""
+		return request.user.is_superuser
+	
+	def get_readonly_fields(self, request, obj=None):
+		"""Solo observaciones se pueden editar"""
+		readonly = list(self.readonly_fields)
+		if obj and not request.user.is_superuser:
+			# Para usuarios no superusuarios, solo observaciones es editable
+			readonly.extend(['observaciones'])
+		return readonly
 
 # Inline para mostrar el perfil en el admin de Usuario
 class PerfilInline(admin.StackedInline):

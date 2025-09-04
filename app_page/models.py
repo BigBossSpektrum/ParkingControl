@@ -595,3 +595,88 @@ class TarifaPlena(models.Model):
 	class Meta:
 		verbose_name = 'Tarifa Plena'
 		verbose_name_plural = 'Tarifa Plena'
+
+
+class Recaudacion(models.Model):
+	"""Modelo para registrar los cortes de recaudación del parking"""
+	usuario = models.ForeignKey(
+		User, 
+		on_delete=models.CASCADE,
+		verbose_name="Usuario que realizó el corte",
+		help_text="Usuario que realizó el corte de recaudación"
+	)
+	monto_recaudado = models.DecimalField(
+		max_digits=12, 
+		decimal_places=2,
+		verbose_name="Monto recaudado",
+		help_text="Total recaudado en el período"
+	)
+	fecha_inicio = models.DateTimeField(
+		verbose_name="Fecha inicio del corte",
+		help_text="Fecha y hora de inicio del período de recaudación"
+	)
+	fecha_fin = models.DateTimeField(
+		verbose_name="Fecha fin del corte",
+		help_text="Fecha y hora de fin del período de recaudación"
+	)
+	fecha_corte = models.DateTimeField(
+		auto_now_add=True,
+		verbose_name="Fecha del corte",
+		help_text="Fecha y hora cuando se realizó el corte"
+	)
+	numero_clientes = models.PositiveIntegerField(
+		default=0,
+		verbose_name="Número de clientes",
+		help_text="Cantidad de clientes atendidos en el período"
+	)
+	observaciones = models.TextField(
+		blank=True,
+		null=True,
+		verbose_name="Observaciones",
+		help_text="Observaciones adicionales sobre el corte"
+	)
+	
+	def __str__(self):
+		return f"Corte {self.id} - ${self.monto_recaudado:,.2f} ({self.fecha_corte.strftime('%d/%m/%Y %H:%M')})"
+	
+	@classmethod
+	def get_ultimo_corte(cls):
+		"""Obtiene la fecha del último corte realizado"""
+		ultimo_corte = cls.objects.order_by('-fecha_corte').first()
+		if ultimo_corte:
+			return ultimo_corte.fecha_fin
+		return None
+	
+	@classmethod
+	def calcular_recaudacion_actual(cls):
+		"""Calcula la recaudación desde el último corte"""
+		fecha_ultimo_corte = cls.get_ultimo_corte()
+		
+		# Filtrar clientes que han salido desde el último corte
+		clientes_query = Cliente.objects.filter(fecha_salida__isnull=False)
+		
+		if fecha_ultimo_corte:
+			clientes_query = clientes_query.filter(fecha_salida__gt=fecha_ultimo_corte)
+		
+		# Calcular el total recaudado
+		total_recaudado = 0
+		numero_clientes = 0
+		
+		for cliente in clientes_query:
+			total_recaudado += cliente.calcular_costo()
+			numero_clientes += 1
+		
+		fecha_inicio = fecha_ultimo_corte or timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+		
+		return {
+			'monto_total': total_recaudado,
+			'numero_clientes': numero_clientes,
+			'fecha_inicio': fecha_inicio,
+			'fecha_actual': timezone.now(),
+			'clientes': clientes_query
+		}
+	
+	class Meta:
+		verbose_name = 'Recaudación'
+		verbose_name_plural = 'Recaudaciones'
+		ordering = ['-fecha_corte']
