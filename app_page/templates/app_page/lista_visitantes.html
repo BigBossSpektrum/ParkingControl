@@ -2,6 +2,7 @@
 {% block title %}Lista de Visitantes{% endblock %}
 
 {% block content %}
+{% csrf_token %}
 <div class="row mb-4">
     <div class="col-12">
         <div class="d-flex justify-content-between align-items-center">
@@ -110,9 +111,6 @@
                         {% if visitantes %}({{ visitantes|length }} encontrados){% endif %}
                     </h5>
                     <div class="btn-group">
-                        <button type="button" class="btn btn-dark btn-sm" onclick="exportarExcel()">
-                            <i class="bi bi-file-earmark-excel me-1"></i>Exportar
-                        </button>
                         <button type="button" class="btn btn-dark btn-sm" onclick="imprimirLista()">
                             <i class="bi bi-printer me-1"></i>Imprimir
                         </button>
@@ -257,85 +255,330 @@
 {% block extra_js %}
 <script>
 function verDetalles(visitanteId) {
+    // Mostrar spinner
     Swal.fire({
-        title: 'Detalles del Visitante',
-        text: 'Cargando información...',
-        icon: 'info',
-        background: '#222',
-        color: '#0f0',
-        showConfirmButton: false
+        title: 'Cargando...',
+        text: 'Obteniendo información del visitante',
+        allowOutsideClick: false,
+        didOpen: () => {
+            Swal.showLoading()
+        }
     });
     
-    // Aquí harías una petición AJAX para obtener los detalles
-    // Por ahora solo mostramos un mensaje
-    setTimeout(() => {
+    fetch(`/visitantes/ver/${visitanteId}/`, {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const visitante = data.visitante;
+            Swal.fire({
+                title: `👤 ${visitante.nombre}`,
+                html: `
+                    <div class="text-start">
+                        <div class="row">
+                            <div class="col-6">
+                                <p><strong><i class="bi bi-card-text me-2"></i>Cédula:</strong><br>
+                                <span class="badge bg-success">${visitante.cedula}</span></p>
+                            </div>
+                            <div class="col-6">
+                                <p><strong><i class="bi bi-telephone me-2"></i>Teléfono:</strong><br>
+                                ${visitante.telefono}</p>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-6">
+                                <p><strong><i class="bi bi-building me-2"></i>Torre:</strong><br>
+                                <span class="badge bg-info">${visitante.torre}</span></p>
+                            </div>
+                            <div class="col-6">
+                                <p><strong><i class="bi bi-door-open me-2"></i>Apartamento:</strong><br>
+                                <span class="badge bg-warning text-dark">${visitante.apartamento}</span></p>
+                            </div>
+                        </div>
+                        <hr>
+                        <p><strong><i class="bi bi-building-check me-2"></i>Ubicación Completa:</strong><br>
+                        ${visitante.ubicacion_completa}</p>
+                        <hr>
+                        <div class="text-muted small">
+                            <p><i class="bi bi-calendar me-2"></i>Registrado: ${visitante.fecha_registro}</p>
+                            <p><i class="bi bi-arrow-repeat me-2"></i>Actualizado: ${visitante.fecha_actualizacion}</p>
+                        </div>
+                    </div>
+                `,
+                width: '500px',
+                confirmButtonText: 'Cerrar',
+                confirmButtonColor: '#198754',
+                customClass: {
+                    popup: 'text-dark'
+                }
+            });
+        } else {
+            Swal.fire({
+                title: 'Error',
+                text: data.mensaje || 'Error al cargar los detalles',
+                icon: 'error',
+                confirmButtonColor: '#198754'
+            });
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
         Swal.fire({
-            title: 'Información del Visitante',
-            html: 'ID: ' + visitanteId + '<br>Función en desarrollo...',
-            icon: 'info',
-            background: '#222',
-            color: '#0f0'
+            title: 'Error de conexión',
+            text: 'No se pudo conectar con el servidor',
+            icon: 'error',
+            confirmButtonColor: '#198754'
         });
-    }, 1000);
+    });
 }
 
 function editarVisitante(visitanteId) {
-    Swal.fire({
-        title: '¿Editar visitante?',
-        text: 'Esta función estará disponible próximamente',
-        icon: 'question',
-        background: '#222',
-        color: '#0f0'
+    // Obtener datos del visitante
+    fetch(`/visitantes/editar/${visitanteId}/`, {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const visitante = data.visitante;
+            
+            Swal.fire({
+                title: '✏️ Editar Visitante',
+                html: `
+                    <form id="editarForm" class="text-start">
+                        <div class="row mb-3">
+                            <div class="col-6">
+                                <label class="form-label">Cédula *</label>
+                                <input type="text" id="edit_cedula" class="form-control" 
+                                       value="${visitante.cedula}" required>
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label">Nombre *</label>
+                                <input type="text" id="edit_nombre" class="form-control" 
+                                       value="${visitante.nombre}" required>
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-6">
+                                <label class="form-label">Teléfono</label>
+                                <input type="text" id="edit_telefono" class="form-control" 
+                                       value="${visitante.telefono}">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label">Torre</label>
+                                <input type="text" id="edit_torre" class="form-control" 
+                                       value="${visitante.torre}">
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-6">
+                                <label class="form-label">Apartamento</label>
+                                <input type="text" id="edit_apartamento" class="form-control" 
+                                       value="${visitante.apartamento}">
+                            </div>
+                        </div>
+                    </form>
+                `,
+                confirmButtonText: 'Guardar Cambios',
+                confirmButtonColor: '#198754',
+                showCancelButton: true,
+                cancelButtonText: 'Cancelar',
+                cancelButtonColor: '#6c757d',
+                width: '600px',
+                focusConfirm: false,
+                preConfirm: () => {
+                    const cedulaElement = document.getElementById('edit_cedula');
+                    const nombreElement = document.getElementById('edit_nombre');
+                    const telefonoElement = document.getElementById('edit_telefono');
+                    const torreElement = document.getElementById('edit_torre');
+                    const apartamentoElement = document.getElementById('edit_apartamento');
+                    
+                    if (!cedulaElement || !nombreElement) {
+                        Swal.showValidationMessage('Error: Elementos del formulario no encontrados');
+                        return false;
+                    }
+                    
+                    const cedula = cedulaElement.value.trim();
+                    const nombre = nombreElement.value.trim();
+                    
+                    if (!cedula || !nombre) {
+                        Swal.showValidationMessage('Cédula y nombre son campos obligatorios');
+                        return false;
+                    }
+                    
+                    return {
+                        cedula: cedula,
+                        nombre: nombre,
+                        telefono: telefonoElement ? telefonoElement.value.trim() : '',
+                        torre: torreElement ? torreElement.value.trim() : '',
+                        apartamento: apartamentoElement ? apartamentoElement.value.trim() : ''
+                    };
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Enviar datos al servidor
+                    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+                    if (!csrfToken) {
+                        Swal.fire('Error', 'Token de seguridad no encontrado', 'error');
+                        return;
+                    }
+                    
+                    fetch(`/visitantes/editar/${visitanteId}/`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRFToken': csrfToken.value
+                        },
+                        body: JSON.stringify(result.value)
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            Swal.fire({
+                                title: '✅ Actualizado',
+                                text: data.mensaje,
+                                icon: 'success',
+                                confirmButtonColor: '#198754'
+                            }).then(() => {
+                                location.reload(); // Recargar para ver cambios
+                            });
+                        } else {
+                            Swal.fire({
+                                title: 'Error',
+                                text: data.mensaje,
+                                icon: 'error',
+                                confirmButtonColor: '#198754'
+                            });
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        Swal.fire({
+                            title: 'Error de conexión',
+                            text: 'No se pudo guardar los cambios',
+                            icon: 'error',
+                            confirmButtonColor: '#198754'
+                        });
+                    });
+                }
+            });
+        } else {
+            Swal.fire({
+                title: 'Error',
+                text: data.mensaje || 'Error al cargar los datos',
+                icon: 'error',
+                confirmButtonColor: '#198754'
+            });
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        Swal.fire({
+            title: 'Error de conexión',
+            text: 'No se pudo conectar con el servidor',
+            icon: 'error',
+            confirmButtonColor: '#198754'
+        });
     });
 }
 
 function eliminarVisitante(visitanteId) {
     Swal.fire({
-        title: '¿Eliminar visitante?',
-        text: 'Esta acción no se puede deshacer',
+        title: '⚠️ ¿Eliminar Visitante?',
+        text: 'Esta acción no se puede deshacer. El visitante será eliminado permanentemente.',
         icon: 'warning',
         showCancelButton: true,
-        confirmButtonText: 'Sí, eliminar',
+        confirmButtonText: 'Sí, Eliminar',
         cancelButtonText: 'Cancelar',
-        background: '#222',
-        color: '#0f0'
+        confirmButtonColor: '#dc3545',
+        cancelButtonColor: '#6c757d',
+        focusCancel: true
     }).then((result) => {
         if (result.isConfirmed) {
-            // Aquí harías la petición para eliminar
+            // Mostrar spinner
             Swal.fire({
-                title: 'Eliminado',
-                text: 'El visitante ha sido eliminado',
-                icon: 'success',
-                background: '#222',
-                color: '#0f0'
+                title: 'Eliminando...',
+                text: 'Procesando eliminación del visitante',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading()
+                }
+            });
+            
+            // Enviar petición de eliminación
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+            if (!csrfToken) {
+                Swal.fire('Error', 'Token de seguridad no encontrado', 'error');
+                return;
+            }
+            
+            fetch(`/visitantes/eliminar/${visitanteId}/`, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': csrfToken.value
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire({
+                        title: '✅ Eliminado',
+                        text: data.mensaje,
+                        icon: 'success',
+                        confirmButtonColor: '#198754'
+                    }).then(() => {
+                        location.reload(); // Recargar para ver cambios
+                    });
+                } else {
+                    Swal.fire({
+                        title: 'Error',
+                        text: data.mensaje || 'Error al eliminar el visitante',
+                        icon: 'error',
+                        confirmButtonColor: '#198754'
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire({
+                    title: 'Error de conexión',
+                    text: 'No se pudo conectar con el servidor',
+                    icon: 'error',
+                    confirmButtonColor: '#198754'
+                });
             });
         }
     });
 }
 
-function exportarExcel() {
-    Swal.fire({
-        title: 'Exportando...',
-        text: 'Generando archivo Excel',
-        icon: 'info',
-        background: '#222',
-        color: '#0f0',
-        timer: 2000,
-        showConfirmButton: false
-    });
-}
+
 
 function imprimirLista() {
     window.print();
 }
 
 // Auto-uppercase para búsquedas
-document.getElementById('cedula_buscar').addEventListener('input', function() {
-    this.value = this.value.toUpperCase();
-});
+const cedulaBuscar = document.getElementById('cedula_buscar');
+if (cedulaBuscar) {
+    cedulaBuscar.addEventListener('input', function() {
+        this.value = this.value.toUpperCase();
+    });
+}
 
-document.getElementById('nombre_buscar').addEventListener('input', function() {
-    this.value = this.value.toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
-});
+const nombreBuscar = document.getElementById('nombre_buscar');
+if (nombreBuscar) {
+    nombreBuscar.addEventListener('input', function() {
+        this.value = this.value.toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+    });
+}
 </script>
 {% endblock %}

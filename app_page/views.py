@@ -960,3 +960,121 @@ def toggle_tarifa_plena(request):
 		'conteo_hoy': conteo_hoy,
 		'ultimos': ultimos
 	})
+
+# --- VISTAS PARA GESTIÓN DE VISITANTES ---
+
+@login_required
+@require_view_list_permission
+def ver_visitante(request, pk):
+	"""Vista para ver detalles de un visitante"""
+	visitante = get_object_or_404(Visitante, pk=pk)
+	
+	if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+		# Respuesta AJAX para modal
+		return JsonResponse({
+			'success': True,
+			'visitante': {
+				'id': visitante.id,
+				'cedula': visitante.get_display_cedula(),
+				'nombre': visitante.get_display_name(),
+				'telefono': visitante.get_display_telefono(),
+				'torre': visitante.get_display_torre(),
+				'apartamento': visitante.get_display_apartamento(),
+				'ubicacion_completa': visitante.get_ubicacion_completa(),
+				'fecha_registro': visitante.fecha_registro.strftime('%d/%m/%Y %H:%M'),
+				'fecha_actualizacion': visitante.fecha_actualizacion.strftime('%d/%m/%Y %H:%M'),
+			}
+		})
+	
+	return render(request, 'app_page/ver_visitante.html', {
+		'visitante': visitante
+	})
+
+@login_required
+@require_edit_permission
+def editar_visitante(request, pk):
+	"""Vista para editar un visitante"""
+	visitante = get_object_or_404(Visitante, pk=pk)
+	
+	if request.method == 'POST':
+		if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+			try:
+				import json
+				data = json.loads(request.body)
+				
+				# Validar campos requeridos
+				if not data.get('nombre') or not data.get('cedula'):
+					return JsonResponse({
+						'success': False,
+						'mensaje': 'Nombre y cédula son campos obligatorios'
+					})
+				
+				# Actualizar visitante
+				visitante.nombre = data.get('nombre').strip()
+				visitante.cedula = data.get('cedula').strip().upper()
+				visitante.telefono = data.get('telefono', '').strip()
+				visitante.torre = data.get('torre', '').strip()
+				visitante.apartamento = data.get('apartamento', '').strip()
+				visitante.save()
+				
+				return JsonResponse({
+					'success': True,
+					'mensaje': f'Visitante {visitante.get_display_name()} actualizado exitosamente'
+				})
+				
+			except json.JSONDecodeError:
+				return JsonResponse({
+					'success': False,
+					'mensaje': 'Datos JSON inválidos'
+				})
+			except Exception as e:
+				return JsonResponse({
+					'success': False,
+					'mensaje': f'Error al actualizar: {str(e)}'
+				})
+	
+	# GET request o respuesta no AJAX
+	if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+		return JsonResponse({
+			'success': True,
+			'visitante': {
+				'id': visitante.id,
+				'cedula': visitante.cedula,
+				'nombre': visitante.nombre,
+				'telefono': visitante.telefono,
+				'torre': visitante.torre,
+				'apartamento': visitante.apartamento,
+			}
+		})
+	
+	return render(request, 'app_page/editar_visitante.html', {
+		'visitante': visitante
+	})
+
+@login_required
+@require_delete_permission
+def eliminar_visitante(request, pk):
+	"""Vista para eliminar un visitante"""
+	visitante = get_object_or_404(Visitante, pk=pk)
+	
+	if request.method == 'POST':
+		if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+			try:
+				nombre_visitante = visitante.get_display_name()
+				visitante.delete()
+				
+				return JsonResponse({
+					'success': True,
+					'mensaje': f'Visitante {nombre_visitante} eliminado exitosamente'
+				})
+				
+			except Exception as e:
+				return JsonResponse({
+					'success': False,
+					'mensaje': f'Error al eliminar: {str(e)}'
+				})
+	
+	return JsonResponse({
+		'success': False,
+		'mensaje': 'Método no permitido'
+	})

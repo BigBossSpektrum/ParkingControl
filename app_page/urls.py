@@ -15,6 +15,9 @@ urlpatterns = [
     # URLs para visitantes
     path('visitantes/', views.dashboard_visitante, name='dashboard_visitante'),
     path('visitantes/lista/', views.lista_visitantes, name='lista_visitantes'),
+    path('visitantes/editar/<int:pk>/', views.editar_visitante, name='editar_visitante'),
+    path('visitantes/eliminar/<int:pk>/', views.eliminar_visitante, name='eliminar_visitante'),
+    path('visitantes/ver/<int:pk>/', views.ver_visitante, name='ver_visitante'),
     
     # URLs para clientes (parking)
     path('clientes/', views.lista_clientes, name='lista_clientes'),
