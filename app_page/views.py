@@ -1108,6 +1108,9 @@ def resumen_recaudacion(request):
 		# Obtener historial de cortes recientes (últimos 10)
 		historial_cortes = Recaudacion.objects.all()[:10]
 		
+		# Debug logging
+		logger.info(f"Número de cortes encontrados: {historial_cortes.count()}")
+		
 		response_data = {
 			'success': True,
 			'resumen': {
@@ -1122,16 +1125,23 @@ def resumen_recaudacion(request):
 		
 		# Agregar historial de cortes
 		for corte in historial_cortes:
-			response_data['historial'].append({
-				'id': corte.id,
-				'monto': float(corte.monto_recaudado),
-				'monto_formateado': f"${corte.monto_recaudado:,.2f}",
-				'fecha_corte': corte.fecha_corte.strftime('%d/%m/%Y %H:%M'),
-				'numero_clientes': corte.numero_clientes,
-				'usuario': corte.usuario.get_full_name() or corte.usuario.username,
-				'periodo': f"{corte.fecha_inicio.strftime('%d/%m/%Y %H:%M')} - {corte.fecha_fin.strftime('%d/%m/%Y %H:%M')}"
-			})
+			try:
+				clientes_atendidos = corte.get_clientes_atendidos()
+				logger.info(f"Corte {corte.id}: {len(clientes_atendidos)} clientes")
+				response_data['historial'].append({
+					'id': corte.id,
+					'monto': float(corte.monto_recaudado),
+					'monto_formateado': f"${corte.monto_recaudado:,.2f}",
+					'fecha_corte': corte.fecha_corte.strftime('%d/%m/%Y %H:%M'),
+					'numero_clientes': corte.numero_clientes,
+					'usuario': corte.usuario.get_full_name() or corte.usuario.username,
+					'periodo': f"{corte.fecha_inicio.strftime('%d/%m/%Y %H:%M')} - {corte.fecha_fin.strftime('%d/%m/%Y %H:%M')}",
+					'clientes_atendidos': clientes_atendidos
+				})
+			except Exception as e:
+				logger.error(f"Error procesando corte {corte.id}: {str(e)}")
 		
+		logger.info(f"Respuesta final: {len(response_data['historial'])} cortes en historial")
 		return JsonResponse(response_data)
 		
 	except Exception as e:
@@ -1152,9 +1162,9 @@ def realizar_corte_recaudacion(request):
 		})
 	
 	try:
-		# Verificar permisos (solo supervisores o administradores)
+		# Verificar permisos (solo administradores)
 		perfil = get_user_profile(request.user)
-		if not (perfil.es_supervisor or perfil.es_administrador):
+		if not perfil.es_administrador():
 			return JsonResponse({
 				'success': False,
 				'mensaje': 'No tienes permisos para realizar cortes de recaudación.'

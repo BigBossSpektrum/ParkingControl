@@ -676,6 +676,30 @@ class Recaudacion(models.Model):
 			'clientes': clientes_query
 		}
 	
+	def get_clientes_atendidos(self):
+		"""Obtiene los clientes atendidos en el período de este corte"""
+		clientes = Cliente.objects.filter(
+			fecha_salida__gte=self.fecha_inicio,
+			fecha_salida__lte=self.fecha_fin
+		).order_by('fecha_salida')
+		
+		clientes_data = []
+		for cliente in clientes:
+			clientes_data.append({
+				'id': cliente.id,
+				'nombre': cliente.get_display_name(),
+				'cedula': cliente.get_display_cedula(),
+				'matricula': cliente.matricula,
+				'tipo_vehiculo': cliente.get_tipo_vehiculo_display(),
+				'fecha_entrada': cliente.fecha_entrada.strftime('%d/%m/%Y %H:%M') if cliente.fecha_entrada else 'No registrada',
+				'fecha_salida': cliente.fecha_salida.strftime('%d/%m/%Y %H:%M') if cliente.fecha_salida else 'No registrada',
+				'tiempo_parking': cliente.tiempo_formateado(),
+				'costo': float(cliente.calcular_costo()),
+				'costo_formateado': cliente.costo_formateado(),
+			})
+		
+		return clientes_data
+	
 	class Meta:
 		verbose_name = 'Recaudación'
 		verbose_name_plural = 'Recaudaciones'

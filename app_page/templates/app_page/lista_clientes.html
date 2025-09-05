@@ -107,6 +107,29 @@
             font-size: 0.75rem;
             margin-left: 5px;
         }
+        .toggle-clientes {
+            border: none !important;
+            padding: 0.2rem 0.4rem;
+            transition: all 0.2s ease;
+        }
+        .toggle-clientes:hover {
+            background-color: rgba(255, 193, 7, 0.2) !important;
+        }
+        .corte-principal {
+            border-bottom: 2px solid #495057 !important;
+        }
+        .table-dark .table-dark {
+            background-color: #343a40;
+        }
+        .table-dark .table-dark th {
+            border-color: #495057;
+            font-size: 0.75rem;
+        }
+        .table-dark .table-dark td {
+            border-color: #495057;
+            font-size: 0.75rem;
+            padding: 0.3rem 0.5rem;
+        }
     </style>
 {% endblock %}
 {% block content %}
@@ -314,10 +337,10 @@
                 <div class="modal-body">
                     <!-- Resumen Actual -->
                     <div class="card bg-gradient-success mb-4">
-                        <div class="card-body text-center">
-                            <h3 class="text-white mb-1" id="montoTotalActual">Cargando...</h3>
-                            <p class="text-light mb-0">Total Recaudado</p>
-                            <small class="text-light" id="periodoActual">Desde: --</small>
+                        <div class="card-body text-center bg-primary">
+                            <h3 class="text-dark mb-1" id="montoTotalActual">Cargando...</h3>
+                            <p class="text-dark mb-0">Total Recaudado</p>
+                            <small class="text-dark" id="periodoActual">Desde: --</small>
                         </div>
                     </div>
 
@@ -361,6 +384,7 @@
                         <table class="table table-dark table-striped">
                             <thead>
                                 <tr>
+                                    <th width="5%"></th>
                                     <th>Fecha</th>
                                     <th>Monto</th>
                                     <th>Clientes</th>
@@ -369,7 +393,7 @@
                             </thead>
                             <tbody id="historialCortes">
                                 <tr>
-                                    <td colspan="4" class="text-center text-muted">Cargando historial...</td>
+                                    <td colspan="5" class="text-center text-muted">Cargando historial...</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -1021,6 +1045,7 @@
             })
             .then(response => response.json())
             .then(data => {
+                console.log('Datos recibidos:', data); // Debug
                 if (data.success) {
                     // Actualizar badge en el botón
                     if (montoActualBadge) {
@@ -1035,17 +1060,93 @@
 
                     // Actualizar historial
                     const historialCortes = document.getElementById('historialCortes');
+                    console.log('Historial recibido:', data.historial); // Debug
                     if (data.historial && data.historial.length > 0) {
-                        historialCortes.innerHTML = data.historial.map(corte => `
-                            <tr>
-                                <td>${corte.fecha_corte}</td>
-                                <td class="text-success">${corte.monto_formateado}</td>
-                                <td>${corte.numero_clientes}</td>
-                                <td>${corte.usuario}</td>
-                            </tr>
-                        `).join('');
+                        let historialHTML = '';
+                        data.historial.forEach((corte, index) => {
+                            console.log('Procesando corte:', corte); // Debug
+                            const uniqueId = `corte-${corte.id}`;
+                            historialHTML += `
+                                <tr class="corte-principal" data-corte-id="${corte.id}">
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-warning toggle-clientes" 
+                                                data-bs-toggle="collapse" 
+                                                data-bs-target="#${uniqueId}" 
+                                                aria-expanded="false">
+                                            <i class="bi bi-chevron-right"></i>
+                                        </button>
+                                    </td>
+                                    <td>${corte.fecha_corte}</td>
+                                    <td class="text-success">${corte.monto_formateado}</td>
+                                    <td>
+                                        <span class="badge bg-primary">${corte.numero_clientes}</span>
+                                    </td>
+                                    <td>${corte.usuario}</td>
+                                </tr>
+                                <tr>
+                                    <td colspan="5" style="padding: 0;">
+                                        <div class="collapse" id="${uniqueId}">
+                                            <div class="card card-body bg-secondary m-2">
+                                                <h6 class="text-light mb-3">
+                                                    <i class="bi bi-people me-2"></i>Clientes Atendidos
+                                                    <small class="text-muted">(${corte.periodo})</small>
+                                                </h6>
+                                                ${corte.clientes_atendidos && corte.clientes_atendidos.length > 0 ? `
+                                                    <div class="table-responsive">
+                                                        <table class="table table-sm table-dark">
+                                                            <thead>
+                                                                <tr>
+                                                                    <th>Nombre</th>
+                                                                    <th>Cédula</th>
+                                                                    <th>Matrícula</th>
+                                                                    <th>Tipo</th>
+                                                                    <th>Entrada</th>
+                                                                    <th>Salida</th>
+                                                                    <th>Tiempo</th>
+                                                                    <th>Costo</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                ${corte.clientes_atendidos.map(cliente => `
+                                                                    <tr>
+                                                                        <td>${cliente.nombre}</td>
+                                                                        <td>${cliente.cedula}</td>
+                                                                        <td><code>${cliente.matricula}</code></td>
+                                                                        <td><span class="badge bg-info">${cliente.tipo_vehiculo}</span></td>
+                                                                        <td><small>${cliente.fecha_entrada}</small></td>
+                                                                        <td><small>${cliente.fecha_salida}</small></td>
+                                                                        <td><strong class="text-warning">${cliente.tiempo_parking}</strong></td>
+                                                                        <td><strong class="text-success">${cliente.costo_formateado}</strong></td>
+                                                                    </tr>
+                                                                `).join('')}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                ` : `
+                                                    <div class="text-center text-muted">
+                                                        <i class="bi bi-exclamation-circle me-2"></i>
+                                                        No hay clientes registrados en este período
+                                                    </div>
+                                                `}
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            `;
+                        });
+                        historialCortes.innerHTML = historialHTML;
+
+                        // Agregar event listeners para los botones de toggle
+                        document.querySelectorAll('.toggle-clientes').forEach(btn => {
+                            btn.addEventListener('click', function() {
+                                const icon = this.querySelector('i');
+                                icon.classList.toggle('bi-chevron-right');
+                                icon.classList.toggle('bi-chevron-down');
+                            });
+                        });
                     } else {
-                        historialCortes.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No hay cortes registrados</td></tr>';
+                        console.log('No hay historial de cortes'); // Debug
+                        historialCortes.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No hay cortes registrados</td></tr>';
                     }
                 } else {
                     console.error('Error al cargar resumen:', data.mensaje);
