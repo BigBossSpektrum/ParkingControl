@@ -6,20 +6,25 @@
             padding-left: 0.5rem !important;
             padding-right: 0.5rem !important;
         }
-        .table {
-            font-size: 0.85rem;
-        }
-        .btn {
-            padding: 0.25rem 0.5rem;
-            font-size: 0.75rem;
-        }
-        .form-control {
-            font-size: 0.85rem;
-            padding: 0.375rem 0.5rem;
-        }
-        .btn-sm {
-            padding: 0.2rem 0.4rem;
-            font-size: 0.7rem;
+        /* Densidad compacta sólo desde tablet hacia arriba. En móvil manda
+           theme.css, que garantiza 16px en los campos (evita el auto-zoom de
+           iOS) y objetivos táctiles de 44px. */
+        @media (min-width: 768px) {
+            .table {
+                font-size: 0.85rem;
+            }
+            .btn {
+                padding: 0.25rem 0.5rem;
+                font-size: 0.75rem;
+            }
+            .form-control {
+                font-size: 0.85rem;
+                padding: 0.375rem 0.5rem;
+            }
+            .btn-sm {
+                padding: 0.2rem 0.4rem;
+                font-size: 0.7rem;
+            }
         }
         .status-badge {
             padding: 0.2rem 0.5rem;
@@ -183,10 +188,10 @@
         {% endif %}
         
         <div class="row g-2 mb-3">
-            <div class="col-md-3">
+            <div class="col-12 col-lg-3">
                 <input type="text" id="filtroTiempoReal" class="form-control" placeholder="Buscar por cédula, nombre, teléfono, torre, apartamento o matrícula..." value="{{ query }}">
             </div>
-            <div class="col-md-2">
+            <div class="col-6 col-md-4 col-lg-2">
                 <select id="filtroTipo" class="form-control">
                     <option value="">Todos los tipos</option>
                     <option value="auto">Auto</option>
@@ -194,20 +199,20 @@
                     <option value="otro">Otro</option>
                 </select>
             </div>
-            <div class="col-md-2">
+            <div class="col-6 col-md-4 col-lg-2">
                 <select id="filtroEstado" class="form-control">
                     <option value="">Todos los estados</option>
                     <option value="activo">En parking</option>
                     <option value="salido">Salido</option>
                 </select>
             </div>
-            <div class="col-md-2">
+            <div class="col-6 col-md-4 col-lg-2">
                 <input type="date" id="fechaDesde" class="form-control" placeholder="Fecha desde" title="Entrada mayor o igual a">
             </div>
-            <div class="col-md-2">
+            <div class="col-6 col-md-4 col-lg-2">
                 <input type="date" id="fechaHasta" class="form-control" placeholder="Fecha hasta" title="Entrada menor o igual a">
             </div>
-            <div class="col-md-1">
+            <div class="col-12 col-md-4 col-lg-1 d-grid">
                 <button type="button" id="limpiarFiltros" class="btn btn-dark">Limpiar</button>
             </div>
         </div>
@@ -285,7 +290,7 @@
                         </tr>
                     {% empty %}
                         <tr>
-                            <td colspan="9" class="text-center">No hay clientes registrados</td>
+                            <td colspan="{% if user.perfil.es_administrador %}13{% else %}12{% endif %}" class="text-center">No hay clientes registrados</td>
                         </tr>
                     {% endfor %}
                 </tbody>
@@ -569,7 +574,7 @@
                         console.log('Datos del cliente:', data);
                         const qrImageHtml = data.qr_url ? 
                             `<div class="text-center my-3">
-                                <img src="${data.qr_url}" alt="Código QR" style="max-width: 300px; border: 2px solid #0f0; background: #fff;">
+                                <img src="${data.qr_url}" alt="Código QR" style="max-width: 300px; border: 2px solid var(--pc-fg); background: #fff;">
                                 <div class="small mt-2 text-success">Código QR con datos del cliente</div>
                             </div>` : 
                             '<div class="alert alert-warning">No hay QR generado para este cliente.</div>';
@@ -588,8 +593,8 @@
                             `,
                             width: '500px',
                             background: '#222',
-                            color: '#0f0',
-                            confirmButtonColor: '#0f0',
+                            color: '#5df75d',
+                            confirmButtonColor: '#5df75d',
                             confirmButtonText: 'Cerrar',
                             showDenyButton: true,
                             denyButtonColor: '#17a2b8',
@@ -616,7 +621,7 @@
                             text: 'No se pudo cargar la información del cliente',
                             background: '#222',
                             color: '#ff4444',
-                            confirmButtonColor: '#0f0'
+                            confirmButtonColor: '#5df75d'
                         });
                     });
             }
@@ -677,8 +682,8 @@
                                 </form>
                             `,
                             background: '#222',
-                            color: '#0f0',
-                            confirmButtonColor: '#0f0',
+                            color: '#5df75d',
+                            confirmButtonColor: '#5df75d',
                             cancelButtonColor: '#dc3545',
                             confirmButtonText: 'Guardar Cambios',
                             cancelButtonText: 'Cancelar',
@@ -712,8 +717,8 @@
                                     title: 'Cliente actualizado',
                                     text: 'Los cambios se han guardado correctamente',
                                     background: '#222',
-                                    color: '#0f0',
-                                    confirmButtonColor: '#0f0'
+                                    color: '#5df75d',
+                                    confirmButtonColor: '#5df75d'
                                 }).then(() => {
                                     location.reload();
                                 });
@@ -725,7 +730,7 @@
                                 text: 'No se pudo actualizar el cliente: ' + error.message,
                                 background: '#222',
                                 color: '#ff4444',
-                                confirmButtonColor: '#0f0'
+                                confirmButtonColor: '#5df75d'
                             });
                         });
                     });
@@ -783,8 +788,8 @@
                                             title: 'Cliente eliminado',
                                             text: 'El cliente ha sido eliminado correctamente',
                                             background: '#222',
-                                            color: '#0f0',
-                                            confirmButtonColor: '#0f0'
+                                            color: '#5df75d',
+                                            confirmButtonColor: '#5df75d'
                                         }).then(() => {
                                             location.reload();
                                         });
@@ -799,7 +804,7 @@
                                         text: 'No se pudo eliminar el cliente: ' + error.message,
                                         background: '#222',
                                         color: '#ff4444',
-                                        confirmButtonColor: '#0f0'
+                                        confirmButtonColor: '#5df75d'
                                     });
                                 });
                             }
@@ -813,7 +818,7 @@
                             text: 'No se pudo cargar la información del cliente para eliminar',
                             background: '#222',
                             color: '#ff4444',
-                            confirmButtonColor: '#0f0'
+                            confirmButtonColor: '#5df75d'
                         });
                     });
             }
@@ -827,7 +832,7 @@
                         text: `Se imprimirá nuevamente el ticket para ${nombreCliente}`,
                         icon: 'question',
                         background: '#222',
-                        color: '#0f0',
+                        color: '#5df75d',
                         showCancelButton: true,
                         confirmButtonColor: '#17a2b8',
                         cancelButtonColor: '#6c757d',
@@ -863,8 +868,8 @@
                                     text: result.value.message,
                                     icon: 'success',
                                     background: '#222',
-                                    color: '#0f0',
-                                    confirmButtonColor: '#0f0',
+                                    color: '#5df75d',
+                                    confirmButtonColor: '#5df75d',
                                     timer: 3000,
                                     showConfirmButton: false
                                 });
@@ -876,7 +881,7 @@
                                     icon: 'error',
                                     background: '#222',
                                     color: '#ff4444',
-                                    confirmButtonColor: '#0f0'
+                                    confirmButtonColor: '#5df75d'
                                 });
                                 reject(new Error(result.value.message));
                             }
@@ -910,7 +915,7 @@
                     confirmButtonText: `Sí, ${accion}`,
                     cancelButtonText: 'Cancelar',
                     background: '#222',
-                    color: '#0f0'
+                    color: '#5df75d'
                 }).then((result) => {
                     if (result.isConfirmed) {
                         // Realizar petición AJAX
@@ -949,7 +954,7 @@
                                     text: data.mensaje,
                                     icon: 'success',
                                     background: '#222',
-                                    color: '#0f0',
+                                    color: '#5df75d',
                                     timer: 2000,
                                     showConfirmButton: false
                                 });
@@ -964,7 +969,7 @@
                                     text: data.mensaje || 'Error al cambiar el estado de la tarifa plena',
                                     icon: 'error',
                                     background: '#222',
-                                    color: '#0f0'
+                                    color: '#5df75d'
                                 });
                             }
                         })
@@ -974,7 +979,7 @@
                                 text: 'Error de conexión: ' + error.message,
                                 icon: 'error',
                                 background: '#222',
-                                color: '#0f0'
+                                color: '#5df75d'
                             });
                         });
                     }
@@ -1183,7 +1188,7 @@
                         text: data.mensaje,
                         icon: 'success',
                         background: '#222',
-                        color: '#0f0',
+                        color: '#5df75d',
                         confirmButtonColor: '#28a745'
                     }).then(() => {
                         // Cerrar modal y actualizar resumen

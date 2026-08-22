@@ -22,7 +22,7 @@
             <div class="row">
                 <div class="col-12 text-center my-3">
                     {% if cliente.qr_image %}
-                        <img src="{{ cliente.qr_image.url }}" alt="QR del cliente con datos" style="max-width: 300px; border:2px solid #0f0; background:#fff;"/>
+                        <img src="{{ cliente.qr_image.url }}" alt="QR del cliente con datos" style="max-width: 300px; border:2px solid var(--pc-fg); background:#fff;"/>
                         <div class="small mt-2">Código QR con datos del cliente</div>
                     {% else %}
                         <div class="alert alert-warning">No hay QR generado para este cliente.</div>

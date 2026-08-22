@@ -807,6 +807,12 @@ def portal_opciones(request):
 	# Obtener últimos 5 registros
 	ultimos = Cliente.objects.all().order_by('-fecha_entrada')[:5]
 
+	return render(request, 'app_page/portal_opciones.html', {
+		'conteo_hoy': conteo_hoy,
+		'ultimos': ultimos
+	})
+
+
 # --- DASHBOARD VISITANTE: Panel principal para visitantes ---
 @login_required
 @csrf_protect

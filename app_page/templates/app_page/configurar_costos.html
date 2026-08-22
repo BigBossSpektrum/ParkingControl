@@ -1,18 +1,10 @@
-{% extends 'app_page/base.html' %                                <div class="card bg-secondary border-success">
-                                <div class="card-body text-center">
-                                    <h5 class="card-title text-success">
-                                        <i class="bi bi-car-front"></i>
-                                        Tarifa Actual - Auto
-                                    </h5>
-                                    <h2 class="text-warning">${{ costo.costo_auto }}/hora</h2>
-                                    <small class="text-muted">Por cada hora o fracción</small>
-                                </div>
-                            </div>lock title %}Configurar Costos - Parking Control{% endblock %}
+{% extends 'app_page/base.html' %}
+{% block title %}Configurar Costos - Parking Control{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="mt-4">
     <div class="row justify-content-center">
-        <div class="col-md-8">
+        <div class="col-12 col-lg-8">
             <div class="card bg-dark border-success">
                 <div class="card-header bg-success text-dark">
                     <h3 class="mb-0">
@@ -147,7 +139,9 @@
         </div>
     </div>
 </div>
+{% endblock %}
 
+{% block extra_js %}
 <script>
 // Validación de formulario
 (function() {
@@ -182,12 +176,12 @@ document.querySelector('form').addEventListener('submit', function(e) {
         `,
         icon: 'question',
         showCancelButton: true,
-        confirmButtonColor: '#0f0',
+        confirmButtonColor: '#5df75d',
         cancelButtonColor: '#d33',
         confirmButtonText: 'Sí, actualizar',
         cancelButtonText: 'Cancelar',
         background: '#222',
-        color: '#0f0'
+        color: '#5df75d'
     }).then((result) => {
         if (result.isConfirmed) {
             this.submit();

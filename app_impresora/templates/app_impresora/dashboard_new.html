@@ -86,22 +86,22 @@
     <div class="quick-actions">
         <h5><i class="fas fa-bolt"></i> Acciones Rápidas</h5>
         <div class="row">
-            <div class="col-md-3">
+            <div class="col-12 col-sm-6 col-md-3">
                 <button id="test-active-printer" class="btn btn-primary w-100">
                     <i class="fas fa-test-tube"></i> Probar Impresora Activa
                 </button>
             </div>
-            <div class="col-md-3">
+            <div class="col-12 col-sm-6 col-md-3">
                 <button id="toggle-simulation" class="btn btn-warning w-100">
                     <i class="fas fa-flask"></i> <span id="simulation-text">{% if simulation_mode %}Desactivar{% else %}Activar{% endif %} Simulación</span>
                 </button>
             </div>
-            <div class="col-md-3">
+            <div class="col-12 col-sm-6 col-md-3">
                 <button id="refresh-status" class="btn btn-outline-primary w-100">
                     <i class="fas fa-sync-alt"></i> Actualizar Estado
                 </button>
             </div>
-            <div class="col-md-3">
+            <div class="col-12 col-sm-6 col-md-3">
                 <a href="{% url 'print_jobs_list' %}" class="btn btn-outline-info w-100">
                     <i class="fas fa-list"></i> Ver Trabajos
                 </a>
