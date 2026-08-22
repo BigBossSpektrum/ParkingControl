@@ -11,105 +11,98 @@
            iOS) y objetivos táctiles de 44px. */
         @media (min-width: 768px) {
             .table {
-                font-size: 0.85rem;
+                font-size: var(--pc-fs-sm);
             }
             .btn {
                 padding: 0.25rem 0.5rem;
-                font-size: 0.75rem;
+                font-size: var(--pc-fs-xs);
             }
             .form-control {
-                font-size: 0.85rem;
+                font-size: var(--pc-fs-sm);
                 padding: 0.375rem 0.5rem;
             }
             .btn-sm {
                 padding: 0.2rem 0.4rem;
-                font-size: 0.7rem;
+                font-size: var(--pc-fs-xs);
             }
         }
+        /* El color aqui si comunica estado real (dentro / fuera del parking),
+           por eso es de los pocos sitios donde se conserva. */
         .status-badge {
             padding: 0.2rem 0.5rem;
             border-radius: 0.25rem;
-            font-size: 0.7rem;
-            font-weight: bold;
+            font-size: var(--pc-fs-xs);
+            font-weight: var(--pc-fw-bold);
         }
         .status-activo {
-            background-color: #dc3545;
-            color: white;
+            background-color: #b02a37;
+            color: #fff;
         }
         .status-salido {
-            background-color: #6c757d;
-            color: white;
+            background-color: var(--pc-surface-alt);
+            color: var(--pc-fg-muted);
+            border: 1px solid var(--pc-border);
         }
         .alert {
             padding: 0.5rem;
             margin-bottom: 1rem;
-            font-size: 0.85rem;
+            font-size: var(--pc-fs-sm);
         }
         .btn-group .btn {
             transition: all 0.2s ease;
         }
         .btn-group .btn:hover {
             transform: translateY(-1px);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.12);
         }
-        .btn-info {
-            background-color: #17a2b8;
-            border-color: #17a2b8;
-        }
-        .btn-info:hover {
-            background-color: #138496;
-            border-color: #117a8b;
-        }
+        /* Los datos de tiempo y tarifa se distinguen por peso, no por color:
+           antes cada columna traia un tono distinto (azul, rojo, verde). */
         .tiempo-parking {
-            font-weight: bold;
-            color: #0d6efd;
+            font-weight: var(--pc-fw-bold);
         }
+        /* .tiempo-activo ya no parpadea: el @keyframes pulse hacia latir en rojo
+           el temporizador de cada fila "En parking" a la vez. El estado sigue
+           siendo evidente por el .status-badge de la misma fila. */
         .tiempo-activo {
-            color: #dc3545;
-            animation: pulse 2s infinite;
-        }
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.7; }
-            100% { opacity: 1; }
+            font-weight: var(--pc-fw-bold);
         }
         .tarifa-parking {
-            font-weight: bold;
-            font-size: 0.8rem;
+            font-weight: var(--pc-fw-medium);
+            font-size: var(--pc-fs-sm);
         }
         .costo-parking {
-            font-weight: bold;
-            font-size: 0.85rem;
+            font-weight: var(--pc-fw-bold);
+            font-size: var(--pc-fs-sm);
         }
         .tiempo-costo-parking {
-            font-weight: bold;
-            font-size: 0.8rem;
-            font-style: italic;
+            font-weight: var(--pc-fw-medium);
+            font-size: var(--pc-fs-sm);
+            color: var(--pc-fg-muted);
         }
         .tarifa-completa {
-            font-weight: bold;
-            font-size: 0.85rem;
+            font-weight: var(--pc-fw-bold);
+            font-size: var(--pc-fs-sm);
             white-space: nowrap;
         }
         .btn-resumen-recaudacion {
-            background: linear-gradient(135deg, #28a745, #20c997);
+            background: linear-gradient(135deg, #1a8c3c, #14795f);
             border: none;
-            color: white;
-            font-weight: bold;
+            color: #fff;
+            font-weight: var(--pc-fw-bold);
             transition: all 0.3s ease;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
         .btn-resumen-recaudacion:hover {
-            background: linear-gradient(135deg, #218838, #1aa085);
+            background: linear-gradient(135deg, #146c2e, #0f5c48);
             transform: translateY(-1px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-            color: white;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+            color: #fff;
         }
         .resumen-badge {
-            background: rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.25);
             border-radius: 15px;
             padding: 2px 8px;
-            font-size: 0.75rem;
+            font-size: var(--pc-fs-xs);
             margin-left: 5px;
         }
         .toggle-clientes {
@@ -118,21 +111,18 @@
             transition: all 0.2s ease;
         }
         .toggle-clientes:hover {
-            background-color: rgba(255, 193, 7, 0.2) !important;
+            background-color: var(--pc-surface-alt) !important;
         }
         .corte-principal {
-            border-bottom: 2px solid #495057 !important;
+            border-bottom: 2px solid var(--pc-border) !important;
         }
-        .table-dark .table-dark {
-            background-color: #343a40;
+        .table .table {
+            background-color: var(--pc-surface-alt);
         }
-        .table-dark .table-dark th {
-            border-color: #495057;
-            font-size: 0.75rem;
-        }
-        .table-dark .table-dark td {
-            border-color: #495057;
-            font-size: 0.75rem;
+        .table .table th,
+        .table .table td {
+            border-color: var(--pc-border);
+            font-size: var(--pc-fs-xs);
             padding: 0.3rem 0.5rem;
         }
     </style>
@@ -149,27 +139,27 @@
                     <span id="montoActualBadge" class="resumen-badge">Cargando...</span>
                 </button>
                 {% endif %}
-                <a href="/" class="btn btn-success" style="font-weight: bold; color: #000;">Registrar nuevo cliente</a>
+                <a href="/" class="btn btn-success">Registrar nuevo cliente</a>
             </div>
         </div>
         
         <!-- Panel de Control de Tarifa Plena -->
         {% if perfil.puede_editar_costos %}
-        <div class="card bg-dark border-warning mb-3">
+        <div class="card bg-body-tertiary mb-3">
             <div class="card-body">
                 <div class="row align-items-center">
                     <div class="col-md-6">
-                        <h6 class="card-title text-warning mb-2">
+                        <h6 class="card-title mb-2">
                             <i class="bi bi-speedometer2 me-2"></i>Control de Tarifa Plena
                         </h6>
-                        <p class="mb-0 small text-muted">
-                            Estado actual: 
-                            <span id="estadoTarifaPlena" class="badge {% if tarifa_plena.activa %}bg-success{% else %}bg-secondary{% endif %}">
+                        <p class="mb-0 small text-body-secondary">
+                            Estado actual:
+                            <span id="estadoTarifaPlena" class="badge {% if tarifa_plena.activa %}text-bg-success{% else %}badge-contador{% endif %}">
                                 {% if tarifa_plena.activa %}ACTIVA{% else %}INACTIVA{% endif %}
                             </span>
                         </p>
                         {% if tarifa_plena.activa %}
-                        <small class="text-success">
+                        <small class="text-body-secondary">
                             Auto: ${{ tarifa_plena.costo_fijo_auto }} | Moto: ${{ tarifa_plena.costo_fijo_moto }}
                         </small>
                         {% endif %}
@@ -231,7 +221,7 @@
                         <th>Salida</th>
                         <th>Tiempo</th>
                         {% if user.perfil.es_administrador %}
-                            <th>Tarifa <small class="text-muted">(Admin)</small></th>
+                            <th>Tarifa <small class="text-body-secondary">(Admin)</small></th>
                         {% endif %}
                         <th>Estado</th>
                         <th>Acciones</th>
@@ -258,7 +248,7 @@
                             </td>
                             {% if user.perfil.es_administrador %}
                                 <td>
-                                    <span class="tarifa-completa text-warning" title="Costo total y eficiencia: {{ cliente.costo_formateado }} con {{ cliente.tiempo_por_costo_formateado }}">
+                                    <span class="tarifa-completa" title="Costo total y eficiencia: {{ cliente.costo_formateado }} con {{ cliente.tiempo_por_costo_formateado }}">
                                         {{ cliente.tarifa_completa }}
                                     </span>
                                 </td>
@@ -272,11 +262,11 @@
                             </td>
                             <td>
                                 <div class="btn-group" role="group">
-                                    <button class="btn btn-info btn-sm ver-registro" data-id="{{ cliente.id }}" title="Ver registro y QR">
+                                    <button class="btn btn-dark btn-sm ver-registro" data-id="{{ cliente.id }}" title="Ver registro y QR">
                                         <i class="bi bi-qr-code-scan"></i>
                                     </button>
                                     {% if perfil.puede_editar_cliente %}
-                                        <button class="btn btn-warning btn-sm editar-cliente" data-id="{{ cliente.id }}" title="Editar cliente">
+                                        <button class="btn btn-dark btn-sm editar-cliente" data-id="{{ cliente.id }}" title="Editar cliente">
                                             <i class="bi bi-pencil-square"></i>
                                         </button>
                                     {% endif %}
@@ -332,37 +322,37 @@
     <!-- Modal de Resumen de Recaudación -->
     <div class="modal fade" id="modalResumenRecaudacion" tabindex="-1" aria-labelledby="modalResumenLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg">
-            <div class="modal-content bg-dark text-light">
-                <div class="modal-header border-secondary">
-                    <h5 class="modal-title text-success" id="modalResumenLabel">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalResumenLabel">
                         <i class="bi bi-cash-coin me-2"></i>Resumen de Recaudación
                     </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <!-- Resumen Actual -->
-                    <div class="card bg-gradient-success mb-4">
-                        <div class="card-body text-center bg-primary">
-                            <h3 class="text-dark mb-1" id="montoTotalActual">Cargando...</h3>
-                            <p class="text-dark mb-0">Total Recaudado</p>
-                            <small class="text-dark" id="periodoActual">Desde: --</small>
+                    <div class="card bg-body-tertiary mb-4">
+                        <div class="card-body text-center">
+                            <h3 class="mb-1" id="montoTotalActual">Cargando...</h3>
+                            <p class="mb-0">Total Recaudado</p>
+                            <small class="text-body-secondary" id="periodoActual">Desde: --</small>
                         </div>
                     </div>
 
                     <div class="row mb-4">
                         <div class="col-md-6">
-                            <div class="card bg-secondary">
+                            <div class="card bg-body-tertiary">
                                 <div class="card-body text-center">
-                                    <h4 class="text-warning mb-1" id="numeroClientesActual">0</h4>
-                                    <p class="mb-0">Clientes Atendidos</p>
+                                    <h4 class="mb-1" id="numeroClientesActual">0</h4>
+                                    <p class="mb-0 text-body-secondary">Clientes Atendidos</p>
                                 </div>
                             </div>
                         </div>
                         <div class="col-md-6">
-                            <div class="card bg-secondary">
+                            <div class="card bg-body-tertiary">
                                 <div class="card-body text-center">
-                                    <h4 class="text-info mb-1" id="fechaCorteActual">--</h4>
-                                    <p class="mb-0">Fecha Actual</p>
+                                    <h4 class="mb-1" id="fechaCorteActual">--</h4>
+                                    <p class="mb-0 text-body-secondary">Fecha Actual</p>
                                 </div>
                             </div>
                         </div>
@@ -374,7 +364,7 @@
                         <button type="button" id="btnRealizarCorte" class="btn btn-danger btn-lg">
                             <i class="bi bi-scissors me-2"></i>Realizar Corte de Recaudación
                         </button>
-                        <p class="text-muted small mt-2">
+                        <p class="text-body-secondary small mt-2">
                             <i class="bi bi-info-circle me-1"></i>
                             Este corte reiniciará el contador de recaudación
                         </p>
@@ -382,11 +372,11 @@
                     {% endif %}
 
                     <!-- Historial de Cortes -->
-                    <h6 class="text-warning mb-3">
+                    <h6 class="mb-3">
                         <i class="bi bi-clock-history me-2"></i>Historial de Cortes
                     </h6>
                     <div class="table-responsive">
-                        <table class="table table-dark table-striped">
+                        <table class="table table-striped">
                             <thead>
                                 <tr>
                                     <th width="5%"></th>
@@ -398,7 +388,7 @@
                             </thead>
                             <tbody id="historialCortes">
                                 <tr>
-                                    <td colspan="5" class="text-center text-muted">Cargando historial...</td>
+                                    <td colspan="5" class="text-center text-body-secondary">Cargando historial...</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -575,7 +565,7 @@
                         const qrImageHtml = data.qr_url ? 
                             `<div class="text-center my-3">
                                 <img src="${data.qr_url}" alt="Código QR" style="max-width: 300px; border: 2px solid var(--pc-fg); background: #fff;">
-                                <div class="small mt-2 text-success">Código QR con datos del cliente</div>
+                                <div class="small mt-2 text-body-secondary">Código QR con datos del cliente</div>
                             </div>` : 
                             '<div class="alert alert-warning">No hay QR generado para este cliente.</div>';
 
@@ -592,13 +582,11 @@
                                 </div>
                             `,
                             width: '500px',
-                            background: '#222',
-                            color: '#5df75d',
-                            confirmButtonColor: '#5df75d',
+                            confirmButtonColor: '#146c2e',
                             confirmButtonText: 'Cerrar',
                             showDenyButton: true,
                             denyButtonColor: '#17a2b8',
-                            denyButtonText: '<i class="fas fa-print"></i> Reimprimir Ticket',
+                            denyButtonText: '<i class="bi bi-printer"></i> Reimprimir Ticket',
                             preConfirm: () => {
                                 return true; // Solo cerrar el modal
                             },
@@ -619,9 +607,7 @@
                             icon: 'error',
                             title: 'Error',
                             text: 'No se pudo cargar la información del cliente',
-                            background: '#222',
-                            color: '#ff4444',
-                            confirmButtonColor: '#5df75d'
+                            confirmButtonColor: '#146c2e'
                         });
                     });
             }
@@ -681,10 +667,8 @@
                                     </div>
                                 </form>
                             `,
-                            background: '#222',
-                            color: '#5df75d',
-                            confirmButtonColor: '#5df75d',
-                            cancelButtonColor: '#dc3545',
+                            confirmButtonColor: '#146c2e',
+                            cancelButtonColor: '#b02a37',
                             confirmButtonText: 'Guardar Cambios',
                             cancelButtonText: 'Cancelar',
                             showCancelButton: true,
@@ -716,9 +700,7 @@
                                     icon: 'success',
                                     title: 'Cliente actualizado',
                                     text: 'Los cambios se han guardado correctamente',
-                                    background: '#222',
-                                    color: '#5df75d',
-                                    confirmButtonColor: '#5df75d'
+                                    confirmButtonColor: '#146c2e'
                                 }).then(() => {
                                     location.reload();
                                 });
@@ -728,9 +710,7 @@
                                 icon: 'error',
                                 title: 'Error',
                                 text: 'No se pudo actualizar el cliente: ' + error.message,
-                                background: '#222',
-                                color: '#ff4444',
-                                confirmButtonColor: '#5df75d'
+                                confirmButtonColor: '#146c2e'
                             });
                         });
                     });
@@ -759,9 +739,7 @@
                             title: '¿Eliminar cliente?',
                             text: `¿Estás seguro de que deseas eliminar a ${data.nombre || 'este cliente'} (${data.cedula || 'Sin cédula'})?`,
                             icon: 'warning',
-                            background: '#222',
-                            color: '#ffa500',
-                            confirmButtonColor: '#dc3545',
+                            confirmButtonColor: '#b02a37',
                             cancelButtonColor: '#6c757d',
                             confirmButtonText: 'Sí, eliminar',
                             cancelButtonText: 'Cancelar',
@@ -787,9 +765,7 @@
                                             icon: 'success',
                                             title: 'Cliente eliminado',
                                             text: 'El cliente ha sido eliminado correctamente',
-                                            background: '#222',
-                                            color: '#5df75d',
-                                            confirmButtonColor: '#5df75d'
+                                            confirmButtonColor: '#146c2e'
                                         }).then(() => {
                                             location.reload();
                                         });
@@ -802,9 +778,7 @@
                                         icon: 'error',
                                         title: 'Error',
                                         text: 'No se pudo eliminar el cliente: ' + error.message,
-                                        background: '#222',
-                                        color: '#ff4444',
-                                        confirmButtonColor: '#5df75d'
+                                        confirmButtonColor: '#146c2e'
                                     });
                                 });
                             }
@@ -816,9 +790,7 @@
                             icon: 'error',
                             title: 'Error',
                             text: 'No se pudo cargar la información del cliente para eliminar',
-                            background: '#222',
-                            color: '#ff4444',
-                            confirmButtonColor: '#5df75d'
+                            confirmButtonColor: '#146c2e'
                         });
                     });
             }
@@ -831,12 +803,10 @@
                         title: '¿Reimprimir ticket?',
                         text: `Se imprimirá nuevamente el ticket para ${nombreCliente}`,
                         icon: 'question',
-                        background: '#222',
-                        color: '#5df75d',
                         showCancelButton: true,
                         confirmButtonColor: '#17a2b8',
                         cancelButtonColor: '#6c757d',
-                        confirmButtonText: '<i class="fas fa-print"></i> Sí, reimprimir',
+                        confirmButtonText: '<i class="bi bi-printer"></i> Sí, reimprimir',
                         cancelButtonText: 'Cancelar',
                         showLoaderOnConfirm: true,
                         preConfirm: () => {
@@ -867,9 +837,7 @@
                                     title: '¡Ticket Enviado!',
                                     text: result.value.message,
                                     icon: 'success',
-                                    background: '#222',
-                                    color: '#5df75d',
-                                    confirmButtonColor: '#5df75d',
+                                    confirmButtonColor: '#146c2e',
                                     timer: 3000,
                                     showConfirmButton: false
                                 });
@@ -879,9 +847,7 @@
                                     title: 'Error',
                                     text: result.value.message || 'Error al reimprimir el ticket',
                                     icon: 'error',
-                                    background: '#222',
-                                    color: '#ff4444',
-                                    confirmButtonColor: '#5df75d'
+                                    confirmButtonColor: '#146c2e'
                                 });
                                 reject(new Error(result.value.message));
                             }
@@ -910,12 +876,10 @@
                     text: texto,
                     icon: 'question',
                     showCancelButton: true,
-                    confirmButtonColor: estaActiva ? '#dc3545' : '#198754',
+                    confirmButtonColor: estaActiva ? '#b02a37' : '#146c2e',
                     cancelButtonColor: '#6c757d',
                     confirmButtonText: `Sí, ${accion}`,
                     cancelButtonText: 'Cancelar',
-                    background: '#222',
-                    color: '#5df75d'
                 }).then((result) => {
                     if (result.isConfirmed) {
                         // Realizar petición AJAX
@@ -939,7 +903,7 @@
                                 
                                 // Actualizar el estado visual
                                 estadoSpan.textContent = newActiva ? 'ACTIVA' : 'INACTIVA';
-                                estadoSpan.className = `badge ${newActiva ? 'bg-success' : 'bg-secondary'}`;
+                                estadoSpan.className = `badge ${newActiva ? 'text-bg-success' : 'badge-contador'}`;
                                 
                                 // Actualizar el botón
                                 toggleBtn.dataset.activa = newActiva.toString();
@@ -953,8 +917,6 @@
                                     title: 'Éxito',
                                     text: data.mensaje,
                                     icon: 'success',
-                                    background: '#222',
-                                    color: '#5df75d',
                                     timer: 2000,
                                     showConfirmButton: false
                                 });
@@ -968,8 +930,6 @@
                                     title: 'Error',
                                     text: data.mensaje || 'Error al cambiar el estado de la tarifa plena',
                                     icon: 'error',
-                                    background: '#222',
-                                    color: '#5df75d'
                                 });
                             }
                         })
@@ -978,8 +938,6 @@
                                 title: 'Error',
                                 text: 'Error de conexión: ' + error.message,
                                 icon: 'error',
-                                background: '#222',
-                                color: '#5df75d'
                             });
                         });
                     }
@@ -1020,12 +978,10 @@
                     text: 'Esta acción registrará el corte y reiniciará el contador. ¿Deseas continuar?',
                     icon: 'warning',
                     showCancelButton: true,
-                    confirmButtonColor: '#dc3545',
+                    confirmButtonColor: '#b02a37',
                     cancelButtonColor: '#6c757d',
                     confirmButtonText: 'Sí, realizar corte',
                     cancelButtonText: 'Cancelar',
-                    background: '#222',
-                    color: '#fff',
                     input: 'textarea',
                     inputLabel: 'Observaciones (opcional)',
                     inputPlaceholder: 'Agregar observaciones sobre este corte...',
@@ -1082,23 +1038,23 @@
                                         </button>
                                     </td>
                                     <td>${corte.fecha_corte}</td>
-                                    <td class="text-success">${corte.monto_formateado}</td>
+                                    <td><strong>${corte.monto_formateado}</strong></td>
                                     <td>
-                                        <span class="badge bg-primary">${corte.numero_clientes}</span>
+                                        <span class="badge badge-contador">${corte.numero_clientes}</span>
                                     </td>
                                     <td>${corte.usuario}</td>
                                 </tr>
                                 <tr>
                                     <td colspan="5" style="padding: 0;">
                                         <div class="collapse" id="${uniqueId}">
-                                            <div class="card card-body bg-secondary m-2">
-                                                <h6 class="text-light mb-3">
+                                            <div class="card card-body bg-body-tertiary m-2">
+                                                <h6 class="mb-3">
                                                     <i class="bi bi-people me-2"></i>Clientes Atendidos
-                                                    <small class="text-muted">(${corte.periodo})</small>
+                                                    <small class="text-body-secondary">(${corte.periodo})</small>
                                                 </h6>
                                                 ${corte.clientes_atendidos && corte.clientes_atendidos.length > 0 ? `
                                                     <div class="table-responsive">
-                                                        <table class="table table-sm table-dark">
+                                                        <table class="table table-sm">
                                                             <thead>
                                                                 <tr>
                                                                     <th>Nombre</th>
@@ -1117,18 +1073,18 @@
                                                                         <td>${cliente.nombre}</td>
                                                                         <td>${cliente.cedula}</td>
                                                                         <td><code>${cliente.matricula}</code></td>
-                                                                        <td><span class="badge bg-info">${cliente.tipo_vehiculo}</span></td>
+                                                                        <td><span class="badge badge-contador">${cliente.tipo_vehiculo}</span></td>
                                                                         <td><small>${cliente.fecha_entrada}</small></td>
                                                                         <td><small>${cliente.fecha_salida}</small></td>
-                                                                        <td><strong class="text-warning">${cliente.tiempo_parking}</strong></td>
-                                                                        <td><strong class="text-success">${cliente.costo_formateado}</strong></td>
+                                                                        <td><strong>${cliente.tiempo_parking}</strong></td>
+                                                                        <td><strong>${cliente.costo_formateado}</strong></td>
                                                                     </tr>
                                                                 `).join('')}
                                                             </tbody>
                                                         </table>
                                                     </div>
                                                 ` : `
-                                                    <div class="text-center text-muted">
+                                                    <div class="text-center text-body-secondary">
                                                         <i class="bi bi-exclamation-circle me-2"></i>
                                                         No hay clientes registrados en este período
                                                     </div>
@@ -1151,7 +1107,7 @@
                         });
                     } else {
                         console.log('No hay historial de cortes'); // Debug
-                        historialCortes.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No hay cortes registrados</td></tr>';
+                        historialCortes.innerHTML = '<tr><td colspan="5" class="text-center text-body-secondary">No hay cortes registrados</td></tr>';
                     }
                 } else {
                     console.error('Error al cargar resumen:', data.mensaje);
@@ -1187,8 +1143,6 @@
                         title: 'Corte Realizado',
                         text: data.mensaje,
                         icon: 'success',
-                        background: '#222',
-                        color: '#5df75d',
                         confirmButtonColor: '#28a745'
                     }).then(() => {
                         // Cerrar modal y actualizar resumen
@@ -1201,9 +1155,7 @@
                         title: 'Error',
                         text: data.mensaje,
                         icon: 'error',
-                        background: '#222',
-                        color: '#ff4444',
-                        confirmButtonColor: '#dc3545'
+                        confirmButtonColor: '#b02a37'
                     });
                 }
             })
@@ -1213,9 +1165,7 @@
                     title: 'Error',
                     text: 'Error de conexión al realizar el corte',
                     icon: 'error',
-                    background: '#222',
-                    color: '#ff4444',
-                    confirmButtonColor: '#dc3545'
+                    confirmButtonColor: '#b02a37'
                 });
             });
         }

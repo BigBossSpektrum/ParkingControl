@@ -1,19 +1,48 @@
 /* ==========================================================================
    Parking Control - tema unificado
-   Fuente unica de verdad del tema verde/negro y de las reglas responsive.
+   Fuente unica de verdad del tema claro y de las reglas responsive.
    Se carga DESPUES de Bootstrap desde app_page/templates/app_page/base.html.
+
+   El HTML declara data-bs-theme="light", asi que las utilidades de Bootstrap
+   5.3 (bg-body-tertiary, text-body, text-body-secondary...) ya resuelven solas.
+   Aqui solo se define la identidad propia y lo que Bootstrap no cubre.
    ========================================================================== */
 
 :root {
-    --pc-bg: #111;
-    /* Mismo tono verde (hue 120) pero sin saturar al máximo: el #0f0 puro
-       sobre negro vibra y cansa la vista. El contraste apenas baja
-       (13,8:1 -> 13,4:1 sobre --pc-bg), muy por encima del 4,5:1 exigido. */
-    --pc-fg: #5df75d;
-    --pc-fg-hover: #3ee03e;
-    --pc-surface: #222;
-    --pc-surface-alt: #333;
-    --pc-accent: #0ff;
+    /* --- Color ---------------------------------------------------------
+       Paleta clara y poco saturada. El verde deja de ser el color del texto
+       y pasa a ser solo acento: boton primario, enlaces y estado activo.
+       Antes el texto era #5df75d sobre negro, lo que tenia mucho contraste
+       pero repintaba pantallas enteras de un unico color brillante. */
+    --pc-bg: #f7f8f9;           /* fondo de pagina */
+    --pc-surface: #ffffff;      /* tarjetas, tablas */
+    --pc-surface-alt: #eef0f2;  /* cabeceras de tabla, zonas destacadas */
+    --pc-border: #d6dade;
+    --pc-fg: #1b1e21;           /* texto principal - 15,8:1 sobre --pc-bg */
+    --pc-fg-muted: #5a6169;     /* texto secundario - 5,9:1 sobre --pc-bg */
+    --pc-accent: #146c2e;       /* verde de marca - 6,4:1 sobre blanco */
+    --pc-accent-hover: #0f5423;
+    --pc-on-accent: #ffffff;    /* texto sobre el acento */
+
+    /* --- Tipografia ----------------------------------------------------
+       Escala de 6 pasos. Antes habia 13 tamanos sueltos sin relacion entre
+       si (0.7 / 0.75 / 0.8 / 0.85 / 0.875 / 0.9 / 0.95 / 1.3 rem y 8 / 10 /
+       12 / 16 px), cada uno inventado en su plantilla. */
+    --pc-fs-xs: 0.75rem;
+    --pc-fs-sm: 0.875rem;
+    --pc-fs-base: 1rem;
+    --pc-fs-lg: 1.125rem;
+    --pc-fs-xl: 1.375rem;
+    --pc-fs-2xl: 1.75rem;
+
+    /* El peso maximo es 600: 700+ sobre fondo claro engorda el trazo y es
+       parte de la sensacion de "saturado". */
+    --pc-fw-normal: 400;
+    --pc-fw-medium: 500;
+    --pc-fw-bold: 600;
+
+    --pc-lh-tight: 1.25;
+    --pc-lh-base: 1.5;
 }
 
 /* --------------------------------------------------------------------------
@@ -23,22 +52,54 @@
 body {
     background: var(--pc-bg);
     color: var(--pc-fg);
+    font-size: var(--pc-fs-base);
+    line-height: var(--pc-lh-base);
     /* Red de seguridad: ninguna vista debe arrastrar la pagina en horizontal.
        Las tablas anchas scrollean dentro de su .table-responsive. */
     overflow-x: hidden;
 }
 
-a, a:visited {
+/* Titulos: un unico ramp, con el peso limitado a --pc-fw-bold. */
+h1, .h1 { font-size: var(--pc-fs-2xl); }
+h2, .h2 { font-size: var(--pc-fs-xl); }
+h3, .h3 { font-size: var(--pc-fs-lg); }
+h4, .h4,
+h5, .h5,
+h6, .h6 { font-size: var(--pc-fs-base); }
+
+h1, h2, h3, h4, h5, h6,
+.h1, .h2, .h3, .h4, .h5, .h6 {
+    font-weight: var(--pc-fw-bold);
+    line-height: var(--pc-lh-tight);
     color: var(--pc-fg);
+}
+
+a, a:visited {
+    color: var(--pc-accent);
+}
+
+a:hover, a:focus {
+    color: var(--pc-accent-hover);
 }
 
 .navbar, .table, .btn, .form-control {
     border-radius: 0 !important;
 }
 
+/* Texto secundario: un solo tono en lugar de text-muted + opacidades sueltas. */
+.text-body-secondary,
+.text-muted {
+    color: var(--pc-fg-muted) !important;
+}
+
 /* --------------------------------------------------------------------------
    Componentes
    -------------------------------------------------------------------------- */
+
+.card {
+    background: var(--pc-surface);
+    border-color: var(--pc-border);
+}
 
 .table {
     background: var(--pc-surface);
@@ -46,37 +107,54 @@ a, a:visited {
 }
 
 .table th, .table td {
-    border-color: var(--pc-fg);
+    border-color: var(--pc-border);
+}
+
+.table thead th {
+    background: var(--pc-surface-alt);
+    font-weight: var(--pc-fw-medium);
+}
+
+.list-group-item {
+    background: var(--pc-surface);
+    color: var(--pc-fg);
+    border-color: var(--pc-border);
 }
 
 .btn-success, .btn-success:focus {
-    background: var(--pc-fg);
-    color: var(--pc-bg);
+    background: var(--pc-accent);
+    color: var(--pc-on-accent);
     border: none;
 }
 
 .btn-success:hover {
-    background: var(--pc-fg-hover);
-    color: var(--pc-bg);
+    background: var(--pc-accent-hover);
+    color: var(--pc-on-accent);
 }
 
 .btn-dark, .btn-dark:focus {
-    background: var(--pc-bg);
+    background: var(--pc-surface);
     color: var(--pc-fg);
-    border: 1px solid var(--pc-fg);
+    border: 1px solid var(--pc-border);
+}
+
+.btn-dark:hover {
+    background: var(--pc-surface-alt);
+    color: var(--pc-fg);
+    border-color: var(--pc-border);
 }
 
 .form-control, .form-select {
     background: var(--pc-surface);
     color: var(--pc-fg);
-    border: 1px solid var(--pc-fg);
+    border: 1px solid var(--pc-border);
 }
 
 .form-control:focus, .form-select:focus {
     background: var(--pc-surface);
     color: var(--pc-fg);
-    border-color: var(--pc-fg);
-    box-shadow: 0 0 0 0.2rem rgba(0, 255, 0, 0.25);
+    border-color: var(--pc-accent);
+    box-shadow: 0 0 0 0.2rem rgba(20, 108, 46, 0.2);
 }
 
 /* --------------------------------------------------------------------------
@@ -90,20 +168,20 @@ a, a:visited {
 
 /* Encabezado discreto que sustituye a los antiguos <h2> centrados. */
 .card-title-min {
-    font-size: 0.95rem;
-    font-weight: 600;
+    font-size: var(--pc-fs-sm);
+    font-weight: var(--pc-fw-bold);
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    opacity: 0.85;
+    color: var(--pc-fg-muted);
 }
 
 .form-floating > label {
-    color: rgba(0, 255, 0, 0.65);
+    color: var(--pc-fg-muted);
 }
 
 /* Bootstrap dibuja un ::after DETRAS de la etiqueta ya flotada usando el color
-   de fondo del documento; sobre la superficie oscura aparecería como una barra
-   clara cruzando el campo. Se reajusta al fondo del propio control. */
+   de fondo del documento; sobre una superficie distinta aparecería como una
+   barra cruzando el campo. Se reajusta al fondo del propio control. */
 .form-floating > .form-control:focus ~ label::after,
 .form-floating > .form-control:not(:placeholder-shown) ~ label::after,
 .form-floating > .form-select ~ label::after {
@@ -113,56 +191,67 @@ a, a:visited {
 .form-floating > .form-control:focus ~ label,
 .form-floating > .form-control:not(:placeholder-shown) ~ label,
 .form-floating > .form-select ~ label {
-    color: var(--pc-fg);
+    color: var(--pc-accent);
 }
 
 /* --------------------------------------------------------------------------
    Navbar colapsable
    -------------------------------------------------------------------------- */
 
+.navbar {
+    border-bottom: 1px solid var(--pc-border);
+}
+
 .navbar-toggler {
-    border-color: var(--pc-fg);
+    border-color: var(--pc-border);
 }
 
 .navbar-toggler:focus {
-    box-shadow: 0 0 0 0.2rem rgba(93, 247, 93, 0.3);
+    box-shadow: 0 0 0 0.2rem rgba(20, 108, 46, 0.2);
 }
 
 .navbar-brand {
-    font-weight: 600;
+    font-size: var(--pc-fs-base);
+    font-weight: var(--pc-fw-bold);
     letter-spacing: 0.02em;
+    color: var(--pc-fg);
 }
 
 /* Enlaces de navegación: texto legible con estado activo inequívoco. */
 .nav-principal .nav-link {
     color: var(--pc-fg);
-    font-size: 0.95rem;
-    font-weight: 500;
+    font-size: var(--pc-fs-sm);
+    font-weight: var(--pc-fw-medium);
     padding: 0.5rem 0.85rem;
 }
 
 .nav-principal .nav-link:hover,
 .nav-principal .nav-link:focus {
-    color: var(--pc-fg-hover);
+    color: var(--pc-accent);
 }
 
 .nav-principal .nav-link.active {
-    background: var(--pc-fg);
-    color: var(--pc-bg);
-    font-weight: 600;
+    background: var(--pc-accent);
+    color: var(--pc-on-accent);
+    font-weight: var(--pc-fw-bold);
 }
 
-/* Contadores e identidad: 0.75em de Bootstrap es demasiado pequeño. */
-.navbar .badge {
-    font-size: 0.8rem;
-    font-weight: 500;
+/* Contadores e identidad de sesion. Antes eran tres badges de tres colores
+   distintos (success / warning / info) compitiendo en la barra superior; el
+   dato lo da el numero, no el color. */
+.badge-contador {
+    background: var(--pc-surface-alt);
+    color: var(--pc-fg);
+    border: 1px solid var(--pc-border);
+    font-size: var(--pc-fs-xs);
+    font-weight: var(--pc-fw-medium);
     padding: 0.4rem 0.6rem;
 }
 
 /* Separador entre el grupo de enlaces y el de información. */
 @media (min-width: 992px) {
     .navbar-info {
-        border-left: 1px solid rgba(93, 247, 93, 0.35);
+        border-left: 1px solid var(--pc-border);
         padding-left: 1rem;
     }
 }
@@ -171,7 +260,7 @@ a, a:visited {
    horizontal y los elementos ocupan el ancho completo. */
 @media (max-width: 991.98px) {
     .navbar-info {
-        border-top: 1px solid rgba(93, 247, 93, 0.35);
+        border-top: 1px solid var(--pc-border);
         padding-top: 0.75rem;
         margin-top: 0.5rem;
     }
@@ -192,6 +281,20 @@ a, a:visited {
         display: flex;
         align-items: center;
     }
+}
+
+/* --------------------------------------------------------------------------
+   Pie de pagina
+   -------------------------------------------------------------------------- */
+
+.site-footer {
+    background: var(--pc-surface-alt);
+    border-top: 1px solid var(--pc-border);
+}
+
+.site-footer p {
+    color: var(--pc-fg-muted);
+    font-size: var(--pc-fs-sm);
 }
 
 /* --------------------------------------------------------------------------
@@ -233,6 +336,29 @@ a, a:visited {
 }
 
 /* --------------------------------------------------------------------------
+   Indicador de carga
+   -------------------------------------------------------------------------- */
+
+/* Sustituye a .fa-spin, que venia de Font Awesome (libreria que nunca se
+   cargaba). Es feedback de "estoy trabajando", no decoracion, por eso se
+   conserva; se respeta la preferencia de movimiento reducido del sistema. */
+.icono-girando {
+    display: inline-block;
+    animation: pc-girar 1.5s linear infinite;
+}
+
+@keyframes pc-girar {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .icono-girando {
+        animation: none;
+    }
+}
+
+/* --------------------------------------------------------------------------
    Auto-ocultar (ver app_page/js/auto-ocultar.js)
    -------------------------------------------------------------------------- */
 
@@ -266,6 +392,6 @@ a, a:visited {
 
 @media (max-width: 767.98px) {
     .table-responsive > .table {
-        font-size: 0.85rem;
+        font-size: var(--pc-fs-sm);
     }
 }

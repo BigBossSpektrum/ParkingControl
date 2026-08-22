@@ -5,17 +5,19 @@
 
 {% block extra_head %}
 <style>
+    /* Los chips de estado conservan color porque distinguen exito, fallo,
+       pendiente e imprimiendo: es informacion, no decoracion. */
     .job-status {
         padding: 0.25rem 0.5rem;
         border-radius: 0.25rem;
-        font-size: 0.875rem;
-        font-weight: bold;
+        font-size: var(--pc-fs-sm);
+        font-weight: var(--pc-fw-bold);
     }
-    .job-success { background-color: #d4edda; color: #155724; }
-    .job-failed { background-color: #f8d7da; color: #721c24; }
-    .job-pending { background-color: #fff3cd; color: #856404; }
-    .job-printing { background-color: #cce5ff; color: #004085; }
-    
+    .job-success { background-color: #d4edda; color: #10401b; }
+    .job-failed { background-color: #f8d7da; color: #5c1620; }
+    .job-pending { background-color: #fff3cd; color: #6b4a00; }
+    .job-printing { background-color: #cce5ff; color: #00336b; }
+
     .table-responsive {
         border-radius: 0.5rem;
         box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
@@ -28,9 +30,9 @@
     <div class="row">
         <div class="col-12">
             <div class="d-flex justify-content-between align-items-center mb-4">
-                <h2><i class="fas fa-list"></i> Trabajos de Impresión</h2>
+                <h2><i class="bi bi-list-ul"></i> Trabajos de Impresión</h2>
                 <a href="{% url 'printer_dashboard' %}" class="btn btn-outline-secondary">
-                    <i class="fas fa-arrow-left"></i> Volver al Panel
+                    <i class="bi bi-arrow-left"></i> Volver al Panel
                 </a>
             </div>
         </div>
@@ -42,14 +44,14 @@
             <div class="card">
                 <div class="card-header">
                     <h5 class="mb-0">
-                        <i class="fas fa-print"></i> Historial de Impresiones
+                        <i class="bi bi-printer"></i> Historial de Impresiones
                         <span class="badge bg-primary ms-2">{{ jobs|length }} trabajos</span>
                     </h5>
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
                         <table class="table table-striped table-hover mb-0">
-                            <thead class="table-dark">
+                            <thead>
                                 <tr>
                                     <th>ID</th>
                                     <th>Cliente ID</th>
@@ -73,19 +75,19 @@
                                         </a>
                                     </td>
                                     <td>
-                                        <i class="fas fa-qrcode me-1"></i>
+                                        <i class="bi bi-qr-code me-1"></i>
                                         {{ job.content_type }}
                                     </td>
                                     <td>
                                         <span class="job-status job-{{ job.status|lower }}">
                                             {% if job.status == 'SUCCESS' %}
-                                                <i class="fas fa-check-circle"></i>
+                                                <i class="bi bi-check-circle"></i>
                                             {% elif job.status == 'FAILED' %}
-                                                <i class="fas fa-times-circle"></i>
+                                                <i class="bi bi-x-circle"></i>
                                             {% elif job.status == 'PRINTING' %}
-                                                <i class="fas fa-spinner fa-spin"></i>
+                                                <i class="bi bi-arrow-repeat icono-girando"></i>
                                             {% else %}
-                                                <i class="fas fa-clock"></i>
+                                                <i class="bi bi-clock"></i>
                                             {% endif %}
                                             {{ job.get_status_display }}
                                         </span>
@@ -98,11 +100,11 @@
                                     </td>
                                     <td>
                                         {% if job.completed_at %}
-                                            <small class="text-success">
+                                            <small>
                                                 {{ job.completed_at|date:"d/m/Y H:i:s" }}
                                             </small>
                                         {% else %}
-                                            <small class="text-muted">-</small>
+                                            <small class="text-body-secondary">-</small>
                                         {% endif %}
                                     </td>
                                     <td>
@@ -110,10 +112,10 @@
                                             <button class="btn btn-sm btn-outline-danger" 
                                                     data-bs-toggle="tooltip" 
                                                     title="{{ job.error_message|truncatechars:100 }}">
-                                                <i class="fas fa-exclamation-triangle"></i>
+                                                <i class="bi bi-exclamation-triangle"></i>
                                             </button>
                                         {% else %}
-                                            <small class="text-muted">-</small>
+                                            <small class="text-body-secondary">-</small>
                                         {% endif %}
                                     </td>
                                     <td>
@@ -121,19 +123,19 @@
                                             {% if job.status == 'FAILED' %}
                                                 <button class="btn btn-outline-warning" 
                                                         onclick="retryPrintJob({{ job.id }})">
-                                                    <i class="fas fa-redo"></i>
+                                                    <i class="bi bi-arrow-clockwise"></i>
                                                 </button>
                                             {% endif %}
                                             
                                             <button class="btn btn-outline-primary" 
                                                     onclick="viewJobDetails({{ job.id }})">
-                                                <i class="fas fa-eye"></i>
+                                                <i class="bi bi-eye"></i>
                                             </button>
                                             
                                             {% if job.client_id %}
                                                 <a href="{% url 'print_client_qr' job.client_id %}" 
                                                    class="btn btn-outline-success">
-                                                    <i class="fas fa-print"></i>
+                                                    <i class="bi bi-printer"></i>
                                                 </a>
                                             {% endif %}
                                         </div>
@@ -151,33 +153,33 @@
     <!-- Estadísticas rápidas -->
     <div class="row mt-4">
         <div class="col-12 col-sm-6 col-md-3">
-            <div class="card bg-success text-white">
+            <div class="card bg-body-tertiary">
                 <div class="card-body">
-                    <h5>Exitosos</h5>
+                    <h5 class="text-body-secondary">Exitosos</h5>
                     <h3>{{ jobs|filter_by_status:'SUCCESS'|length }}</h3>
                 </div>
             </div>
         </div>
         <div class="col-12 col-sm-6 col-md-3">
-            <div class="card bg-danger text-white">
+            <div class="card bg-body-tertiary">
                 <div class="card-body">
-                    <h5>Fallidos</h5>
+                    <h5 class="text-body-secondary">Fallidos</h5>
                     <h3>{{ jobs|filter_by_status:'FAILED'|length }}</h3>
                 </div>
             </div>
         </div>
         <div class="col-12 col-sm-6 col-md-3">
-            <div class="card bg-warning text-dark">
+            <div class="card bg-body-tertiary">
                 <div class="card-body">
-                    <h5>Pendientes</h5>
+                    <h5 class="text-body-secondary">Pendientes</h5>
                     <h3>{{ jobs|filter_by_status:'PENDING'|length }}</h3>
                 </div>
             </div>
         </div>
         <div class="col-12 col-sm-6 col-md-3">
-            <div class="card bg-info text-white">
+            <div class="card bg-body-tertiary">
                 <div class="card-body">
-                    <h5>Total</h5>
+                    <h5 class="text-body-secondary">Total</h5>
                     <h3>{{ jobs|length }}</h3>
                 </div>
             </div>
@@ -188,12 +190,12 @@
     <div class="row">
         <div class="col-12">
             <div class="alert alert-info text-center">
-                <i class="fas fa-info-circle fa-3x mb-3"></i>
+                <i class="bi bi-info-circle fs-1 mb-3"></i>
                 <h4>No hay trabajos de impresión</h4>
                 <p class="mb-0">Aún no se han registrado trabajos de impresión en el sistema.</p>
                 <hr>
                 <a href="{% url 'printer_dashboard' %}" class="btn btn-primary">
-                    <i class="fas fa-arrow-left"></i> Volver al Panel de Impresora
+                    <i class="bi bi-arrow-left"></i> Volver al Panel de Impresora
                 </a>
             </div>
         </div>
@@ -282,7 +284,7 @@ function viewJobDetails(jobId) {
             </div>
             <hr>
             <div class="alert alert-info">
-                <i class="fas fa-info-circle"></i>
+                <i class="bi bi-info-circle"></i>
                 Detalles completos disponibles en la consola de administración.
             </div>
         `);

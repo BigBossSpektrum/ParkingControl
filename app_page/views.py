@@ -801,7 +801,7 @@ def configurar_costos(request):
 def portal_opciones(request):
 	"""Vista del portal de opciones principal"""
 	# Contar clientes registrados hoy
-	hoy = timezone.now().date()
+	hoy = timezone.localdate()
 	conteo_hoy = Cliente.objects.filter(fecha_entrada__date=hoy).count()
 	
 	# Obtener últimos 5 registros
@@ -849,7 +849,9 @@ def dashboard_visitante(request):
 					mensaje_error = f'Error al registrar visitante: {str(e)}'
 
 	# Obtener estadísticas
-	hoy = timezone.now().date()
+	# localdate() da la fecha en TIME_ZONE (America/Bogota); now().date() daria
+	# la fecha UTC y los visitantes de la noche no se contarian.
+	hoy = timezone.localdate()
 	visitantes_hoy = Visitante.objects.filter(fecha_registro__date=hoy).count()
 	total_visitantes = Visitante.objects.count()
 	
@@ -866,7 +868,7 @@ def dashboard_visitante(request):
 		'total_visitantes': total_visitantes,
 		'ultimos_visitantes': ultimos_visitantes,
 		'perfil': perfil,
-		'today': timezone.now().date(),
+		'today': timezone.localdate(),
 	})
 
 # --- LISTA DE VISITANTES ---
@@ -900,7 +902,7 @@ def lista_visitantes(request):
 	page_obj = paginator.get_page(page_number)
 	
 	# Estadísticas
-	hoy = timezone.now().date()
+	hoy = timezone.localdate()
 	inicio_semana = hoy - timezone.timedelta(days=hoy.weekday())
 	
 	total_visitantes = Visitante.objects.count()

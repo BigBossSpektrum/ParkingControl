@@ -5,8 +5,8 @@
 <div class="mt-4">
     <div class="row justify-content-center">
         <div class="col-12 col-lg-8">
-            <div class="card bg-dark border-success">
-                <div class="card-header bg-success text-dark">
+            <div class="card">
+                <div class="card-header">
                     <h3 class="mb-0">
                         <i class="bi bi-currency-dollar"></i>
                         Configuración de Costos del Parking
@@ -30,26 +30,26 @@
                     <!-- Información actual -->
                     <div class="row mb-4">
                         <div class="col-md-6">
-                            <div class="card bg-secondary border-success">
+                            <div class="card bg-body-tertiary">
                                 <div class="card-body text-center">
-                                    <h5 class="card-title text-success">
-                                        <i class="bi bi-car-front"></i>
+                                    <h5 class="card-title">
+                                        <i class="bi bi-car-front me-1"></i>
                                         Costo Actual - Auto
                                     </h5>
-                                    <h2 class="text-warning">${{ costo.costo_auto }}/min</h2>
-                                    <small class="text-muted">Por cada minuto</small>
+                                    <h2>${{ costo.costo_auto }}/min</h2>
+                                    <small class="text-body-secondary">Por cada minuto</small>
                                 </div>
                             </div>
                         </div>
                         <div class="col-md-6">
-                            <div class="card bg-secondary border-success">
+                            <div class="card bg-body-tertiary">
                                 <div class="card-body text-center">
-                                    <h5 class="card-title text-success">
-                                        <i class="bi bi-scooter"></i>
+                                    <h5 class="card-title">
+                                        <i class="bi bi-scooter me-1"></i>
                                         Costo Actual - Moto
                                     </h5>
-                                    <h2 class="text-warning">${{ costo.costo_moto }}/min</h2>
-                                    <small class="text-muted">Por cada minuto</small>
+                                    <h2>${{ costo.costo_moto }}/min</h2>
+                                    <small class="text-body-secondary">Por cada minuto</small>
                                 </div>
                             </div>
                         </div>
@@ -72,7 +72,7 @@
                                             {{ form.costo_auto.errors.0 }}
                                         </div>
                                     {% endif %}
-                                    <div class="form-text text-success">
+                                    <div class="form-text text-body-secondary">
                                         Costo en pesos colombianos por minuto de estacionamiento para autos
                                     </div>
                                 </div>
@@ -90,7 +90,7 @@
                                             {{ form.costo_moto.errors.0 }}
                                         </div>
                                     {% endif %}
-                                    <div class="form-text text-success">
+                                    <div class="form-text text-body-secondary">
                                         Costo en pesos colombianos por minuto de estacionamiento para motos
                                     </div>
                                 </div>
@@ -125,7 +125,7 @@
 
                     {% if costo.fecha_actualizacion %}
                         <div class="mt-4 text-center">
-                            <small class="text-muted">
+                            <small class="text-body-secondary">
                                 <i class="bi bi-clock"></i>
                                 Última actualización: {{ costo.fecha_actualizacion|date:"d/m/Y H:i" }}
                                 {% if costo.actualizado_por %}
@@ -176,12 +176,10 @@ document.querySelector('form').addEventListener('submit', function(e) {
         `,
         icon: 'question',
         showCancelButton: true,
-        confirmButtonColor: '#5df75d',
-        cancelButtonColor: '#d33',
+        confirmButtonColor: '#146c2e',
+        cancelButtonColor: '#6c757d',
         confirmButtonText: 'Sí, actualizar',
-        cancelButtonText: 'Cancelar',
-        background: '#222',
-        color: '#5df75d'
+        cancelButtonText: 'Cancelar'
     }).then((result) => {
         if (result.isConfirmed) {
             this.submit();

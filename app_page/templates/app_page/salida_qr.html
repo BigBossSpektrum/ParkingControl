@@ -4,8 +4,8 @@
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-12 col-lg-8">
-        <div class="card bg-dark border-success shadow">
-            <div class="card-header bg-success text-dark text-center">
+        <div class="card">
+            <div class="card-header text-center">
                 <h3 class="mb-0"><i class="bi bi-qr-code-scan me-2"></i>Registro de Salida por QR</h3>
             </div>
             <div class="card-body">
@@ -17,7 +17,7 @@
                         </label>
                         <input type="text" class="form-control" id="qr_data" name="qr_data"
                                placeholder="Escanee o ingrese el código QR" required>
-                        <div class="form-text text-success">
+                        <div class="form-text text-body-secondary">
                             Escanee el código QR del cliente o ingrese el código manualmente
                         </div>
                     </div>
@@ -59,7 +59,7 @@
             showCancelButton: true,
             confirmButtonText: 'Sí, Registrar Salida',
             cancelButtonText: 'Cancelar',
-            confirmButtonColor: '#198754',
+            confirmButtonColor: '#146c2e',
             cancelButtonColor: '#6c757d'
         }).then((result) => {
             if (result.isConfirmed) {
@@ -104,7 +104,7 @@
                         <p><strong><i class="bi bi-clock-history me-2"></i>Salida:</strong> ${data.cliente.fecha_salida}</p>
                         <p><strong><i class="bi bi-hourglass-split me-2"></i>Tiempo Total:</strong> ${data.cliente.tiempo_total}</p>
                         <hr>
-                        <div class="bg-light p-3 rounded">
+                        <div class="bg-body-tertiary p-3 rounded">
                             <h5 class="text-center mb-3">
                                 <i class="bi bi-cash-coin me-2"></i>Información de Pago
                             </h5>
@@ -113,7 +113,7 @@
                 if (data.cliente.es_tarifa_plena) {
                     contenido += `
                         <p class="text-center mb-2">
-                            <span class="badge bg-warning text-dark">
+                            <span class="badge text-bg-warning">
                                 <i class="bi bi-star-fill me-1"></i>Tarifa Plena Activa
                             </span>
                         </p>
@@ -121,7 +121,7 @@
                 }
 
                 contenido += `
-                            <p class="text-center fs-4 fw-bold text-primary mb-0">
+                            <p class="text-center fs-4 fw-bold mb-0">
                                 Total a Pagar: ${data.cliente.costo_formateado}
                             </p>
                         </div>
