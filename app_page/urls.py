@@ -26,6 +26,7 @@ urlpatterns = [
     path('clientes/registro/<int:pk>/', views.ver_registro, name='ver_registro'),
     
     # URLs para configuración
+    path('administracion/', views.panel_admin, name='panel_admin'),
     path('configurar-costos/', views.configurar_costos, name='configurar_costos'),
     path('toggle-tarifa-plena/', views.toggle_tarifa_plena, name='toggle_tarifa_plena'),
     

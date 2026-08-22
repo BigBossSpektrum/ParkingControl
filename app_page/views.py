@@ -7,14 +7,17 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_protect
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse, JsonResponse
+from django.contrib import messages
 from django.contrib.auth import authenticate, login as auth_login, logout as auth_logout
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.forms import SetPasswordForm, UserCreationForm
+from django.contrib.auth.models import User
 from django.core.paginator import Paginator
 from django import forms
 from django.db import models
 from django.core.files.base import ContentFile
-from .models import Cliente, Costo, Visitante, TarifaPlena, Recaudacion
-from .decorators import require_edit_permission, require_delete_permission, require_view_list_permission, get_user_profile
+from .models import Cliente, Costo, Perfil, Visitante, TarifaPlena, Recaudacion
+from .decorators import require_admin, require_edit_permission, require_delete_permission, require_view_list_permission, get_user_profile
 
 # Importar el servicio de impresión
 try:
@@ -753,48 +756,207 @@ class CostoForm(forms.ModelForm):
 		}
 
 
+class TarifaPlenaForm(forms.ModelForm):
+	"""Formulario para configurar la tarifa plena (costo fijo por vehiculo)"""
+	class Meta:
+		model = TarifaPlena
+		fields = ['activa', 'costo_fijo_auto', 'costo_fijo_moto']
+		widgets = {
+			'activa': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+			'costo_fijo_auto': forms.NumberInput(attrs={
+				'class': 'form-control',
+				'placeholder': 'Ej: 5000',
+				'step': '0.01',
+				'min': '0'
+			}),
+			'costo_fijo_moto': forms.NumberInput(attrs={
+				'class': 'form-control',
+				'placeholder': 'Ej: 3000',
+				'step': '0.01',
+				'min': '0'
+			}),
+		}
+		labels = {
+			'activa': 'Cobrar tarifa plena en lugar del precio por minuto',
+			'costo_fijo_auto': 'Costo fijo - Auto ($)',
+			'costo_fijo_moto': 'Costo fijo - Moto ($)',
+		}
+
+
+class CrearUsuarioForm(UserCreationForm):
+	"""Alta de usuarios del sistema desde el panel de administracion.
+
+	Hereda de UserCreationForm para reutilizar la unicidad del nombre de usuario,
+	la confirmacion de contrasena y los validadores de AUTH_PASSWORD_VALIDATORS.
+	"""
+	first_name = forms.CharField(
+		max_length=150, required=False, label='Nombre completo'
+	)
+	email = forms.EmailField(required=False, label='Correo electronico')
+	rol = forms.ChoiceField(choices=Perfil.ROLES_CHOICES, label='Rol')
+
+	class Meta(UserCreationForm.Meta):
+		model = User
+		fields = ['username', 'first_name', 'email']
+
+	def __init__(self, *args, **kwargs):
+		super().__init__(*args, **kwargs)
+		for nombre, campo in self.fields.items():
+			css = 'form-select' if nombre == 'rol' else 'form-control'
+			campo.widget.attrs['class'] = css
+			campo.widget.attrs.setdefault('placeholder', campo.label or nombre)
+
+
+class RestablecerPasswordForm(SetPasswordForm):
+	"""Cambio de contrasena de otro usuario, sin pedir la contrasena anterior."""
+
+	def __init__(self, *args, **kwargs):
+		super().__init__(*args, **kwargs)
+		for campo in self.fields.values():
+			campo.widget.attrs['class'] = 'form-control'
+
+
+def _hay_otro_admin_activo(usuario):
+	"""Comprueba que quede al menos otro administrador activo aparte del indicado.
+
+	Sirve para no dejar el sistema sin ningun administrador con acceso.
+	"""
+	return Perfil.objects.filter(
+		rol='administrador', usuario__is_active=True
+	).exclude(usuario=usuario).exists()
+
+
+@require_admin
+def panel_admin(request):
+	"""Panel de administracion: usuarios del sistema y tarifas del parking.
+
+	Sustituye al admin generico de Django para las dos tareas cotidianas. Todos
+	los formularios de la pagina hacen POST aqui con un campo oculto action,
+	siguiendo el mismo patron que dashboard_parking y dashboard_visitante.
+	"""
+	costo = Costo.get_costos_actuales()
+	tarifa = TarifaPlena.get_tarifa_actual()
+
+	form_costos = CostoForm(instance=costo)
+	form_tarifa = TarifaPlenaForm(instance=tarifa)
+	form_usuario = CrearUsuarioForm()
+
+	if request.method == 'POST':
+		action = request.POST.get('action')
+
+		if action == 'guardar_tarifas':
+			form_costos = CostoForm(request.POST, instance=costo)
+			form_tarifa = TarifaPlenaForm(request.POST, instance=tarifa)
+			if form_costos.is_valid() and form_tarifa.is_valid():
+				costo_obj = form_costos.save(commit=False)
+				costo_obj.actualizado_por = request.user
+				costo_obj.save()
+
+				tarifa_obj = form_tarifa.save(commit=False)
+				tarifa_obj.actualizado_por = request.user
+				tarifa_obj.save()
+
+				messages.success(request, 'Tarifas actualizadas correctamente.')
+				return redirect('panel_admin')
+			messages.error(request, 'Revise los errores del formulario de tarifas.')
+
+		elif action == 'crear_usuario':
+			form_usuario = CrearUsuarioForm(request.POST)
+			if form_usuario.is_valid():
+				nuevo = form_usuario.save()
+				# El signal post_save de User ya creo el Perfil como empleado;
+				# aqui solo se ajusta al rol elegido.
+				perfil_nuevo = get_user_profile(nuevo)
+				perfil_nuevo.rol = form_usuario.cleaned_data['rol']
+				perfil_nuevo.save()
+				messages.success(
+					request,
+					f'Usuario {nuevo.username} creado como {perfil_nuevo.get_rol_display()}.'
+				)
+				return redirect('panel_admin')
+			messages.error(request, 'Revise los errores del formulario de nuevo usuario.')
+
+		elif action == 'cambiar_rol':
+			objetivo = get_object_or_404(User, pk=request.POST.get('usuario_id'))
+			nuevo_rol = request.POST.get('rol')
+			roles_validos = dict(Perfil.ROLES_CHOICES)
+
+			if nuevo_rol not in roles_validos:
+				messages.error(request, 'El rol indicado no es valido.')
+			elif objetivo == request.user:
+				messages.error(request, 'No puede cambiar su propio rol.')
+			elif (nuevo_rol != 'administrador'
+					and get_user_profile(objetivo).es_administrador()
+					and not _hay_otro_admin_activo(objetivo)):
+				messages.error(
+					request,
+					'No se puede degradar al unico administrador activo del sistema.'
+				)
+			else:
+				perfil_objetivo = get_user_profile(objetivo)
+				perfil_objetivo.rol = nuevo_rol
+				perfil_objetivo.save()
+				messages.success(
+					request,
+					f'{objetivo.username} ahora es {perfil_objetivo.get_rol_display()}.'
+				)
+			return redirect('panel_admin')
+
+		elif action == 'toggle_estado':
+			objetivo = get_object_or_404(User, pk=request.POST.get('usuario_id'))
+
+			if objetivo == request.user:
+				messages.error(request, 'No puede desactivar su propia cuenta.')
+			elif (objetivo.is_active
+					and get_user_profile(objetivo).es_administrador()
+					and not _hay_otro_admin_activo(objetivo)):
+				messages.error(
+					request,
+					'No se puede desactivar al unico administrador activo del sistema.'
+				)
+			else:
+				objetivo.is_active = not objetivo.is_active
+				objetivo.save()
+				estado = 'activado' if objetivo.is_active else 'desactivado'
+				messages.success(request, f'Usuario {objetivo.username} {estado}.')
+			return redirect('panel_admin')
+
+		elif action == 'restablecer_password':
+			objetivo = get_object_or_404(User, pk=request.POST.get('usuario_id'))
+			form_password = RestablecerPasswordForm(objetivo, request.POST)
+			if form_password.is_valid():
+				form_password.save()
+				messages.success(request, f'Contrasena de {objetivo.username} restablecida.')
+			else:
+				for error in form_password.errors.values():
+					messages.error(request, error[0])
+			return redirect('panel_admin')
+
+		else:
+			messages.error(request, 'Accion no reconocida.')
+			return redirect('panel_admin')
+
+	usuarios = User.objects.select_related('perfil').order_by('username')
+
+	return render(request, 'app_page/panel_admin.html', {
+		'form_costos': form_costos,
+		'form_tarifa': form_tarifa,
+		'form_usuario': form_usuario,
+		'form_password': RestablecerPasswordForm(request.user),
+		'usuarios': usuarios,
+		'roles': Perfil.ROLES_CHOICES,
+		'costo': costo,
+		'tarifa': tarifa,
+	})
+
+
 @login_required
 def configurar_costos(request):
-	"""Vista para configurar los costos del parking - Solo administradores"""
-	try:
-		perfil = get_user_profile(request.user)
-		if not perfil.puede_editar_costos():
-			return render(request, 'app_page/sin_permiso.html', {
-				'mensaje': 'No tiene permisos para configurar los costos del parking.'
-			})
-	except:
-		return render(request, 'app_page/sin_permiso.html', {
-			'mensaje': 'No tiene un perfil asignado.'
-		})
-	
-	# Obtener o crear la configuración de costos
-	costo = Costo.get_costos_actuales()
-	
-	if request.method == 'POST':
-		form = CostoForm(request.POST, instance=costo)
-		if form.is_valid():
-			costo_obj = form.save(commit=False)
-			costo_obj.actualizado_por = request.user
-			costo_obj.save()
-			
-			return render(request, 'app_page/configurar_costos.html', {
-				'form': CostoForm(instance=costo_obj),
-				'mensaje_exito': 'Costos actualizados correctamente.',
-				'costo': costo_obj
-			})
-		else:
-			return render(request, 'app_page/configurar_costos.html', {
-				'form': form,
-				'mensaje_error': 'Por favor, corrija los errores en el formulario.',
-				'costo': costo
-			})
-	else:
-		form = CostoForm(instance=costo)
-	
-	return render(request, 'app_page/configurar_costos.html', {
-		'form': form,
-		'costo': costo
-	})
+	"""Los costos se editan ahora en el panel de administracion.
+
+	Se conserva la ruta para no romper enlaces guardados.
+	"""
+	return redirect('panel_admin')
 
 
 @login_required

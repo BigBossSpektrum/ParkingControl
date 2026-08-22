@@ -1,0 +1,318 @@
+{% extends 'app_page/base.html' %}
+{% block title %}Administración - Parking Control{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-12 col-xl-10">
+
+        {# ----------------------------------------------------------------
+           Tarifas: precio por minuto y tarifa plena
+           ---------------------------------------------------------------- #}
+        <div class="card mb-4">
+            <div class="card-body p-3 p-md-4">
+                <h2 class="card-title-min mb-3">
+                    <i class="bi bi-currency-dollar me-2"></i>Tarifas del parking
+                </h2>
+
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="guardar_tarifas">
+
+                    <h3 class="h6 mb-2">Precio por minuto</h3>
+                    <p class="form-text text-body-secondary mt-0 mb-3">
+                        Se cobra por minutos exactos, con un mínimo de un minuto.
+                    </p>
+                    <div class="row g-3 mb-4">
+                        <div class="col-12 col-md-6">
+                            <label for="{{ form_costos.costo_auto.id_for_label }}" class="form-label">
+                                <i class="bi bi-car-front me-1"></i>Auto ($/min)
+                            </label>
+                            {{ form_costos.costo_auto }}
+                            {% if form_costos.costo_auto.errors %}
+                                <div class="invalid-feedback d-block">{{ form_costos.costo_auto.errors.0 }}</div>
+                            {% endif %}
+                            <div class="form-text text-body-secondary">Actual: ${{ costo.costo_auto }}/min</div>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label for="{{ form_costos.costo_moto.id_for_label }}" class="form-label">
+                                <i class="bi bi-scooter me-1"></i>Moto ($/min)
+                            </label>
+                            {{ form_costos.costo_moto }}
+                            {% if form_costos.costo_moto.errors %}
+                                <div class="invalid-feedback d-block">{{ form_costos.costo_moto.errors.0 }}</div>
+                            {% endif %}
+                            <div class="form-text text-body-secondary">Actual: ${{ costo.costo_moto }}/min</div>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <h3 class="h6 mb-2">Tarifa plena</h3>
+                    <div class="form-check form-switch mb-2">
+                        {{ form_tarifa.activa }}
+                        <label class="form-check-label" for="{{ form_tarifa.activa.id_for_label }}">
+                            {{ form_tarifa.activa.label }}
+                        </label>
+                    </div>
+                    <p class="form-text text-body-secondary mt-0 mb-3">
+                        Mientras esté activa, todos los vehículos pagan el costo fijo y se ignora el
+                        precio por minuto.
+                    </p>
+                    <div class="row g-3 mb-4">
+                        <div class="col-12 col-md-6">
+                            <label for="{{ form_tarifa.costo_fijo_auto.id_for_label }}" class="form-label">
+                                <i class="bi bi-car-front me-1"></i>Costo fijo - Auto ($)
+                            </label>
+                            {{ form_tarifa.costo_fijo_auto }}
+                            {% if form_tarifa.costo_fijo_auto.errors %}
+                                <div class="invalid-feedback d-block">{{ form_tarifa.costo_fijo_auto.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label for="{{ form_tarifa.costo_fijo_moto.id_for_label }}" class="form-label">
+                                <i class="bi bi-scooter me-1"></i>Costo fijo - Moto ($)
+                            </label>
+                            {{ form_tarifa.costo_fijo_moto }}
+                            {% if form_tarifa.costo_fijo_moto.errors %}
+                                <div class="invalid-feedback d-block">{{ form_tarifa.costo_fijo_moto.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-end">
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-save me-1"></i>Guardar tarifas
+                        </button>
+                    </div>
+                </form>
+
+                {% if costo.fecha_actualizacion %}
+                    <div class="mt-3 text-end">
+                        <small class="text-body-secondary">
+                            <i class="bi bi-clock me-1"></i>
+                            Última actualización: {{ costo.fecha_actualizacion|date:"d/m/Y H:i" }}
+                            {% if costo.actualizado_por %}
+                                por {{ costo.actualizado_por.get_full_name|default:costo.actualizado_por.username }}
+                            {% endif %}
+                        </small>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        {# ----------------------------------------------------------------
+           Usuarios del sistema
+           ---------------------------------------------------------------- #}
+        <div class="card mb-4">
+            <div class="card-body p-3 p-md-4">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                    <h2 class="card-title-min mb-0">
+                        <i class="bi bi-people me-2"></i>Usuarios del sistema
+                    </h2>
+                    <button class="btn btn-success btn-sm" type="button"
+                            data-bs-toggle="collapse" data-bs-target="#formNuevoUsuario"
+                            aria-expanded="{% if form_usuario.errors %}true{% else %}false{% endif %}"
+                            aria-controls="formNuevoUsuario">
+                        <i class="bi bi-person-plus me-1"></i>Nuevo usuario
+                    </button>
+                </div>
+
+                {# --- Alta de usuario --- #}
+                <div class="collapse {% if form_usuario.errors %}show{% endif %}" id="formNuevoUsuario">
+                    <form method="post" class="border rounded p-3 mb-4" novalidate>
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="crear_usuario">
+                        <div class="row g-3">
+                            {% for campo in form_usuario %}
+                                <div class="col-12 col-md-6">
+                                    <label for="{{ campo.id_for_label }}" class="form-label">{{ campo.label }}</label>
+                                    {{ campo }}
+                                    {% if campo.errors %}
+                                        <div class="invalid-feedback d-block">{{ campo.errors.0 }}</div>
+                                    {% elif campo.help_text %}
+                                        <div class="form-text text-body-secondary">{{ campo.help_text|safe }}</div>
+                                    {% endif %}
+                                </div>
+                            {% endfor %}
+                        </div>
+                        <div class="d-flex justify-content-end mt-3">
+                            <button type="submit" class="btn btn-success">
+                                <i class="bi bi-person-plus me-1"></i>Crear usuario
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                {# --- Listado --- #}
+                <div class="table-responsive">
+                    <table class="table align-middle">
+                        <thead>
+                            <tr>
+                                <th>Usuario</th>
+                                <th>Nombre</th>
+                                <th>Correo</th>
+                                <th>Rol</th>
+                                <th>Estado</th>
+                                <th>Último acceso</th>
+                                <th class="text-end">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for u in usuarios %}
+                                <tr>
+                                    <td>
+                                        <i class="bi bi-person-badge me-1"></i>{{ u.username }}
+                                        {% if u == user %}
+                                            <span class="badge badge-contador ms-1">tú</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ u.get_full_name|default:"—" }}</td>
+                                    <td>{{ u.email|default:"—" }}</td>
+                                    <td>
+                                        <form method="post" class="d-flex gap-1">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="action" value="cambiar_rol">
+                                            <input type="hidden" name="usuario_id" value="{{ u.pk }}">
+                                            <select name="rol" class="form-select form-select-sm"
+                                                    {% if u == user %}disabled{% endif %}>
+                                                {% for valor, etiqueta in roles %}
+                                                    <option value="{{ valor }}"
+                                                        {% if u.perfil.rol == valor %}selected{% endif %}>
+                                                        {{ etiqueta }}
+                                                    </option>
+                                                {% endfor %}
+                                            </select>
+                                            {% if u != user %}
+                                                <button type="submit" class="btn btn-sm btn-dark"
+                                                        title="Guardar rol">
+                                                    <i class="bi bi-check-lg"></i>
+                                                </button>
+                                            {% endif %}
+                                        </form>
+                                    </td>
+                                    <td>
+                                        {% if u.is_active %}
+                                            <span class="badge text-bg-success">Activo</span>
+                                        {% else %}
+                                            <span class="badge text-bg-secondary">Inactivo</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <small class="text-body-secondary">
+                                            {{ u.last_login|date:"d/m/Y H:i"|default:"Nunca" }}
+                                        </small>
+                                    </td>
+                                    <td class="text-end">
+                                        <div class="d-inline-flex gap-1">
+                                            {% if u != user %}
+                                                <form method="post" class="form-estado"
+                                                      data-usuario="{{ u.username }}"
+                                                      data-activo="{{ u.is_active|yesno:'1,0' }}">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="action" value="toggle_estado">
+                                                    <input type="hidden" name="usuario_id" value="{{ u.pk }}">
+                                                    <button type="submit" class="btn btn-sm btn-dark"
+                                                            title="{% if u.is_active %}Desactivar{% else %}Activar{% endif %} usuario">
+                                                        <i class="bi {% if u.is_active %}bi-person-slash{% else %}bi-person-check{% endif %}"></i>
+                                                    </button>
+                                                </form>
+                                            {% endif %}
+                                            <button type="button" class="btn btn-sm btn-dark"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#modalPassword{{ u.pk }}"
+                                                    title="Restablecer contraseña">
+                                                <i class="bi bi-key"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% empty %}
+                                <tr>
+                                    <td colspan="7" class="text-body-secondary text-center">
+                                        No hay usuarios registrados.
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# ----------------------------------------------------------------
+   Modales de restablecimiento de contraseña (uno por usuario)
+   ---------------------------------------------------------------- #}
+{% for u in usuarios %}
+    <div class="modal fade" id="modalPassword{{ u.pk }}" tabindex="-1"
+         aria-labelledby="modalPasswordLabel{{ u.pk }}" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="restablecer_password">
+                    <input type="hidden" name="usuario_id" value="{{ u.pk }}">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="modalPasswordLabel{{ u.pk }}">
+                            <i class="bi bi-key me-2"></i>Contraseña de {{ u.username }}
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"
+                                aria-label="Cerrar"></button>
+                    </div>
+                    <div class="modal-body">
+                        {% for campo in form_password %}
+                            <div class="mb-3">
+                                <label for="{{ campo.id_for_label }}_{{ u.pk }}" class="form-label">
+                                    {{ campo.label }}
+                                </label>
+                                <input type="password" name="{{ campo.name }}"
+                                       id="{{ campo.id_for_label }}_{{ u.pk }}"
+                                       class="form-control" autocomplete="new-password" required>
+                                {% if campo.help_text %}
+                                    <div class="form-text text-body-secondary">{{ campo.help_text|safe }}</div>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-dark" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-save me-1"></i>Restablecer
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+{% endfor %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Confirmar antes de desactivar una cuenta: es la unica accion del panel que
+// puede dejar a alguien fuera del sistema.
+document.querySelectorAll('.form-estado').forEach(function (form) {
+    form.addEventListener('submit', function (e) {
+        if (form.dataset.activo !== '1') {
+            return; // Reactivar no necesita confirmacion.
+        }
+        e.preventDefault();
+        Swal.fire({
+            title: '¿Desactivar usuario?',
+            html: '<p><strong>' + form.dataset.usuario + '</strong> no podrá iniciar sesión.</p>',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#146c2e',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Sí, desactivar',
+            cancelButtonText: 'Cancelar'
+        }).then(function (result) {
+            if (result.isConfirmed) {
+                form.submit();
+            }
+        });
+    });
+});
+</script>
+{% endblock %}
