@@ -102,7 +102,21 @@ python manage.py setup_perfiles
 
 # Crear usuario empleado de prueba
 python manage.py crear_empleado
+
+# Crear usuario administrador (superusuario + perfil de administrador)
+# Por defecto: admin / admin123 -- solo para desarrollo local
+python manage.py crear_admin
+
+# Con credenciales propias
+python manage.py crear_admin --username jefe --password "mi-clave" --email jefe@ejemplo.com
+
+# Cambiar el rol de un usuario existente
+python manage.py cambiar_rol <usuario> administrador
 ```
+
+> `crear_admin` es idempotente: si el usuario ya existe, actualiza su contraseña,
+> le da `is_staff`/`is_superuser` y le asigna el rol `administrador`.
+> Requiere haber ejecutado antes `python manage.py migrate`.
 
 ## Consideraciones de Seguridad
 

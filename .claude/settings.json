@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(.\\\\env\\\\Scripts\\\\python.exe \"C:\\\\Users\\\\ENTREC~1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-Entrecables-y-Redes-Documents-GitHub-ParkingControl\\\\7973a97f-6b3e-462c-8caa-69c4814f2da8\\\\scratchpad\\\\verify_admin.py\")"
+    ]
+  }
+}
