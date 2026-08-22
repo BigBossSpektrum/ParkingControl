@@ -96,13 +96,9 @@
                             </div>
                         </div>
                         {% comment %}
-                        La placa son dos campos en el modelo de formulario
+                        La placa son dos campos del formulario
                         (matricula_inicio + matricula_fin), que ClienteForm.save()
                         une como "ABC-123".
-
-                        Ojo: {# #} solo comenta UNA linea en Django. Escrito en
-                        varias lineas se renderizaba como texto visible en el
-                        formulario. Para varias lineas hay que usar este bloque.
                         {% endcomment %}
                         <div class="col-3">
                             <div class="form-floating">

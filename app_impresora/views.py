@@ -4,6 +4,8 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.views.decorators.csrf import csrf_exempt
 from django.core.cache import cache
+from django.db import transaction
+from django.utils import timezone
 import json
 import logging
 import subprocess
@@ -48,11 +50,7 @@ def add_printer(request):
                     'message': 'Todos los campos son requeridos'
                 })
             
-            # Si se marca como activa, desactivar otras
-            if set_active:
-                PrinterConfiguration.objects.update(is_active=False)
-            
-            # Crear nueva impresora
+            # Crear nueva impresora. La exclusividad de is_active la aplica el modelo.
             printer = PrinterConfiguration.objects.create(
                 name=name,
                 model='Epson Thermal',  # Modelo genérico
@@ -60,7 +58,9 @@ def add_printer(request):
                 connection_string=connection_string,
                 is_active=set_active
             )
-            
+
+            printer_service.reload_printer_config()
+
             return JsonResponse({
                 'success': True,
                 'message': f'Impresora "{name}" agregada correctamente',
@@ -96,10 +96,7 @@ def quick_setup_printer(request):
             # Usar la primera impresora térmica encontrada
             thermal_printer = thermal_printers[0]
             
-            # Desactivar impresoras existentes
-            PrinterConfiguration.objects.update(is_active=False)
-            
-            # Crear configuración automática
+            # Crear configuración automática. La exclusividad la aplica el modelo.
             printer = PrinterConfiguration.objects.create(
                 name=f"{thermal_printer['name']} (Auto)",
                 model='Epson Thermal',
@@ -107,7 +104,9 @@ def quick_setup_printer(request):
                 connection_string=thermal_printer['name'],
                 is_active=True
             )
-            
+
+            printer_service.reload_printer_config()
+
             return JsonResponse({
                 'success': True,
                 'message': f'Impresora configurada automáticamente',
@@ -228,6 +227,17 @@ def test_printer(request):
     
     return HttpResponse('Método no permitido', status=405)
 
+def _motivo_ultimo_fallo(client_id):
+    """Recupera el error real del último trabajo fallido de un cliente.
+
+    print_qr_ticket solo devuelve True/False; la causa queda en PrintJob.error_message.
+    """
+    trabajo = PrintJob.objects.filter(client_id=client_id, status='FAILED').first()
+    if trabajo and trabajo.error_message:
+        return f'Error al imprimir el ticket: {trabajo.error_message}'
+    return 'Error al imprimir el ticket. Revisa que haya una impresora activa configurada.'
+
+
 @login_required
 def print_client_qr(request, client_id):
     """Imprime el código QR de un cliente específico"""
@@ -241,18 +251,23 @@ def print_client_qr(request, client_id):
             cliente.save()
         
         success = printer_service.print_qr_ticket(cliente)
-        
+
+        if success:
+            mensaje = f'Ticket impreso para {cliente.get_display_name()}'
+        else:
+            mensaje = _motivo_ultimo_fallo(cliente.id)
+
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return JsonResponse({
                 'success': success,
-                'message': 'Ticket impreso exitosamente' if success else 'Error al imprimir ticket'
+                'message': mensaje
             })
-        
+
         if success:
-            messages.success(request, f'Ticket impreso para {cliente.get_display_name()}')
+            messages.success(request, mensaje)
         else:
-            messages.error(request, 'Error al imprimir el ticket')
-            
+            messages.error(request, mensaje)
+
         return redirect('dashboard')
         
     except Exception as e:
@@ -267,30 +282,65 @@ def print_client_qr(request, client_id):
         messages.error(request, f'Error al imprimir: {str(e)}')
         return redirect('dashboard')
 
+def _entero_o_defecto(valor, defecto):
+    """Convierte a int lo que llega del formulario, cayendo al defecto del modelo."""
+    try:
+        return int(valor)
+    except (TypeError, ValueError):
+        return defecto
+
+
 @login_required
-def printer_config(request):
-    """Configuración de impresoras"""
+def printer_config(request, printer_id=None):
+    """Crea o edita una configuración de impresora.
+
+    Sin printer_id edita la impresora activa (o crea una nueva si no hay ninguna).
+    """
+    if printer_id is not None:
+        printer = get_object_or_404(PrinterConfiguration, id=printer_id)
+    else:
+        printer = PrinterConfiguration.objects.filter(is_active=True).first()
+
     if request.method == 'POST':
-        # Aquí manejaremos la configuración de la impresora
-        name = request.POST.get('name')
-        printer_type = request.POST.get('printer_type')
-        connection_string = request.POST.get('connection_string')
-        
-        # Desactivar otras impresoras si esta se marca como activa
-        if request.POST.get('is_active'):
-            PrinterConfiguration.objects.update(is_active=False)
-        
-        printer_config = PrinterConfiguration.objects.create(
-            name=name,
-            printer_type=printer_type,
-            connection_string=connection_string,
-            is_active=True
-        )
-        
-        messages.success(request, 'Impresora configurada exitosamente')
-        return redirect('printer_dashboard')
-    
-    return render(request, 'app_impresora/config.html')
+        name = (request.POST.get('name') or '').strip()
+        printer_type = (request.POST.get('printer_type') or '').strip()
+        connection_string = (request.POST.get('connection_string') or '').strip()
+
+        if not all([name, printer_type, connection_string]):
+            return JsonResponse({
+                'success': False,
+                'message': 'Nombre, tipo de conexión y cadena de conexión son requeridos'
+            }, status=400)
+
+        tipos_validos = [clave for clave, _ in PrinterConfiguration.PRINTER_TYPES]
+        if printer_type not in tipos_validos:
+            return JsonResponse({
+                'success': False,
+                'message': f'Tipo de conexión no válido: {printer_type}'
+            }, status=400)
+
+        # Al editar por URL se edita esa impresora; sin id siempre se crea una nueva.
+        destino = printer if printer_id is not None else PrinterConfiguration()
+
+        destino.name = name
+        destino.printer_type = printer_type
+        destino.connection_string = connection_string
+        destino.paper_width = _entero_o_defecto(request.POST.get('paper_width'), 80)
+        destino.chars_per_line = _entero_o_defecto(request.POST.get('chars_per_line'), 48)
+        destino.is_active = request.POST.get('is_active') == 'on'
+
+        with transaction.atomic():
+            destino.save()
+
+        printer_service.reload_printer_config()
+
+        return JsonResponse({
+            'success': True,
+            'message': f'Impresora "{destino.name}" guardada correctamente',
+            'printer_id': destino.id
+        })
+
+    return render(request, 'app_impresora/config.html', {'printer': printer})
 
 @login_required
 def printer_status(request):
@@ -332,35 +382,44 @@ def delete_printer(request):
             
             printer = get_object_or_404(PrinterConfiguration, id=printer_id)
             printer_name = printer.name
-            
+            era_activa = printer.is_active
+
             logger.info(f"Found printer: {printer_name}")
-            
-            # Verificar si es la única impresora activa
-            active_printers = PrinterConfiguration.objects.filter(is_active=True).count()
-            if printer.is_active and active_printers == 1:
-                logger.warning(f"Attempting to delete only active printer: {printer_name}")
-                return JsonResponse({
-                    'success': False,
-                    'message': 'No puedes eliminar la única impresora activa. Configura otra impresora primero.'
-                })
-            
-            # Verificar si tiene trabajos de impresión asociados
+
+            # Los trabajos asociados se borran en cascada con la impresora.
             jobs_count = PrintJob.objects.filter(printer=printer).count()
-            
-            if jobs_count > 0:
-                logger.info(f"Deleting {jobs_count} associated jobs")
-                # Eliminar trabajos asociados automáticamente
-                PrintJob.objects.filter(printer=printer).delete()
-            
-            # Eliminar la impresora
-            printer.delete()
+
+            with transaction.atomic():
+                if jobs_count > 0:
+                    logger.info(f"Deleting {jobs_count} associated jobs")
+                    PrintJob.objects.filter(printer=printer).delete()
+
+                printer.delete()
+
+                # Si borramos la activa, promover la primera que quede. Quedarse
+                # sin ninguna es un estado válido: el servicio lo contempla.
+                sustituta = None
+                if era_activa:
+                    sustituta = PrinterConfiguration.objects.first()
+                    if sustituta:
+                        sustituta.is_active = True
+                        sustituta.save()
+
+            printer_service.reload_printer_config()
             logger.info(f"Printer {printer_name} deleted successfully")
-            
+
+            mensaje = f'Impresora "{printer_name}" eliminada correctamente'
+            if jobs_count > 0:
+                mensaje += f' junto a sus {jobs_count} trabajo(s) de impresión'
+            if era_activa and sustituta:
+                mensaje += f'. Ahora la impresora activa es "{sustituta.name}"'
+
             return JsonResponse({
                 'success': True,
-                'message': f'Impresora "{printer_name}" eliminada correctamente'
+                'message': mensaje,
+                'jobs_deleted': jobs_count
             })
-            
+
         except json.JSONDecodeError as e:
             logger.error(f"JSON decode error: {e}")
             return JsonResponse({
@@ -460,27 +519,14 @@ def toggle_printer_status(request):
                 })
             
             printer = get_object_or_404(PrinterConfiguration, id=printer_id)
-            
-            if activate:
-                # Activar impresora (desactivar otras primero)
-                PrinterConfiguration.objects.update(is_active=False)
-                printer.is_active = True
+
+            # PrinterConfiguration.save() se encarga de desactivar las demás.
+            with transaction.atomic():
+                printer.is_active = bool(activate)
                 printer.save()
-                message = f'Impresora "{printer.name}" activada'
-            else:
-                # Verificar que no sea la única activa
-                active_count = PrinterConfiguration.objects.filter(is_active=True).count()
-                if printer.is_active and active_count == 1:
-                    return JsonResponse({
-                        'success': False,
-                        'message': 'No puedes desactivar la única impresora activa'
-                    })
-                
-                # Desactivar impresora
-                printer.is_active = False
-                printer.save()
-                message = f'Impresora "{printer.name}" desactivada'
-            
+
+            message = f'Impresora "{printer.name}" {"activada" if activate else "desactivada"}'
+
             # Recargar configuración del servicio
             printer_service.reload_printer_config()
             
@@ -601,27 +647,27 @@ def test_specific_printer(request, printer_id):
     if request.method == 'POST':
         try:
             printer = get_object_or_404(PrinterConfiguration, id=printer_id)
-            
+
             # Temporalmente activar esta impresora para la prueba
             original_active = PrinterConfiguration.objects.filter(is_active=True).first()
-            
-            PrinterConfiguration.objects.update(is_active=False)
+
             printer.is_active = True
             printer.save()
-            
+
             # Recargar servicio
             printer_service.reload_printer_config()
-            
-            # Probar impresión
-            success, message = printer_service.test_printer()
-            
-            # Restaurar impresora activa original
-            if original_active:
-                PrinterConfiguration.objects.update(is_active=False)
-                original_active.is_active = True
-                original_active.save()
-                printer_service.reload_printer_config()
-            
+
+            try:
+                # Probar impresión
+                success, message = printer_service.test_printer()
+            finally:
+                # Restaurar impresora activa original pase lo que pase: probar una
+                # impresora no debe cambiar cuál queda seleccionada.
+                if original_active:
+                    original_active.is_active = True
+                    original_active.save()
+                    printer_service.reload_printer_config()
+
             return JsonResponse({
                 'success': success,
                 'message': message
@@ -823,12 +869,17 @@ def print_preview(request):
             # Imprimir usando el servicio de impresión con datos personalizados
             success = printer_service.print_preview_ticket(temp_cliente_data, design_config)
             
-            # Crear registro del trabajo de impresión
+            # Crear registro del trabajo de impresión.
+            # client_id es IntegerField y la previsualización no corresponde a
+            # ningún cliente real, así que se registra con 0 y content_type
+            # 'PREVIEW' para poder distinguirla en el listado de trabajos.
             PrintJob.objects.create(
                 printer=active_printer,
-                client_id=f"preview_{cedula}",
+                client_id=0,
+                content_type='PREVIEW',
                 status='SUCCESS' if success else 'FAILED',
-                details=f"Ticket de previsualización - {nombre} ({placa})"
+                error_message=None if success else f"Falló la previsualización - {nombre} ({placa})",
+                completed_at=timezone.now()
             )
             
             logger.info(f"Preview ticket printed: {success} for {nombre}")

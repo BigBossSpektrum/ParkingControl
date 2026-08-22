@@ -5,9 +5,6 @@
 <div class="row justify-content-center">
     <div class="col-12 col-xl-10">
 
-        {# ----------------------------------------------------------------
-           Tarifas: precio por minuto y tarifa plena
-           ---------------------------------------------------------------- #}
         <div class="card mb-4">
             <div class="card-body p-3 p-md-4">
                 <h2 class="card-title-min mb-3">
@@ -100,9 +97,6 @@
             </div>
         </div>
 
-        {# ----------------------------------------------------------------
-           Usuarios del sistema
-           ---------------------------------------------------------------- #}
         <div class="card mb-4">
             <div class="card-body p-3 p-md-4">
                 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
@@ -241,9 +235,6 @@
     </div>
 </div>
 
-{# ----------------------------------------------------------------
-   Modales de restablecimiento de contraseña (uno por usuario)
-   ---------------------------------------------------------------- #}
 {% for u in usuarios %}
     <div class="modal fade" id="modalPassword{{ u.pk }}" tabindex="-1"
          aria-labelledby="modalPasswordLabel{{ u.pk }}" aria-hidden="true">

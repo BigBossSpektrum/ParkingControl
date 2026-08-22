@@ -82,8 +82,6 @@
         </div>
     </nav>
     <div class="container">
-        {# Mensajes de django.contrib.messages: los usan los decoradores de
-           permisos y el flujo POST-redirect-GET del panel de administracion. #}
         {% if messages %}
             {% for message in messages %}
                 <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">

@@ -46,31 +46,35 @@
         <div class="col-md-8 mx-auto">
             <div class="card">
                 <div class="card-header">
-                    <h5><i class="bi bi-printer"></i> Configurar Impresora Epson M244A</h5>
+                    <h5>
+                        <i class="bi bi-printer"></i>
+                        {% if printer %}Editar "{{ printer.name }}"{% else %}Nueva impresora{% endif %}
+                    </h5>
                 </div>
                 <div class="card-body">
                     <form id="printer-config-form" method="post">
                         {% csrf_token %}
-                        
+
                         <div class="mb-3">
                             <label for="name" class="form-label">Nombre de la Impresora *</label>
-                            <input type="text" class="form-control" id="name" name="name" required 
-                                   value="Epson M244A Principal" placeholder="Ej: Impresora Principal">
+                            <input type="text" class="form-control" id="name" name="name" required
+                                   value="{{ printer.name|default:'' }}" placeholder="Ej: Impresora Principal">
                             <div class="form-text">Nombre descriptivo para identificar la impresora</div>
                         </div>
 
                         <div class="mb-3">
                             <label for="printer_type" class="form-label">Tipo de Conexión *</label>
                             <select class="form-select" id="printer_type" name="printer_type" required onchange="updateConnectionHelp()">
-                                <option value="USB" selected>USB</option>
-                                <option value="SERIAL">Puerto Serial (COM)</option>
-                                <option value="NETWORK">Red (IP)</option>
+                                <option value="USB" {% if printer.printer_type == 'USB' or not printer %}selected{% endif %}>USB</option>
+                                <option value="SERIAL" {% if printer.printer_type == 'SERIAL' %}selected{% endif %}>Puerto Serial (COM)</option>
+                                <option value="NETWORK" {% if printer.printer_type == 'NETWORK' %}selected{% endif %}>Red (IP)</option>
                             </select>
                         </div>
 
                         <div class="mb-3">
                             <label for="connection_string" class="form-label">Cadena de Conexión *</label>
                             <input type="text" class="form-control" id="connection_string" name="connection_string" required
+                                   value="{{ printer.connection_string|default:'' }}"
                                    placeholder="Depende del tipo de conexión">
                             <div id="connection-help" class="connection-help">
                                 <!-- Se actualiza dinámicamente con JavaScript -->
@@ -81,16 +85,16 @@
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     <label for="paper_width" class="form-label">Ancho del Papel (mm)</label>
-                                    <input type="number" class="form-control" id="paper_width" name="paper_width" 
-                                           value="80" min="50" max="120">
+                                    <input type="number" class="form-control" id="paper_width" name="paper_width"
+                                           value="{{ printer.paper_width|default:80 }}" min="50" max="120">
                                     <div class="form-text">Típicamente 80mm para impresoras térmicas</div>
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     <label for="chars_per_line" class="form-label">Caracteres por Línea</label>
-                                    <input type="number" class="form-control" id="chars_per_line" name="chars_per_line" 
-                                           value="48" min="30" max="80">
+                                    <input type="number" class="form-control" id="chars_per_line" name="chars_per_line"
+                                           value="{{ printer.chars_per_line|default:48 }}" min="30" max="80">
                                     <div class="form-text">Número de caracteres que caben en una línea</div>
                                 </div>
                             </div>
@@ -98,7 +102,8 @@
 
                         <div class="mb-3">
                             <div class="form-check">
-                                <input class="form-check-input" type="checkbox" id="is_active" name="is_active" checked>
+                                <input class="form-check-input" type="checkbox" id="is_active" name="is_active"
+                                       {% if printer.is_active or not printer %}checked{% endif %}>
                                 <label class="form-check-label" for="is_active">
                                     Activar como impresora principal
                                 </label>
@@ -107,9 +112,6 @@
                         </div>
 
                         <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                            <button type="button" class="btn btn-outline-primary" onclick="testConnection()">
-                                <i class="bi bi-clipboard-check"></i> Probar Conexión
-                            </button>
                             <button type="submit" class="btn btn-primary">
                                 <i class="bi bi-save"></i> Guardar Configuración
                             </button>
@@ -223,12 +225,17 @@ $(document).ready(function() {
         
         submitBtn.prop('disabled', true).html('<i class="bi bi-arrow-repeat icono-girando"></i> Guardando...');
         
-        $.post('{% url "printer_config" %}', formData)
+        // Se envía a la URL actual para que al editar llegue el printer_id.
+        $.post(window.location.pathname, formData)
         .done(function(data) {
-            showMessage('Éxito', 'Configuración guardada correctamente', 'success');
+            if (!data.success) {
+                showMessage('Error', data.message, 'danger');
+                return;
+            }
+            showMessage('Éxito', data.message, 'success');
             setTimeout(function() {
                 window.location.href = '{% url "printer_dashboard" %}';
-            }, 2000);
+            }, 1500);
         })
         .fail(function(xhr) {
             var message = 'Error al guardar la configuración';
@@ -288,18 +295,6 @@ function updateConnectionHelp() {
     
     helpDiv.html(helpContent);
     connectionInput.attr('placeholder', placeholder);
-}
-
-function testConnection() {
-    var formData = $('#printer-config-form').serialize();
-    
-    showMessage('Información', 'Probando conexión...', 'info');
-    
-    // Aquí implementarías la lógica para probar la conexión
-    // Por ahora, simulamos una prueba
-    setTimeout(function() {
-        showMessage('Éxito', 'Conexión exitosa con la impresora', 'success');
-    }, 2000);
 }
 
 function showMessage(title, message, type) {
