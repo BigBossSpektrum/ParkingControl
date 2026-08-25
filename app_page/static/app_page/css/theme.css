@@ -59,6 +59,30 @@ body {
     overflow-x: hidden;
 }
 
+/* --- Imagen de fondo -------------------------------------------------------
+   El CSS no puede resolver {% static %}, asi que la URL entra como variable
+   desde la plantilla: base.html pone la imagen de la app y login.html la suya.
+   Sin variable definida el fondo es el color plano de siempre.
+
+   Son dos capas fijas detras de todo: la foto y un velo que le baja el
+   contraste. El velo no es decorativo - sin el, las tablas y el texto sobre
+   zonas claras de la foto dejan de ser legibles. */
+body::before,
+body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+}
+body::before {
+    background: var(--pc-bg-image, none) center / cover no-repeat;
+    z-index: -2;
+}
+body::after {
+    background: var(--pc-bg-veil, none);
+    z-index: -1;
+}
+
 /* Titulos: un unico ramp, con el peso limitado a --pc-fw-bold. */
 h1, .h1 { font-size: var(--pc-fs-2xl); }
 h2, .h2 { font-size: var(--pc-fs-xl); }

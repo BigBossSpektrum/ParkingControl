@@ -1,9 +1,36 @@
 {% extends 'app_page/base.html' %}
+{% load static %}
 {% block title %}Iniciar Sesión{% endblock %}
 {% block extra_head %}
     <style>
         /* El tema vive en app_page/css/theme.css.
            Aquí sólo lo específico de la pantalla de login. */
+
+        /* El login usa su propia foto y un velo oscuro en lugar del claro de
+           la app: aquí no hay tablas que leer, sólo una caja centrada, y el
+           contraste oscuro le da más presencia. Las capas las pinta theme.css. */
+        :root {
+            --pc-bg-image: url("{% static 'app_page/img/wallpaper.png' %}");
+            --pc-bg-veil: linear-gradient(180deg, rgba(10, 14, 18, 0.55), rgba(10, 14, 18, 0.7));
+        }
+        body {
+            background: #0a0e12;
+        }
+        /* Navbar y footer se vuelven transparentes para no cortar la imagen. */
+        .navbar {
+            background: transparent !important;
+            border: 0;
+        }
+        .navbar .navbar-brand {
+            color: #fff;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
+        }
+        .site-footer {
+            background: transparent !important;
+            border: 0;
+            color: rgba(255, 255, 255, 0.85);
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
+        }
         .login-container {
             display: flex;
             align-items: center;
@@ -16,7 +43,9 @@
             background: var(--pc-surface);
             border: 1px solid var(--pc-border);
             border-radius: 16px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+            /* Sombra más marcada que en el resto del tema: la caja debe
+               despegarse de la foto de fondo, no de un lienzo plano. */
+            box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
             display: flex;
             overflow: hidden;
             max-width: 700px;

@@ -11,6 +11,17 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
     <!-- Tema Parking Control -->
     <link href="{% static 'app_page/css/theme.css' %}" rel="stylesheet">
+    <style>
+        /* Fondo de las vistas de la app. theme.css pinta las capas; aqui solo
+           entra la URL, que necesita {% templatetag openblock %} static
+           {% templatetag closeblock %} para respetar STATIC_URL.
+           El velo es claro y opaco al 82%: el tema es claro y las tablas
+           tienen que seguir leyendose sobre cualquier zona de la foto. */
+        :root {
+            --pc-bg-image: url("{% static 'app_page/img/index.png' %}");
+            --pc-bg-veil: rgba(247, 248, 249, 0.82);
+        }
+    </style>
     <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     {% block extra_head %}{% endblock %}
