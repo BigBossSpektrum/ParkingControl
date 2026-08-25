@@ -74,11 +74,16 @@ h1, h2, h3, h4, h5, h6,
     color: var(--pc-fg);
 }
 
-a, a:visited {
+/* Los <a class="btn"> son botones, no enlaces: el color del texto lo pone la regla
+   del boton. Sin el :not(.btn), a:visited (0,1,1) le gana a .btn-success (0,1,0) y
+   el texto queda verde sobre el fondo verde del propio boton. */
+a:not(.btn),
+a:not(.btn):visited {
     color: var(--pc-accent);
 }
 
-a:hover, a:focus {
+a:not(.btn):hover,
+a:not(.btn):focus {
     color: var(--pc-accent-hover);
 }
 
