@@ -111,10 +111,12 @@
                             </div>
                         </div>
                         <input type="hidden" id="connection_type" name="printer_type" required>
-                        {# Unico campo connection_string del formulario: lo rellena
-                           buildConnectionString() segun el tipo elegido. Tener varios
-                           inputs con este nombre hacia que Django se quedase con el
-                           ultimo y guardase siempre "auto". #}
+                        {% comment %}
+                        Unico campo connection_string del formulario: lo rellena
+                        buildConnectionString() segun el tipo elegido. Tener varios
+                        inputs con este nombre hacia que Django se quedase con el
+                        ultimo y guardase siempre "auto".
+                        {% endcomment %}
                         <input type="hidden" id="connection_string" name="connection_string">
                     </div>
 

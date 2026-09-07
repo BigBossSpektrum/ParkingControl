@@ -181,6 +181,7 @@
                                 <th><i class="bi bi-telephone me-1"></i>Teléfono</th>
                                 <th><i class="bi bi-geo-alt me-1"></i>Ubicación</th>
                                 <th><i class="bi bi-calendar me-1"></i>Fecha</th>
+                                <th class="text-end"><i class="bi bi-gear me-1"></i>Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -191,6 +192,13 @@
                                 <td>{{ visitante.get_display_telefono }}</td>
                                 <td>{{ visitante.get_ubicacion_completa }}</td>
                                 <td>{{ visitante.fecha_registro|date:"d/m/Y H:i" }}</td>
+                                <td class="text-end">
+                                    <button type="button" class="btn btn-success btn-sm"
+                                            onclick="verDetalles({{ visitante.id }})"
+                                            title="Ver detalles">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                </td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -210,6 +218,7 @@
 
 {% block extra_js %}
 <script src="{% static 'app_page/js/camera-capture.js' %}"></script>
+<script src="{% static 'app_page/js/visitante-detalles.js' %}"></script>
 <script>
 const camaraVisitante = initCameraCapture(document.getElementById('camara_visitante'));
 

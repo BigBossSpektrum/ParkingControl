@@ -17,6 +17,7 @@ from django import forms
 from django.db import models
 from django.core.files.base import ContentFile
 from .models import Cliente, Costo, Perfil, Visitante, TarifaPlena, Recaudacion
+from .formato import fecha_local
 from .photo_utils import decodificar_foto_base64
 from .decorators import require_admin, require_edit_permission, require_delete_permission, require_view_list_permission, get_user_profile
 
@@ -84,8 +85,8 @@ def procesar_confirmacion_salida(request, is_ajax):
 					'cedula': cliente.get_display_cedula(),
 					'matricula': cliente.matricula,
 					'tipo_vehiculo': cliente.get_tipo_vehiculo_display(),
-					'fecha_entrada': cliente.fecha_entrada.strftime('%d/%m/%Y %H:%M') if cliente.fecha_entrada else 'No registrada',
-					'fecha_salida': cliente.fecha_salida.strftime('%d/%m/%Y %H:%M'),
+					'fecha_entrada': fecha_local(cliente.fecha_entrada, 'No registrada'),
+					'fecha_salida': fecha_local(cliente.fecha_salida),
 					'tiempo_total': tiempo_str,
 					'costo_total': costo_total,
 					'costo_formateado': costo_formateado,
@@ -199,8 +200,8 @@ def dashboard_parking(request):
 								'cedula': cliente.get_display_cedula(),
 								'matricula': cliente.matricula,
 								'tipo_vehiculo': cliente.get_tipo_vehiculo_display(),
-								'fecha_entrada': cliente.fecha_entrada.strftime('%d/%m/%Y %H:%M') if cliente.fecha_entrada else 'No registrada',
-								'fecha_salida_estimada': fecha_salida_temporal.strftime('%d/%m/%Y %H:%M'),
+								'fecha_entrada': fecha_local(cliente.fecha_entrada, 'No registrada'),
+								'fecha_salida_estimada': fecha_local(fecha_salida_temporal),
 								'tiempo_total': tiempo_str,
 								'costo_total': costo_total,
 								'costo_formateado': costo_formateado,
@@ -290,7 +291,7 @@ def dashboard_parking(request):
 								'cedula': cliente.get_display_cedula(),
 								'matricula': cliente.matricula,
 								'tipo_vehiculo': cliente.get_tipo_vehiculo_display(),
-								'fecha_entrada': cliente.fecha_entrada.strftime('%d/%m/%Y %H:%M'),
+								'fecha_entrada': fecha_local(cliente.fecha_entrada),
 								'qr_url': cliente.qr_image.url if cliente.qr_image else None,
 								'foto_url': cliente.foto.url if cliente.foto else None
 							},
@@ -332,12 +333,16 @@ def dashboard_parking(request):
 	# Obtener perfil del usuario
 	perfil = get_user_profile(request.user)
 	
+	# Ultimos ingresos, para poder consultarlos sin salir del panel
+	ultimos_clientes = Cliente.objects.order_by('-fecha_entrada')[:5]
+
 	return render(request, 'app_page/dashboard_parking.html', {
 		'salida_form': salida_form,
 		'registro_form': registro_form,
 		'mensaje_salida': mensaje_salida,
 		'message_success': message_success,
 		'perfil': perfil,
+		'ultimos_clientes': ultimos_clientes,
 	})
 
 # --- VISTA PARA VER REGISTRO Y QR ---
@@ -360,11 +365,14 @@ def ver_registro(request, pk):
 			'nombre': cliente.get_display_name(),
 			'cedula': cliente.get_display_cedula(),
 			'telefono': cliente.get_display_telefono(),
+			'torre': cliente.get_display_torre(),
+			'apartamento': cliente.get_display_apartamento(),
 			'matricula': cliente.matricula,
 			'tipo_vehiculo': cliente.get_tipo_vehiculo_display(),
-			'fecha_entrada': cliente.fecha_entrada.strftime('%d/%m/%Y %H:%M') if cliente.fecha_entrada else None,
-			'fecha_salida': cliente.fecha_salida.strftime('%d/%m/%Y %H:%M') if cliente.fecha_salida else None,
+			'fecha_entrada': fecha_local(cliente.fecha_entrada, None),
+			'fecha_salida': fecha_local(cliente.fecha_salida, None),
 			'qr_url': cliente.qr_image.url if cliente.qr_image else None,
+			'foto_url': cliente.foto.url if cliente.foto else None,
 		}
 		return JsonResponse(data)
 	
@@ -691,8 +699,8 @@ def salida_qr(request):
 							'cedula': cliente.get_display_cedula(),
 							'matricula': cliente.matricula,
 							'tipo_vehiculo': cliente.get_tipo_vehiculo_display(),
-							'fecha_entrada': cliente.fecha_entrada.strftime('%d/%m/%Y %H:%M') if cliente.fecha_entrada else 'No registrada',
-							'fecha_salida': cliente.fecha_salida.strftime('%d/%m/%Y %H:%M'),
+							'fecha_entrada': fecha_local(cliente.fecha_entrada, 'No registrada'),
+							'fecha_salida': fecha_local(cliente.fecha_salida),
 							'tiempo_total': tiempo_str,
 							'costo_total': costo_total,
 							'costo_formateado': costo_formateado,
@@ -707,8 +715,8 @@ def salida_qr(request):
 					'cedula': cliente.cedula,
 					'matricula': cliente.matricula,
 					'tipo_vehiculo': cliente.get_tipo_vehiculo_display(),
-					'fecha_entrada': cliente.fecha_entrada.strftime('%d/%m/%Y %H:%M') if cliente.fecha_entrada else 'No registrada',
-					'fecha_salida': cliente.fecha_salida.strftime('%d/%m/%Y %H:%M'),
+					'fecha_entrada': fecha_local(cliente.fecha_entrada, 'No registrada'),
+					'fecha_salida': fecha_local(cliente.fecha_salida),
 					'tiempo_total': tiempo_str
 				}
 			else:
@@ -1190,8 +1198,8 @@ def ver_visitante(request, pk):
 				'apartamento': visitante.get_display_apartamento(),
 				'ubicacion_completa': visitante.get_ubicacion_completa(),
 				'foto_url': visitante.foto.url if visitante.foto else None,
-				'fecha_registro': visitante.fecha_registro.strftime('%d/%m/%Y %H:%M'),
-				'fecha_actualizacion': visitante.fecha_actualizacion.strftime('%d/%m/%Y %H:%M'),
+				'fecha_registro': fecha_local(visitante.fecha_registro),
+				'fecha_actualizacion': fecha_local(visitante.fecha_actualizacion),
 			}
 		})
 	
@@ -1310,8 +1318,8 @@ def resumen_recaudacion(request):
 				'monto_total': float(datos_recaudacion['monto_total']),
 				'monto_formateado': f"${datos_recaudacion['monto_total']:,.2f}",
 				'numero_clientes': datos_recaudacion['numero_clientes'],
-				'fecha_inicio': datos_recaudacion['fecha_inicio'].strftime('%d/%m/%Y %H:%M'),
-				'fecha_actual': datos_recaudacion['fecha_actual'].strftime('%d/%m/%Y %H:%M'),
+				'fecha_inicio': fecha_local(datos_recaudacion['fecha_inicio']),
+				'fecha_actual': fecha_local(datos_recaudacion['fecha_actual']),
 			},
 			'historial': []
 		}
@@ -1325,10 +1333,10 @@ def resumen_recaudacion(request):
 					'id': corte.id,
 					'monto': float(corte.monto_recaudado),
 					'monto_formateado': f"${corte.monto_recaudado:,.2f}",
-					'fecha_corte': corte.fecha_corte.strftime('%d/%m/%Y %H:%M'),
+					'fecha_corte': fecha_local(corte.fecha_corte),
 					'numero_clientes': corte.numero_clientes,
 					'usuario': corte.usuario.get_full_name() or corte.usuario.username,
-					'periodo': f"{corte.fecha_inicio.strftime('%d/%m/%Y %H:%M')} - {corte.fecha_fin.strftime('%d/%m/%Y %H:%M')}",
+					'periodo': f"{fecha_local(corte.fecha_inicio)} - {fecha_local(corte.fecha_fin)}",
 					'clientes_atendidos': clientes_atendidos
 				})
 			except Exception as e:
@@ -1394,7 +1402,7 @@ def realizar_corte_recaudacion(request):
 				'monto': float(corte.monto_recaudado),
 				'monto_formateado': f"${corte.monto_recaudado:,.2f}",
 				'numero_clientes': corte.numero_clientes,
-				'fecha_corte': corte.fecha_corte.strftime('%d/%m/%Y %H:%M'),
+				'fecha_corte': fecha_local(corte.fecha_corte),
 				'usuario': corte.usuario.get_full_name() or corte.usuario.username
 			}
 		})

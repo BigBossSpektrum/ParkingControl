@@ -1,16 +1,21 @@
 import base64
 import shutil
 import tempfile
-from datetime import datetime, timezone as dt_timezone
-from io import BytesIO
+from pathlib import Path
+from datetime import datetime, timedelta, timezone as dt_timezone
+from io import BytesIO, StringIO
 from unittest import mock
 
+from django.conf import settings
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
+from django.core.management import call_command
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone as dj_timezone
 from PIL import Image
-from .models import Cliente, Costo, Perfil, TarifaPlena, Visitante
+from .models import Cliente, Costo, Perfil, Recaudacion, TarifaPlena, Visitante
+from .formato import fecha_local
 from .photo_utils import MAX_FOTO_BYTES, decodificar_foto_base64
 
 
@@ -377,3 +382,295 @@ class FotoCapturaTests(TestCase):
 		)
 		self.assertTrue(response.json()['success'])
 		self.assertFalse(Cliente.objects.get(cedula='11223344').foto)
+
+
+class DetalleClienteTests(TestCase):
+	"""Modal de detalles del cliente y tabla de ultimos ingresos del panel."""
+
+	@classmethod
+	def setUpClass(cls):
+		cls._media_temporal = tempfile.mkdtemp()
+		cls._override = override_settings(MEDIA_ROOT=cls._media_temporal)
+		cls._override.enable()
+		super().setUpClass()
+
+	@classmethod
+	def tearDownClass(cls):
+		super().tearDownClass()
+		cls._override.disable()
+		shutil.rmtree(cls._media_temporal, ignore_errors=True)
+
+	def setUp(self):
+		self.usuario = User.objects.create_user(username='portero2', password='clave-segura-123')
+		self.client.force_login(self.usuario)
+
+	def _crear_cliente(self, cedula='55443322', matricula='XYZ-987'):
+		return Cliente.objects.create(
+			cedula=cedula,
+			nombre='Marta Diaz',
+			telefono='3005554433',
+			torre='B',
+			apartamento='402',
+			matricula=matricula,
+			tipo_vehiculo='Auto',
+			fecha_entrada=dj_timezone.now(),
+		)
+
+	# --- JSON del detalle -----------------------------------------------
+
+	def test_detalle_incluye_ubicacion_y_foto_vacia(self):
+		cliente = self._crear_cliente()
+		response = self.client.get(reverse('ver_registro', args=[cliente.pk]), {'ajax': '1'})
+		datos = response.json()
+		self.assertEqual(datos['torre'], 'B')
+		self.assertEqual(datos['apartamento'], '402')
+		self.assertIsNone(datos['foto_url'])
+
+	def test_detalle_incluye_url_de_la_foto(self):
+		cliente = self._crear_cliente()
+		nombre, contenido = decodificar_foto_base64(_data_url(), prefijo='cliente')
+		cliente.foto.save(nombre, contenido, save=True)
+
+		response = self.client.get(reverse('ver_registro', args=[cliente.pk]), {'ajax': '1'})
+		self.assertEqual(response.json()['foto_url'], cliente.foto.url)
+
+	# --- Tabla de ultimos ingresos --------------------------------------
+
+	def test_panel_lista_los_ultimos_ingresos(self):
+		antiguo = self._crear_cliente(cedula='111', matricula='AAA-111')
+		reciente = self._crear_cliente(cedula='222', matricula='BBB-222')
+		Cliente.objects.filter(pk=antiguo.pk).update(
+			fecha_entrada=dj_timezone.now() - timedelta(hours=3)
+		)
+
+		response = self.client.get(reverse('dashboard_parking'))
+		ultimos = list(response.context['ultimos_clientes'])
+		self.assertEqual(ultimos[0].pk, reciente.pk)
+		self.assertIn(antiguo.pk, [c.pk for c in ultimos])
+
+	def test_panel_lista_como_maximo_cinco(self):
+		for i in range(7):
+			self._crear_cliente(cedula=f'90{i}', matricula=f'C{i}C-00{i}')
+
+		response = self.client.get(reverse('dashboard_parking'))
+		self.assertEqual(len(response.context['ultimos_clientes']), 5)
+
+
+class MenuUsuarioTests(TestCase):
+	"""Menu de configuracion del navbar: contenido segun rol y en toda pagina."""
+
+	def setUp(self):
+		self.admin = self._crear('jefa', 'administrador')
+		self.empleado = self._crear('vigilante2', 'empleado')
+		self.url_admin = reverse('panel_admin')
+		self.url_impresora = reverse('printer_dashboard')
+		self.url_clientes = reverse('lista_clientes')
+
+	def _crear(self, username, rol, password='clave-segura-123'):
+		usuario = User.objects.create_user(username=username, password=password)
+		perfil = Perfil.objects.get(usuario=usuario)
+		perfil.rol = rol
+		perfil.save()
+		return usuario
+
+	def test_administrador_ve_los_accesos_de_administracion(self):
+		self.client.force_login(self.admin)
+		html = self.client.get(reverse('dashboard_parking')).content.decode()
+		self.assertIn(self.url_admin, html)
+		self.assertIn(self.url_impresora, html)
+		self.assertIn(self.url_clientes, html)
+
+	def test_empleado_no_ve_los_accesos_de_administracion(self):
+		self.client.force_login(self.empleado)
+		html = self.client.get(reverse('dashboard_parking')).content.decode()
+		self.assertNotIn(self.url_admin, html)
+		self.assertNotIn(self.url_impresora, html)
+		self.assertIn(self.url_clientes, html)
+
+	def test_menu_aparece_en_paginas_que_no_pasan_perfil_al_render(self):
+		"""El menu vive en el navbar, asi que tiene que estar en toda pagina.
+
+		lista_visitantes y lista_clientes no incluyen 'perfil' en su propio
+		render: lo aporta el context processor user_profile_context. Si alguien
+		lo quita de settings, estos accesos desaparecen y este test lo detecta.
+		"""
+		self.client.force_login(self.admin)
+		for nombre in ('lista_visitantes', 'lista_clientes', 'dashboard_visitante'):
+			with self.subTest(pagina=nombre):
+				html = self.client.get(reverse(nombre)).content.decode()
+				self.assertIn(self.url_admin, html)
+				self.assertIn(self.url_impresora, html)
+
+	def test_el_panel_ya_no_trae_la_botonera_antigua(self):
+		self.client.force_login(self.admin)
+		html = self.client.get(reverse('dashboard_parking')).content.decode()
+		self.assertNotIn('acciones-dashboard', html)
+
+
+class PlantillasSinComentariosRotosTests(TestCase):
+	"""Django solo reconoce {# #} dentro de una misma linea.
+
+	Un {# que no cierra en su linea deja de ser comentario y el texto restante
+	se renderiza como contenido visible. Ya paso antes en este proyecto, asi que
+	se vigila automaticamente en vez de confiar en la revision visual.
+	"""
+
+	def test_no_hay_comentarios_de_una_almohadilla_multilinea(self):
+		raiz = Path(settings.BASE_DIR)
+		rotos = []
+
+		for plantilla in sorted(raiz.glob('*/templates/**/*.html')):
+			for numero, linea in enumerate(plantilla.read_text(encoding='utf-8').splitlines(), 1):
+				if '{#' in linea and '#}' not in linea:
+					rotos.append(f'{plantilla.relative_to(raiz)}:{numero}: {linea.strip()[:60]}')
+
+		self.assertEqual(
+			rotos, [],
+			'Comentarios {# #} abiertos en varias lineas (su texto se renderiza '
+			'como contenido visible). Use {% comment %}...{% endcomment %}:\n'
+			+ '\n'.join(rotos)
+		)
+
+
+class CrearDatosMensualesTests(TestCase):
+	"""El comando de datos de demostracion reparte por mes y es reversible."""
+
+	def setUp(self):
+		self.usuario = User.objects.create_superuser(
+			username='jefe_demo', email='demo@parking.local', password='clave-segura-123'
+		)
+		# Un registro real, para comprobar que --limpiar no lo toca.
+		self.real = Cliente.objects.create(
+			cedula='REAL-1', nombre='Cliente Real', matricula='RRR-111',
+			tipo_vehiculo='Auto', fecha_entrada=dj_timezone.now(),
+		)
+
+	def _ejecutar(self, **opciones):
+		salida = StringIO()
+		call_command('crear_datos_mensuales', stdout=salida, **opciones)
+		return salida.getvalue()
+
+	def test_genera_diez_por_mes_de_cada_tipo(self):
+		self._ejecutar(meses=3, por_mes=10)
+
+		self.assertEqual(Cliente.objects.filter(cedula__startswith='PRB-').count(), 30)
+		self.assertEqual(Visitante.objects.filter(cedula__startswith='PRB-').count(), 30)
+
+	def test_los_registros_quedan_repartidos_en_meses_distintos(self):
+		self._ejecutar(meses=3, por_mes=10)
+
+		# localtime(): con USE_TZ, .month sobre el valor crudo da el mes en UTC.
+		meses_cliente = {
+			(dj_timezone.localtime(c.fecha_entrada).year, dj_timezone.localtime(c.fecha_entrada).month)
+			for c in Cliente.objects.filter(cedula__startswith='PRB-')
+		}
+		self.assertEqual(len(meses_cliente), 3)
+
+	def test_no_inventa_fechas_futuras(self):
+		self._ejecutar(meses=3, por_mes=10)
+
+		ahora = dj_timezone.now()
+		for cliente in Cliente.objects.filter(cedula__startswith='PRB-'):
+			self.assertLessEqual(cliente.fecha_entrada, ahora)
+		for visitante in Visitante.objects.filter(cedula__startswith='PRB-'):
+			self.assertLessEqual(visitante.fecha_registro, ahora)
+
+	def test_crea_un_corte_por_mes_con_fecha_propia(self):
+		self._ejecutar(meses=3, por_mes=10)
+
+		cortes = Recaudacion.objects.all()
+		self.assertEqual(cortes.count(), 3)
+		# fecha_corte es auto_now_add; si no se corrigiera, los tres saldrian hoy
+		# y el historial (ordenado por -fecha_corte) no reflejaria los meses.
+		meses_corte = {
+			(dj_timezone.localtime(c.fecha_corte).year, dj_timezone.localtime(c.fecha_corte).month)
+			for c in cortes
+		}
+		self.assertEqual(len(meses_corte), 3)
+		for corte in cortes:
+			self.assertGreater(corte.monto_recaudado, 0)
+			self.assertLessEqual(corte.fecha_corte, dj_timezone.now())
+
+	def test_el_mes_en_curso_deja_clientes_dentro_del_parking(self):
+		self._ejecutar(meses=3, por_mes=10)
+
+		activos = Cliente.objects.filter(cedula__startswith='PRB-', fecha_salida__isnull=True)
+		self.assertEqual(activos.count(), 2)
+
+	def test_reejecutar_no_acumula(self):
+		self._ejecutar(meses=3, por_mes=10)
+		self._ejecutar(meses=3, por_mes=10)
+
+		self.assertEqual(Cliente.objects.filter(cedula__startswith='PRB-').count(), 30)
+		self.assertEqual(Recaudacion.objects.count(), 3)
+
+	def test_limpiar_borra_solo_lo_de_prueba(self):
+		self._ejecutar(meses=3, por_mes=10)
+		self._ejecutar(limpiar=True)
+
+		self.assertEqual(Cliente.objects.filter(cedula__startswith='PRB-').count(), 0)
+		self.assertEqual(Visitante.objects.filter(cedula__startswith='PRB-').count(), 0)
+		self.assertEqual(Recaudacion.objects.count(), 0)
+		self.assertTrue(Cliente.objects.filter(pk=self.real.pk).exists())
+
+
+class FechasEnHoraLocalTests(TestCase):
+	"""Las fechas que se arman en Python deben salir en America/Bogota.
+
+	Con USE_TZ=True, strftime() sobre el valor crudo imprime UTC: cinco horas
+	por delante. Las plantillas convierten solas con |date, pero las respuestas
+	JSON no, y por eso el resumen de recaudacion mostraba horas adelantadas.
+	"""
+
+	def setUp(self):
+		self.usuario = User.objects.create_superuser(
+			username='cajero', email='cajero@parking.local', password='clave-segura-123'
+		)
+		self.client.force_login(self.usuario)
+
+	def _cliente(self, entrada, salida=None):
+		return Cliente.objects.create(
+			cedula='TZ-1', nombre='Prueba Zona', matricula='TZZ-001',
+			tipo_vehiculo='Auto', fecha_entrada=entrada, fecha_salida=salida,
+		)
+
+	def test_fecha_local_convierte_a_bogota(self):
+		# 03:00 UTC del 22/08 son las 22:00 del 21/08 en Bogota.
+		instante = datetime(2026, 8, 22, 3, 0, tzinfo=dt_timezone.utc)
+		self.assertEqual(fecha_local(instante), '21/08/2026 22:00')
+
+	def test_fecha_local_devuelve_el_valor_por_defecto(self):
+		self.assertIsNone(fecha_local(None))
+		self.assertEqual(fecha_local(None, 'No registrada'), 'No registrada')
+
+	def test_detalle_de_cliente_muestra_hora_local(self):
+		cliente = self._cliente(datetime(2026, 8, 22, 3, 0, tzinfo=dt_timezone.utc))
+		datos = self.client.get(
+			reverse('ver_registro', args=[cliente.pk]), {'ajax': '1'}
+		).json()
+		self.assertEqual(datos['fecha_entrada'], '21/08/2026 22:00')
+
+	def test_detalle_de_visitante_muestra_hora_local(self):
+		visitante = Visitante.objects.create(cedula='TZ-V', nombre='Visita Zona')
+		Visitante.objects.filter(pk=visitante.pk).update(
+			fecha_registro=datetime(2026, 8, 22, 3, 0, tzinfo=dt_timezone.utc)
+		)
+		datos = self.client.get(
+			reverse('ver_visitante', args=[visitante.pk]),
+			HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+		).json()
+		self.assertEqual(datos['visitante']['fecha_registro'], '21/08/2026 22:00')
+
+	def test_resumen_de_recaudacion_muestra_hora_local(self):
+		datos = self.client.get(reverse('resumen_recaudacion')).json()
+		esperado = dj_timezone.localtime(dj_timezone.now()).strftime('%d/%m/%Y %H:%M')
+		self.assertEqual(datos['resumen']['fecha_actual'], esperado)
+
+	def test_sin_cortes_el_periodo_arranca_en_la_medianoche_local(self):
+		"""timezone.now().replace(hour=0) daba las 19:00 del dia anterior."""
+		self.assertFalse(Recaudacion.objects.exists())
+		inicio = Recaudacion.calcular_recaudacion_actual()['fecha_inicio']
+
+		local = dj_timezone.localtime(inicio)
+		self.assertEqual((local.hour, local.minute), (0, 0))
+		self.assertEqual(local.date(), dj_timezone.localdate())

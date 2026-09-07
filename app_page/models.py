@@ -5,6 +5,7 @@ from PIL import Image, ImageDraw, ImageFont
 import qrcode
 from io import BytesIO
 from django.core.files.base import ContentFile
+from .formato import fecha_local
 
 class Cliente(models.Model):
 	TIPO_VEHICULO_CHOICES = [
@@ -74,7 +75,7 @@ class Cliente(models.Model):
 				font_small = ImageFont.load_default()
 			
 			# Datos a mostrar
-			fecha_str = self.fecha_entrada.strftime('%d/%m/%Y %H:%M')
+			fecha_str = fecha_local(self.fecha_entrada)
 			matricula_str = f"Matrícula: {self.matricula}"
 			hora_str = f"Entrada: {fecha_str}"
 			id_str = f"ID: {self.id}"
@@ -639,7 +640,7 @@ class Recaudacion(models.Model):
 	)
 	
 	def __str__(self):
-		return f"Corte {self.id} - ${self.monto_recaudado:,.2f} ({self.fecha_corte.strftime('%d/%m/%Y %H:%M')})"
+		return f"Corte {self.id} - ${self.monto_recaudado:,.2f} ({fecha_local(self.fecha_corte)})"
 	
 	@classmethod
 	def get_ultimo_corte(cls):
@@ -668,7 +669,10 @@ class Recaudacion(models.Model):
 			total_recaudado += cliente.calcular_costo()
 			numero_clientes += 1
 		
-		fecha_inicio = fecha_ultimo_corte or timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+		# Sin cortes previos se arranca desde la medianoche LOCAL. timezone.now()
+		# es UTC: replace(hour=0) sobre el da las 19:00 del dia anterior en Bogota.
+		inicio_del_dia = timezone.localtime(timezone.now()).replace(hour=0, minute=0, second=0, microsecond=0)
+		fecha_inicio = fecha_ultimo_corte or inicio_del_dia
 		
 		return {
 			'monto_total': total_recaudado,
@@ -693,8 +697,8 @@ class Recaudacion(models.Model):
 				'cedula': cliente.get_display_cedula(),
 				'matricula': cliente.matricula,
 				'tipo_vehiculo': cliente.get_tipo_vehiculo_display(),
-				'fecha_entrada': cliente.fecha_entrada.strftime('%d/%m/%Y %H:%M') if cliente.fecha_entrada else 'No registrada',
-				'fecha_salida': cliente.fecha_salida.strftime('%d/%m/%Y %H:%M') if cliente.fecha_salida else 'No registrada',
+				'fecha_entrada': fecha_local(cliente.fecha_entrada, 'No registrada'),
+				'fecha_salida': fecha_local(cliente.fecha_salida, 'No registrada'),
 				'tiempo_parking': cliente.tiempo_formateado(),
 				'costo': float(cliente.calcular_costo()),
 				'costo_formateado': cliente.costo_formateado(),

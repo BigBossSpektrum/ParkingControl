@@ -173,31 +173,6 @@ a:not(.btn):focus {
     border-color: var(--pc-border);
 }
 
-/* Botonera de accesos del dashboard: las tres acciones son alternativas del
-   mismo nivel, asi que comparten estilo y ancho en lugar de mezclar
-   primary/secondary/info (colores de fabrica de Bootstrap, ajenos al tema). */
-.acciones-dashboard {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-    justify-content: center;
-}
-
-.acciones-dashboard .btn {
-    flex: 1 1 200px;
-    max-width: 260px;
-    text-align: center;
-}
-
-@media (max-width: 575.98px) {
-    /* En movil se apilan a ancho completo; el minimo tactil de 44px lo aporta
-       la regla .btn de mas abajo. */
-    .acciones-dashboard .btn {
-        flex-basis: 100%;
-        max-width: none;
-    }
-}
-
 .form-control, .form-select {
     background: var(--pc-surface);
     color: var(--pc-fg);
