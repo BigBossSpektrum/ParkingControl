@@ -232,20 +232,24 @@ class PanelAdminTests(TestCase):
 			'action': 'guardar_tarifas',
 			'costo_auto': '120.00',
 			'costo_moto': '60.00',
+			'costo_otro': '90.00',
 			'activa': 'on',
 			'costo_fijo_auto': '8000.00',
 			'costo_fijo_moto': '4000.00',
+			'costo_fijo_otro': '6000.00',
 		})
 		self.assertRedirects(response, self.url)
 
 		costo = Costo.get_costos_actuales()
 		self.assertEqual(str(costo.costo_auto), '120.00')
 		self.assertEqual(str(costo.costo_moto), '60.00')
+		self.assertEqual(str(costo.costo_otro), '90.00')
 		self.assertEqual(costo.actualizado_por, self.admin)
 
 		tarifa = TarifaPlena.get_tarifa_actual()
 		self.assertTrue(tarifa.activa)
 		self.assertEqual(str(tarifa.costo_fijo_auto), '8000.00')
+		self.assertEqual(str(tarifa.costo_fijo_otro), '6000.00')
 		self.assertEqual(tarifa.actualizado_por, self.admin)
 
 	def test_configurar_costos_redirige_al_panel(self):
@@ -769,3 +773,76 @@ class StaticVersionadoTests(TestCase):
 			with self.subTest(pagina=nombre):
 				html = self.client.get(reverse(nombre)).content.decode()
 				self.assertRegex(html, r'app_page/js/[\w-]+\.js\?v=\d+')
+
+
+class TipoVehiculoOtroTests(TestCase):
+	"""El tipo 'Otro' se puede registrar y tiene tarifa propia.
+
+	Antes existia en TIPO_VEHICULO_CHOICES pero el desplegable escrito a mano lo
+	omitia, y get_costo_por_tipo() devolvia la tarifa de Auto para cualquier tipo
+	que no fuese Auto o Moto: un camion se cobraba como automovil sin aviso.
+	"""
+
+	def setUp(self):
+		self.usuario = User.objects.create_superuser(
+			username='cajera', email='cajera@parking.local', password='clave-segura-123'
+		)
+		self.client.force_login(self.usuario)
+
+		self.costo = Costo.get_costos_actuales()
+		self.costo.costo_auto = 100
+		self.costo.costo_moto = 50
+		self.costo.costo_otro = 200
+		self.costo.save()
+
+		self.tarifa = TarifaPlena.get_tarifa_actual()
+		self.tarifa.activa = False
+		self.tarifa.costo_fijo_auto = 8000
+		self.tarifa.costo_fijo_moto = 4000
+		self.tarifa.costo_fijo_otro = 12000
+		self.tarifa.save()
+
+	# --- Tarifas ---------------------------------------------------------
+
+	def test_precio_por_minuto_usa_la_tarifa_de_otro(self):
+		self.assertEqual(self.costo.get_costo_por_tipo('Otro'), 200)
+		self.assertNotEqual(self.costo.get_costo_por_tipo('Otro'), self.costo.costo_auto)
+
+	def test_tarifa_plena_usa_la_tarifa_de_otro(self):
+		self.assertEqual(self.tarifa.get_costo_por_tipo('Otro'), 12000)
+
+	def test_un_tipo_desconocido_sigue_cobrando_como_auto(self):
+		"""El else de respaldo protege datos antiguos; no debe desaparecer."""
+		self.assertEqual(self.costo.get_costo_por_tipo('Camion'), self.costo.costo_auto)
+		self.assertEqual(self.tarifa.get_costo_por_tipo('Camion'), self.tarifa.costo_fijo_auto)
+
+	# --- Registro --------------------------------------------------------
+
+	def test_se_puede_registrar_un_vehiculo_de_tipo_otro(self):
+		response = self.client.post(reverse('dashboard_parking'), {
+			'cedula': '77665544',
+			'nombre': 'Pedro Nel',
+			'telefono': '3007776655',
+			'matricula_inicio': 'OTR',
+			'matricula_fin': '001',
+			'tipo_vehiculo': 'Otro',
+		}, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+
+		self.assertTrue(response.json()['success'])
+		cliente = Cliente.objects.get(cedula='77665544')
+		self.assertEqual(cliente.tipo_vehiculo, 'Otro')
+
+	def test_el_cobro_de_un_cliente_otro_usa_su_tarifa(self):
+		entrada = dj_timezone.now() - timedelta(minutes=10)
+		cliente = Cliente.objects.create(
+			cedula='77665544', nombre='Pedro Nel', matricula='OTR-001',
+			tipo_vehiculo='Otro', fecha_entrada=entrada, fecha_salida=dj_timezone.now(),
+		)
+		# 10 minutos a 200/min, no a 100/min como cobraba antes.
+		self.assertEqual(cliente.calcular_costo(), 2000)
+
+	def test_el_desplegable_ofrece_los_tres_tipos(self):
+		html = self.client.get(reverse('dashboard_parking')).content.decode()
+		for tipo, _ in Cliente.TIPO_VEHICULO_CHOICES:
+			with self.subTest(tipo=tipo):
+				self.assertIn(f'<option value="{tipo}">', html)

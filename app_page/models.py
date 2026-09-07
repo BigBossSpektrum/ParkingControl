@@ -501,6 +501,13 @@ class Costo(models.Model):
 		verbose_name="Costo por minuto - Moto",
 		help_text="Costo en pesos por minuto de estacionamiento para motos"
 	)
+	costo_otro = models.DecimalField(
+		max_digits=10,
+		decimal_places=2,
+		default=0.00,
+		verbose_name="Costo por minuto - Otro",
+		help_text="Costo en pesos por minuto de estacionamiento para otros vehiculos"
+	)
 	fecha_actualizacion = models.DateTimeField(auto_now=True)
 	actualizado_por = models.ForeignKey(
 		User, 
@@ -511,7 +518,7 @@ class Costo(models.Model):
 	)
 	
 	def __str__(self):
-		return f"Auto: ${self.costo_auto}/min - Moto: ${self.costo_moto}/min"
+		return f"Auto: ${self.costo_auto}/min - Moto: ${self.costo_moto}/min - Otro: ${self.costo_otro}/min"
 	
 	def get_costo_por_tipo(self, tipo_vehiculo):
 		"""Devuelve el costo por minuto según el tipo de vehículo"""
@@ -519,8 +526,12 @@ class Costo(models.Model):
 			return self.costo_auto
 		elif tipo_vehiculo.lower() == 'moto':
 			return self.costo_moto
+		elif tipo_vehiculo.lower() == 'otro':
+			return self.costo_otro
 		else:
-			return self.costo_auto  # Por defecto auto
+			# Red de seguridad para datos antiguos o un tipo que se anada
+			# despues sin actualizar aqui: se cobra como auto, no se rompe.
+			return self.costo_auto
 	
 	@classmethod
 	def get_costos_actuales(cls):
@@ -529,7 +540,8 @@ class Costo(models.Model):
 			id=1,  # Solo un registro de costos
 			defaults={
 				'costo_auto': 1.00,  # Valores por defecto: $1 por minuto
-				'costo_moto': 0.50   # $0.50 por minuto
+				'costo_moto': 0.50,  # $0.50 por minuto
+				'costo_otro': 1.00
 			}
 		)
 		return costo
@@ -560,6 +572,13 @@ class TarifaPlena(models.Model):
 		verbose_name="Costo fijo - Moto",
 		help_text="Costo fijo en pesos para motos cuando la tarifa plena está activa"
 	)
+	costo_fijo_otro = models.DecimalField(
+		max_digits=10,
+		decimal_places=2,
+		default=0.00,
+		verbose_name="Costo fijo - Otro",
+		help_text="Costo fijo en pesos para otros vehiculos cuando la tarifa plena está activa"
+	)
 	fecha_actualizacion = models.DateTimeField(auto_now=True)
 	actualizado_por = models.ForeignKey(
 		User, 
@@ -571,7 +590,8 @@ class TarifaPlena(models.Model):
 	
 	def __str__(self):
 		estado = "Activa" if self.activa else "Inactiva"
-		return f"Tarifa Plena ({estado}) - Auto: ${self.costo_fijo_auto} - Moto: ${self.costo_fijo_moto}"
+		return (f"Tarifa Plena ({estado}) - Auto: ${self.costo_fijo_auto} "
+			f"- Moto: ${self.costo_fijo_moto} - Otro: ${self.costo_fijo_otro}")
 	
 	def get_costo_por_tipo(self, tipo_vehiculo):
 		"""Devuelve el costo fijo según el tipo de vehículo"""
@@ -579,8 +599,11 @@ class TarifaPlena(models.Model):
 			return self.costo_fijo_auto
 		elif tipo_vehiculo.lower() == 'moto':
 			return self.costo_fijo_moto
+		elif tipo_vehiculo.lower() == 'otro':
+			return self.costo_fijo_otro
 		else:
-			return self.costo_fijo_auto  # Por defecto auto
+			# Misma red de seguridad que en Costo.get_costo_por_tipo().
+			return self.costo_fijo_auto
 	
 	@classmethod
 	def get_tarifa_actual(cls):

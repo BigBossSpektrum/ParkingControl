@@ -755,7 +755,7 @@ class CostoForm(forms.ModelForm):
 	"""Formulario para configurar los costos del parking"""
 	class Meta:
 		model = Costo
-		fields = ['costo_auto', 'costo_moto']
+		fields = ['costo_auto', 'costo_moto', 'costo_otro']
 		widgets = {
 			'costo_auto': forms.NumberInput(attrs={
 				'class': 'form-control', 
@@ -769,10 +769,17 @@ class CostoForm(forms.ModelForm):
 				'step': '0.01',
 				'min': '0'
 			}),
+			'costo_otro': forms.NumberInput(attrs={
+				'class': 'form-control',
+				'placeholder': 'Ej: 0.75',
+				'step': '0.01',
+				'min': '0'
+			}),
 		}
 		labels = {
 			'costo_auto': 'Costo por minuto - Auto ($)',
 			'costo_moto': 'Costo por minuto - Moto ($)',
+			'costo_otro': 'Costo por minuto - Otro ($)',
 		}
 
 
@@ -780,7 +787,7 @@ class TarifaPlenaForm(forms.ModelForm):
 	"""Formulario para configurar la tarifa plena (costo fijo por vehiculo)"""
 	class Meta:
 		model = TarifaPlena
-		fields = ['activa', 'costo_fijo_auto', 'costo_fijo_moto']
+		fields = ['activa', 'costo_fijo_auto', 'costo_fijo_moto', 'costo_fijo_otro']
 		widgets = {
 			'activa': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
 			'costo_fijo_auto': forms.NumberInput(attrs={
@@ -795,11 +802,18 @@ class TarifaPlenaForm(forms.ModelForm):
 				'step': '0.01',
 				'min': '0'
 			}),
+			'costo_fijo_otro': forms.NumberInput(attrs={
+				'class': 'form-control',
+				'placeholder': 'Ej: 4000',
+				'step': '0.01',
+				'min': '0'
+			}),
 		}
 		labels = {
 			'activa': 'Cobrar tarifa plena en lugar del precio por minuto',
 			'costo_fijo_auto': 'Costo fijo - Auto ($)',
 			'costo_fijo_moto': 'Costo fijo - Moto ($)',
+			'costo_fijo_otro': 'Costo fijo - Otro ($)',
 		}
 
 

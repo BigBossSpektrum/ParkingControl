@@ -87,9 +87,15 @@
                                         id="{{ registro_form.tipo_vehiculo.id_for_label }}"
                                         class="form-select"
                                         required>
+                                    {% comment %}
+                                    Las opciones salen de TIPO_VEHICULO_CHOICES via el
+                                    formulario. Escritas a mano se quedaron sin "Otro"
+                                    durante meses sin que nadie lo notara.
+                                    {% endcomment %}
                                     <option value="">Seleccione</option>
-                                    <option value="Auto">Auto</option>
-                                    <option value="Moto">Moto</option>
+                                    {% for valor, etiqueta in registro_form.tipo_vehiculo.field.choices %}
+                                        <option value="{{ valor }}">{{ etiqueta }}</option>
+                                    {% endfor %}
                                 </select>
                                 <label for="{{ registro_form.tipo_vehiculo.id_for_label }}">
                                     <i class="bi bi-truck me-2"></i>Tipo
