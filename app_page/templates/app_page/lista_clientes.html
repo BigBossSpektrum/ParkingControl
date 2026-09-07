@@ -1,5 +1,5 @@
 {% extends 'app_page/base.html' %}
-{% load static %}
+{% load static estaticos %}
 {% block title %}Lista de Clientes{% endblock %}
 {% block extra_head %}
     <style>
@@ -407,7 +407,7 @@
 
     <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="{% static 'app_page/js/cliente-detalles.js' %}"></script>
+    <script src="{% static_v 'app_page/js/cliente-detalles.js' %}"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             let filtroTimeout;

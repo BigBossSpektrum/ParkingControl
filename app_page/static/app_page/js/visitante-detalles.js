@@ -27,11 +27,27 @@ function verDetalles(visitanteId) {
     .then(data => {
         if (data.success) {
             const visitante = data.visitante;
+
+            // Sin foto se muestra un marcador: dejar el hueco vacio hace
+            // pensar que la funcion no anda, sobre todo en registros antiguos.
+            const fotoHtml = visitante.foto_url
+                ? `<div class="text-center mb-3">
+                       <img src="${visitante.foto_url}" alt="Fotografía de ${visitante.nombre}"
+                            style="max-width: 200px;" class="rounded border">
+                   </div>`
+                : `<div class="text-center mb-3">
+                       <div class="border rounded d-inline-flex flex-column align-items-center justify-content-center text-body-secondary"
+                            style="width: 200px; height: 150px;">
+                           <i class="bi bi-person-bounding-box fs-1"></i>
+                           <small class="mt-2">Sin imagen registrada</small>
+                       </div>
+                   </div>`;
+
             Swal.fire({
                 title: `👤 ${visitante.nombre}`,
                 html: `
                     <div class="text-start">
-                        ${visitante.foto_url ? `<div class="text-center mb-3"><img src="${visitante.foto_url}" alt="Fotografía" style="max-width:200px;" class="rounded border"></div>` : ''}
+                        ${fotoHtml}
                         <div class="row">
                             <div class="col-6">
                                 <p><strong><i class="bi bi-card-text me-2"></i>Cédula:</strong><br>

@@ -42,12 +42,14 @@ class Command(BaseCommand):
                             help='Registros de cada tipo por mes (por defecto 10)')
         parser.add_argument('--limpiar', action='store_true',
                             help='Borra unicamente los datos de prueba y termina')
+        parser.add_argument('--solo', choices=['todo', 'clientes', 'visitantes'], default='todo',
+                            help='Limita que se genera (y que se borra antes). Por defecto todo')
         parser.add_argument('--semilla', type=int, default=2026,
                             help='Semilla del generador, para que las corridas sean reproducibles')
 
     def handle(self, *args, **options):
         if options['limpiar']:
-            self._limpiar()
+            self._limpiar(alcance=options['solo'])
             return
 
         meses = options['meses']
@@ -56,23 +58,28 @@ class Command(BaseCommand):
             self.stderr.write(self.style.ERROR('--meses y --por-mes deben ser mayores que cero.'))
             return
 
+        solo = options['solo']
+        con_clientes = solo in ('todo', 'clientes')
+        con_visitantes = solo in ('todo', 'visitantes')
+
         azar = random.Random(options['semilla'])
-        usuario = self._usuario_para_cortes()
-        if usuario is None:
+        usuario = self._usuario_para_cortes() if con_clientes else None
+        if con_clientes and usuario is None:
             self.stderr.write(self.style.ERROR(
                 'No hay ningun usuario en la base de datos; cree uno antes de generar cortes.'
             ))
             return
 
-        # Se borra lo anterior para poder reejecutar el comando sin acumular.
-        self._limpiar(silencioso=True)
+        # Se borra lo anterior para poder reejecutar sin acumular, pero solo
+        # aquello que se va a regenerar: --solo visitantes no toca los clientes.
+        self._limpiar(silencioso=True, alcance=solo)
 
         with transaction.atomic():
             total_clientes = total_visitantes = total_cortes = 0
             for anio, mes in self._meses_hacia_atras(meses):
-                clientes = self._crear_clientes(anio, mes, por_mes, azar)
-                visitantes = self._crear_visitantes(anio, mes, por_mes, azar)
-                corte = self._crear_corte(anio, mes, clientes, usuario)
+                clientes = self._crear_clientes(anio, mes, por_mes, azar) if con_clientes else []
+                visitantes = self._crear_visitantes(anio, mes, por_mes, azar) if con_visitantes else []
+                corte = self._crear_corte(anio, mes, clientes, usuario) if con_clientes else None
 
                 total_clientes += len(clientes)
                 total_visitantes += len(visitantes)
@@ -202,12 +209,17 @@ class Command(BaseCommand):
 
     # --- Limpieza -----------------------------------------------------------
 
-    def _limpiar(self, silencioso=False):
-        clientes, _ = Cliente.objects.filter(cedula__startswith=PREFIJO_CEDULA).delete()
-        visitantes, _ = Visitante.objects.filter(cedula__startswith=PREFIJO_CEDULA).delete()
-        cortes, _ = Recaudacion.objects.filter(
-            observaciones__contains=MARCA_OBSERVACIONES
-        ).delete()
+    def _limpiar(self, silencioso=False, alcance='todo'):
+        clientes = visitantes = cortes = 0
+
+        if alcance in ('todo', 'clientes'):
+            clientes, _ = Cliente.objects.filter(cedula__startswith=PREFIJO_CEDULA).delete()
+            cortes, _ = Recaudacion.objects.filter(
+                observaciones__contains=MARCA_OBSERVACIONES
+            ).delete()
+
+        if alcance in ('todo', 'visitantes'):
+            visitantes, _ = Visitante.objects.filter(cedula__startswith=PREFIJO_CEDULA).delete()
 
         if not silencioso:
             self.stdout.write(self.style.SUCCESS(

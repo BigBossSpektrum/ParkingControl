@@ -1,5 +1,5 @@
 {% extends 'app_page/base.html' %}
-{% load static %}
+{% load static estaticos %}
 {% block title %}Panel Principal{% endblock %}
 
 {% block content %}
@@ -265,8 +265,8 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'app_page/js/camera-capture.js' %}"></script>
-<script src="{% static 'app_page/js/cliente-detalles.js' %}"></script>
+<script src="{% static_v 'app_page/js/camera-capture.js' %}"></script>
+<script src="{% static_v 'app_page/js/cliente-detalles.js' %}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const camaraCliente = initCameraCapture(document.getElementById('camara_cliente'));

@@ -1,4 +1,5 @@
 import base64
+import os
 import shutil
 import tempfile
 from pathlib import Path
@@ -8,6 +9,7 @@ from unittest import mock
 
 from django.conf import settings
 from django.contrib.auth import authenticate
+from django.contrib.staticfiles import finders
 from django.contrib.auth.models import User
 from django.core.management import call_command
 from django.test import TestCase, override_settings
@@ -16,6 +18,7 @@ from django.utils import timezone as dj_timezone
 from PIL import Image
 from .models import Cliente, Costo, Perfil, Recaudacion, TarifaPlena, Visitante
 from .formato import fecha_local
+from .templatetags.estaticos import static_v
 from .photo_utils import MAX_FOTO_BYTES, decodificar_foto_base64
 
 
@@ -515,6 +518,34 @@ class PlantillasSinComentariosRotosTests(TestCase):
 	se vigila automaticamente en vez de confiar en la revision visual.
 	"""
 
+	# Tabulador, salto de linea y retorno de carro: los unicos caracteres de
+	# control con sentido en una plantilla. Se escriben con chr() para que la
+	# propia definicion no dependa de secuencias de escape.
+	CONTROL_PERMITIDOS = {chr(9), chr(10), chr(13)}
+
+	def _plantillas(self):
+		raiz = Path(settings.BASE_DIR)
+		for plantilla in sorted(raiz.glob('*/templates/**/*.html')):
+			yield plantilla, plantilla.relative_to(raiz)
+
+	def test_no_hay_caracteres_de_control_en_las_plantillas(self):
+		"""Un byte 0x01 en lugar de '<label ...>' rompia el formulario de filtros.
+
+		El navegador cierra el <div> en el primer '>' y pinta el resto del
+		atributo como texto: en pantalla se leia class="form-label">Cedula.
+		Ni grep ni una busqueda por texto lo delatan, por eso se vigila aqui.
+		"""
+		rotos = []
+		for plantilla, relativa in self._plantillas():
+			texto = plantilla.read_text(encoding="utf-8")
+			for numero, linea in enumerate(texto.splitlines(), 1):
+				malos = {c for c in linea if ord(c) < 32 and c not in self.CONTROL_PERMITIDOS}
+				if malos:
+					codigos = ", ".join(sorted(hex(ord(c)) for c in malos))
+					rotos.append(f"{relativa}:{numero}: {codigos}")
+
+		self.assertEqual(rotos, [], "Caracteres de control en plantillas: " + "; ".join(rotos))
+
 	def test_no_hay_comentarios_de_una_almohadilla_multilinea(self):
 		raiz = Path(settings.BASE_DIR)
 		rotos = []
@@ -604,6 +635,30 @@ class CrearDatosMensualesTests(TestCase):
 		self.assertEqual(Cliente.objects.filter(cedula__startswith='PRB-').count(), 30)
 		self.assertEqual(Recaudacion.objects.count(), 3)
 
+	def test_solo_visitantes_no_crea_clientes_ni_cortes(self):
+		self._ejecutar(meses=5, por_mes=10, solo='visitantes')
+
+		self.assertEqual(Visitante.objects.filter(cedula__startswith='PRB-').count(), 50)
+		self.assertEqual(Cliente.objects.filter(cedula__startswith='PRB-').count(), 0)
+		self.assertEqual(Recaudacion.objects.count(), 0)
+
+	def test_solo_visitantes_respeta_los_clientes_de_demo_ya_creados(self):
+		"""La limpieza previa solo debe alcanzar a lo que se va a regenerar."""
+		self._ejecutar(meses=3, por_mes=10)
+		clientes_antes = set(
+			Cliente.objects.filter(cedula__startswith='PRB-').values_list('pk', flat=True)
+		)
+		cortes_antes = Recaudacion.objects.count()
+
+		self._ejecutar(meses=5, por_mes=10, solo='visitantes')
+
+		clientes_despues = set(
+			Cliente.objects.filter(cedula__startswith='PRB-').values_list('pk', flat=True)
+		)
+		self.assertEqual(clientes_antes, clientes_despues)
+		self.assertEqual(Recaudacion.objects.count(), cortes_antes)
+		self.assertEqual(Visitante.objects.filter(cedula__startswith='PRB-').count(), 50)
+
 	def test_limpiar_borra_solo_lo_de_prueba(self):
 		self._ejecutar(meses=3, por_mes=10)
 		self._ejecutar(limpiar=True)
@@ -674,3 +729,43 @@ class FechasEnHoraLocalTests(TestCase):
 		local = dj_timezone.localtime(inicio)
 		self.assertEqual((local.hour, local.minute), (0, 0))
 		self.assertEqual(local.date(), dj_timezone.localdate())
+
+
+class StaticVersionadoTests(TestCase):
+	"""La etiqueta static_v pone huella de version en los estaticos propios.
+
+	El runserver los sirve sin Cache-Control ni ETag, solo con Last-Modified;
+	con eso el navegador cachea de forma heuristica y un cambio en un .js podia
+	no verse. La huella cambia la URL en cada modificacion.
+	"""
+
+	def setUp(self):
+		self.usuario = User.objects.create_superuser(
+			username='revisor', email='revisor@parking.local', password='clave-segura-123'
+		)
+		self.client.force_login(self.usuario)
+
+	def test_devuelve_la_url_con_huella(self):
+		url = static_v('app_page/js/visitante-detalles.js')
+		self.assertIn('app_page/js/visitante-detalles.js', url)
+		self.assertRegex(url, r'\?v=\d+$')
+
+	def test_la_huella_cambia_si_cambia_el_archivo(self):
+		ruta = Path(finders.find('app_page/js/visitante-detalles.js'))
+		antes = static_v('app_page/js/visitante-detalles.js')
+		original = ruta.stat().st_mtime
+
+		os.utime(ruta, (original + 120, original + 120))
+		try:
+			self.assertNotEqual(antes, static_v('app_page/js/visitante-detalles.js'))
+		finally:
+			os.utime(ruta, (original, original))
+
+	def test_un_estatico_inexistente_no_rompe(self):
+		self.assertEqual(static_v('app_page/js/no-existe.js'), '/static/app_page/js/no-existe.js')
+
+	def test_las_paginas_sirven_los_scripts_versionados(self):
+		for nombre in ('dashboard_visitante', 'lista_visitantes', 'dashboard_parking', 'lista_clientes'):
+			with self.subTest(pagina=nombre):
+				html = self.client.get(reverse(nombre)).content.decode()
+				self.assertRegex(html, r'app_page/js/[\w-]+\.js\?v=\d+')

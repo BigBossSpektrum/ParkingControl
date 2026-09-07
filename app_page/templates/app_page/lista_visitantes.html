@@ -1,5 +1,5 @@
 {% extends 'app_page/base.html' %}
-{% load static %}
+{% load static estaticos %}
 {% block title %}Lista de Visitantes{% endblock %}
 
 {% block content %}
@@ -26,19 +26,23 @@
                     <i class="bi bi-funnel me-2"></i>Filtros de Búsqueda
                 </h5>
                 <form method="get" class="row g-3">
-                    <div class="col-12 col-md-6 col-lg-3"> class="form-label">Cédula</label>
+                    <div class="col-12 col-md-6 col-lg-3">
+                        <label for="cedula_buscar" class="form-label">Cédula</label>
                         <input type="text" name="cedula" id="cedula_buscar" class="form-control" 
                                placeholder="Buscar por cédula" value="{{ request.GET.cedula }}">
                     </div>
-                    <div class="col-12 col-md-6 col-lg-3"> class="form-label">Nombre</label>
+                    <div class="col-12 col-md-6 col-lg-3">
+                        <label for="nombre_buscar" class="form-label">Nombre</label>
                         <input type="text" name="nombre" id="nombre_buscar" class="form-control" 
                                placeholder="Buscar por nombre" value="{{ request.GET.nombre }}">
                     </div>
-                    <div class="col-6 col-md-4 col-lg-2"> class="form-label">Torre</label>
+                    <div class="col-6 col-md-4 col-lg-2">
+                        <label for="torre_buscar" class="form-label">Torre</label>
                         <input type="text" name="torre" id="torre_buscar" class="form-control" 
                                placeholder="Torre" value="{{ request.GET.torre }}">
                     </div>
-                    <div class="col-6 col-md-4 col-lg-2"> class="form-label">Apartamento</label>
+                    <div class="col-6 col-md-4 col-lg-2">
+                        <label for="apartamento_buscar" class="form-label">Apartamento</label>
                         <input type="text" name="apartamento" id="apartamento_buscar" class="form-control" 
                                placeholder="Apt" value="{{ request.GET.apartamento }}">
                     </div>
@@ -250,7 +254,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'app_page/js/visitante-detalles.js' %}"></script>
+<script src="{% static_v 'app_page/js/visitante-detalles.js' %}"></script>
 <script>
 function editarVisitante(visitanteId) {
     // Obtener datos del visitante

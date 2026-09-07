@@ -22,11 +22,20 @@ function verRegistro(clienteId) {
             return response.json();
         })
         .then(data => {
-            const fotoHtml = data.foto_url ?
-                `<div class="text-center mb-3">
-                    <img src="${data.foto_url}" alt="Fotografía" style="max-width: 200px;" class="rounded border">
-                </div>` :
-                '';
+            // Sin foto se muestra un marcador: dejar el hueco vacio hace
+            // pensar que la funcion no anda, sobre todo en registros antiguos.
+            const fotoHtml = data.foto_url
+                ? `<div class="text-center mb-3">
+                       <img src="${data.foto_url}" alt="Fotografía de ${data.nombre || 'el cliente'}"
+                            style="max-width: 200px;" class="rounded border">
+                   </div>`
+                : `<div class="text-center mb-3">
+                       <div class="border rounded d-inline-flex flex-column align-items-center justify-content-center text-body-secondary"
+                            style="width: 200px; height: 150px;">
+                           <i class="bi bi-person-bounding-box fs-1"></i>
+                           <small class="mt-2">Sin imagen registrada</small>
+                       </div>
+                   </div>`;
 
             const qrImageHtml = data.qr_url ?
                 `<div class="text-center my-3">
