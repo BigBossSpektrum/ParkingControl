@@ -275,6 +275,7 @@ function verDetalles(visitanteId) {
                 title: `👤 ${visitante.nombre}`,
                 html: `
                     <div class="text-start">
+                        ${visitante.foto_url ? `<div class="text-center mb-3"><img src="${visitante.foto_url}" alt="Fotografía" style="max-width:200px;" class="rounded border"></div>` : ''}
                         <div class="row">
                             <div class="col-6">
                                 <p><strong><i class="bi bi-card-text me-2"></i>Cédula:</strong><br>

@@ -17,6 +17,7 @@ from django import forms
 from django.db import models
 from django.core.files.base import ContentFile
 from .models import Cliente, Costo, Perfil, Visitante, TarifaPlena, Recaudacion
+from .photo_utils import decodificar_foto_base64
 from .decorators import require_admin, require_edit_permission, require_delete_permission, require_view_list_permission, get_user_profile
 
 # Importar el servicio de impresión
@@ -238,6 +239,16 @@ def dashboard_parking(request):
 				try:
 					cliente = registro_form.save(commit=False)
 					cliente.fecha_entrada = timezone.now()
+
+					# La fotografía es opcional: si llega corrupta se descarta,
+					# pero el registro del cliente continúa igual.
+					try:
+						foto = decodificar_foto_base64(request.POST.get('foto_data', ''), prefijo='cliente')
+						if foto:
+							cliente.foto.save(foto[0], foto[1], save=False)
+					except ValueError as foto_error:
+						logger.warning(f"Foto descartada en registro de cliente: {foto_error}")
+
 					cliente.save()
 					logger.info(f"Cliente saved with ID: {cliente.id}")
 					
@@ -280,7 +291,8 @@ def dashboard_parking(request):
 								'matricula': cliente.matricula,
 								'tipo_vehiculo': cliente.get_tipo_vehiculo_display(),
 								'fecha_entrada': cliente.fecha_entrada.strftime('%d/%m/%Y %H:%M'),
-								'qr_url': cliente.qr_image.url if cliente.qr_image else None
+								'qr_url': cliente.qr_image.url if cliente.qr_image else None,
+								'foto_url': cliente.foto.url if cliente.foto else None
 							},
 							'print_result': {
 								'success': print_success,
@@ -1006,6 +1018,16 @@ def dashboard_visitante(request):
 						torre=torre,
 						apartamento=apartamento
 					)
+
+					# La fotografía es opcional: si llega corrupta se descarta,
+					# pero el visitante queda registrado igual.
+					try:
+						foto = decodificar_foto_base64(request.POST.get('foto_data', ''), prefijo='visitante')
+						if foto:
+							visitante.foto.save(foto[0], foto[1], save=True)
+					except ValueError as foto_error:
+						logger.warning(f"Foto descartada en registro de visitante: {foto_error}")
+
 					message_success = f'Visitante {nombre} registrado exitosamente'
 				except Exception as e:
 					mensaje_error = f'Error al registrar visitante: {str(e)}'
@@ -1167,6 +1189,7 @@ def ver_visitante(request, pk):
 				'torre': visitante.get_display_torre(),
 				'apartamento': visitante.get_display_apartamento(),
 				'ubicacion_completa': visitante.get_ubicacion_completa(),
+				'foto_url': visitante.foto.url if visitante.foto else None,
 				'fecha_registro': visitante.fecha_registro.strftime('%d/%m/%Y %H:%M'),
 				'fecha_actualizacion': visitante.fecha_actualizacion.strftime('%d/%m/%Y %H:%M'),
 			}

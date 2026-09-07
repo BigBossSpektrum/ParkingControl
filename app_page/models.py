@@ -23,6 +23,7 @@ class Cliente(models.Model):
 	fecha_entrada = models.DateTimeField(null=True, blank=True)
 	fecha_salida = models.DateTimeField(null=True, blank=True)
 	qr_image = models.ImageField(upload_to='qr_codes/', null=True, blank=True)
+	foto = models.ImageField(upload_to='fotos_clientes/', null=True, blank=True, verbose_name="Fotografía")
 
 	def generate_qr_with_data(self):
 		"""Genera un QR con datos adicionales integrados en la imagen"""
@@ -436,6 +437,7 @@ class Visitante(models.Model):
 	telefono = models.CharField(max_length=20, blank=True, null=True, verbose_name="Número de teléfono")
 	torre = models.CharField(max_length=10, blank=True, null=True, help_text='Torre del apartamento que visita', verbose_name="Torre")
 	apartamento = models.CharField(max_length=10, blank=True, null=True, help_text='Número de apartamento que visita', verbose_name="Apartamento")
+	foto = models.ImageField(upload_to='fotos_visitantes/', null=True, blank=True, verbose_name="Fotografía")
 	fecha_registro = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de registro")
 	fecha_actualizacion = models.DateTimeField(auto_now=True, verbose_name="Última actualización")
 	

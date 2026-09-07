@@ -20,6 +20,12 @@
                 <p class="card-text text-body-secondary"><b>Desglose:</b> {{ cliente.costo_formateado }} total - {{ cliente.tiempo_por_costo_formateado }}</p>
             {% endif %}
             <div class="row">
+                {% if cliente.foto %}
+                <div class="col-12 text-center my-3">
+                    <img src="{{ cliente.foto.url }}" alt="Fotografía del cliente" style="max-width: 260px; border:1px solid var(--pc-border);" class="rounded"/>
+                    <div class="small mt-2 text-body-secondary">Fotografía de ingreso</div>
+                </div>
+                {% endif %}
                 <div class="col-12 text-center my-3">
                     {% if cliente.qr_image %}
                         <img src="{{ cliente.qr_image.url }}" alt="QR del cliente con datos" style="max-width: 300px; border:1px solid var(--pc-border); background:#fff;"/>

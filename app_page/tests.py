@@ -1,11 +1,17 @@
+import base64
+import shutil
+import tempfile
 from datetime import datetime, timezone as dt_timezone
+from io import BytesIO
 from unittest import mock
 
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
+from PIL import Image
 from .models import Cliente, Costo, Perfil, TarifaPlena, Visitante
+from .photo_utils import MAX_FOTO_BYTES, decodificar_foto_base64
 
 
 class ConteoVisitantesTests(TestCase):
@@ -238,3 +244,136 @@ class PanelAdminTests(TestCase):
 		self.client.force_login(self.admin)
 		response = self.client.get(reverse('configurar_costos'))
 		self.assertRedirects(response, self.url)
+
+
+def _data_url(formato='JPEG'):
+	"""Genera una data URL valida a partir de una imagen minima real."""
+	buffer = BytesIO()
+	Image.new('RGB', (10, 10), color='red').save(buffer, format=formato)
+	codificada = base64.b64encode(buffer.getvalue()).decode('ascii')
+	mime = 'jpeg' if formato == 'JPEG' else formato.lower()
+	return f'data:image/{mime};base64,{codificada}'
+
+
+class DecodificarFotoBase64Tests(TestCase):
+	"""La decodificacion valida el formato antes de guardar en el ImageField."""
+
+	def test_cadena_vacia_devuelve_none(self):
+		self.assertIsNone(decodificar_foto_base64(''))
+		self.assertIsNone(decodificar_foto_base64('   '))
+		self.assertIsNone(decodificar_foto_base64(None))
+
+	def test_jpeg_valido_devuelve_nombre_y_contenido(self):
+		nombre, contenido = decodificar_foto_base64(_data_url('JPEG'), prefijo='cliente')
+		self.assertTrue(nombre.startswith('cliente_'))
+		self.assertTrue(nombre.endswith('.jpg'))
+		self.assertTrue(contenido.size > 0)
+
+	def test_png_valido_devuelve_extension_png(self):
+		nombre, _ = decodificar_foto_base64(_data_url('PNG'))
+		self.assertTrue(nombre.endswith('.png'))
+
+	def test_mime_no_soportado(self):
+		with self.assertRaises(ValueError):
+			decodificar_foto_base64('data:text/plain;base64,aG9sYQ==')
+
+	def test_contenido_que_no_es_imagen(self):
+		basura = base64.b64encode(b'no soy una imagen').decode('ascii')
+		with self.assertRaises(ValueError):
+			decodificar_foto_base64(f'data:image/jpeg;base64,{basura}')
+
+	def test_payload_demasiado_grande(self):
+		enorme = 'A' * (MAX_FOTO_BYTES + 1)
+		with self.assertRaises(ValueError):
+			decodificar_foto_base64(f'data:image/jpeg;base64,{enorme}')
+
+
+class FotoCapturaTests(TestCase):
+	"""La foto capturada por camara se guarda, pero nunca bloquea el registro."""
+
+	@classmethod
+	def setUpClass(cls):
+		cls._media_temporal = tempfile.mkdtemp()
+		cls._override = override_settings(MEDIA_ROOT=cls._media_temporal)
+		cls._override.enable()
+		super().setUpClass()
+
+	@classmethod
+	def tearDownClass(cls):
+		super().tearDownClass()
+		cls._override.disable()
+		shutil.rmtree(cls._media_temporal, ignore_errors=True)
+
+	def setUp(self):
+		self.usuario = User.objects.create_user(username='portero', password='clave-segura-123')
+		self.client.force_login(self.usuario)
+		self.foto = _data_url()
+		self.datos_visitante = {
+			'action': 'registro_visitante',
+			'cedula': '99887766',
+			'nombre': 'Ana Gomez',
+			'telefono': '3001112233',
+			'torre': 'A',
+			'apartamento': '101',
+		}
+		self.datos_cliente = {
+			'cedula': '11223344',
+			'nombre': 'Luis Rojas',
+			'telefono': '3009998877',
+			'matricula_inicio': 'ABC',
+			'matricula_fin': '123',
+			'tipo_vehiculo': 'Auto',
+		}
+
+	# --- Visitantes -----------------------------------------------------
+
+	def test_visitante_con_foto(self):
+		self.client.post(reverse('dashboard_visitante'), {**self.datos_visitante, 'foto_data': self.foto})
+		visitante = Visitante.objects.get(cedula='99887766')
+		self.assertTrue(visitante.foto)
+		self.assertIn('fotos_visitantes/', visitante.foto.name)
+
+	def test_visitante_sin_foto_se_registra_igual(self):
+		self.client.post(reverse('dashboard_visitante'), self.datos_visitante)
+		visitante = Visitante.objects.get(cedula='99887766')
+		self.assertFalse(visitante.foto)
+
+	def test_visitante_con_foto_invalida_se_registra_sin_foto(self):
+		self.client.post(reverse('dashboard_visitante'), {**self.datos_visitante, 'foto_data': 'no-soy-una-imagen'})
+		visitante = Visitante.objects.get(cedula='99887766')
+		self.assertFalse(visitante.foto)
+
+	# --- Parking --------------------------------------------------------
+
+	def test_cliente_con_foto(self):
+		response = self.client.post(
+			reverse('dashboard_parking'),
+			{**self.datos_cliente, 'foto_data': self.foto},
+			HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+		)
+		datos = response.json()
+		self.assertTrue(datos['success'])
+		cliente = Cliente.objects.get(cedula='11223344')
+		self.assertTrue(cliente.foto)
+		self.assertIn('fotos_clientes/', cliente.foto.name)
+		self.assertEqual(datos['cliente']['foto_url'], cliente.foto.url)
+
+	def test_cliente_sin_foto_se_registra_igual(self):
+		response = self.client.post(
+			reverse('dashboard_parking'),
+			self.datos_cliente,
+			HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+		)
+		datos = response.json()
+		self.assertTrue(datos['success'])
+		self.assertIsNone(datos['cliente']['foto_url'])
+		self.assertFalse(Cliente.objects.get(cedula='11223344').foto)
+
+	def test_cliente_con_foto_invalida_se_registra_sin_foto(self):
+		response = self.client.post(
+			reverse('dashboard_parking'),
+			{**self.datos_cliente, 'foto_data': 'no-soy-una-imagen'},
+			HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+		)
+		self.assertTrue(response.json()['success'])
+		self.assertFalse(Cliente.objects.get(cedula='11223344').foto)
