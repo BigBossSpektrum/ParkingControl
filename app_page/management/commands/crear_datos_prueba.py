@@ -53,7 +53,11 @@ class Command(BaseCommand):
                 fecha_entrada=hora_entrada,
                 fecha_salida=hora_salida
             )
-            
+            # Estos registros no pasan por la vista de salida, asi que hay que
+            # congelar el cobro a mano o quedarian repreciandose con la tarifa de turno.
+            cliente.congelar_cobro()
+            cliente.save()
+
             clientes_creados.append(cliente)
             self.stdout.write(f'Cliente creado: {cliente.nombre} - ${cliente.calcular_costo():,.2f}')
 

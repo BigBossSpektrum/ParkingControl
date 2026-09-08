@@ -60,6 +60,9 @@ def procesar_confirmacion_salida(request, is_ajax):
 		
 		# Ahora sí registrar la salida
 		cliente.fecha_salida = timezone.now()
+		# El cobro se congela aqui: cambiar las tarifas despues no debe recobrar
+		# a quien ya salio ni descuadrar un corte de caja cerrado.
+		cliente.congelar_cobro()
 		cliente.save()
 		
 		# Calcular tiempo en parking
@@ -675,6 +678,7 @@ def salida_qr(request):
 			if cliente:
 				from django.utils import timezone
 				cliente.fecha_salida = timezone.now()
+				cliente.congelar_cobro()
 				cliente.save()
 				
 				# Calcular tiempo en parking

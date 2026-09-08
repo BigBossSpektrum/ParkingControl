@@ -154,7 +154,7 @@ class Command(BaseCommand):
             sigue_dentro = es_mes_actual and i >= cantidad - 2
             salida = None if sigue_dentro else entrada + timedelta(minutes=azar.randint(20, 600))
 
-            creados.append(Cliente.objects.create(
+            cliente = Cliente.objects.create(
                 cedula=f'{PREFIJO_CEDULA}C{anio % 100:02d}{mes:02d}{i:02d}',
                 nombre=NOMBRES[i % len(NOMBRES)],
                 telefono=f'30{azar.randint(10000000, 99999999)}',
@@ -164,7 +164,14 @@ class Command(BaseCommand):
                 tipo_vehiculo=TIPOS[i % len(TIPOS)],
                 fecha_entrada=entrada,
                 fecha_salida=salida,
-            ))
+            )
+            # Sin pasar por la vista de salida el cobro no se congela solo, y el
+            # historial de demostracion se repreciaria con cada cambio de tarifa.
+            if salida:
+                cliente.congelar_cobro()
+                cliente.save()
+
+            creados.append(cliente)
         return creados
 
     def _crear_visitantes(self, anio, mes, cantidad, azar):

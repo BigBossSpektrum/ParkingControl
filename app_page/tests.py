@@ -4,9 +4,11 @@ import shutil
 import tempfile
 from pathlib import Path
 from datetime import datetime, timedelta, timezone as dt_timezone
+from importlib import import_module
 from io import BytesIO, StringIO
 from unittest import mock
 
+from django.apps import apps as django_apps
 from django.conf import settings
 from django.contrib.auth import authenticate
 from django.contrib.staticfiles import finders
@@ -846,3 +848,189 @@ class TipoVehiculoOtroTests(TestCase):
 		for tipo, _ in Cliente.TIPO_VEHICULO_CHOICES:
 			with self.subTest(tipo=tipo):
 				self.assertIn(f'<option value="{tipo}">', html)
+
+
+class CongelamientoDeCobroTests(TestCase):
+	"""El cobro se fija al registrar la salida y ya no cambia si suben las tarifas.
+
+	Cliente no guardaba ningun monto: calcular_costo() releia la tarifa singleton
+	vigente en cada lectura. Subir el precio a media jornada reescribia el cobro de
+	todo el historial, incluidos los cortes de caja ya cerrados, y dejaba el total
+	del corte sin cuadrar con su propio detalle.
+	"""
+
+	def setUp(self):
+		self.usuario = User.objects.create_user(username='cajera', password='clave-segura-123')
+		# El signal post_save de User ya creo el Perfil como 'empleado'; el corte
+		# de recaudacion exige rol administrador.
+		perfil = Perfil.objects.get(usuario=self.usuario)
+		perfil.rol = 'administrador'
+		perfil.save()
+		self.client.force_login(self.usuario)
+
+		self.costo = Costo.get_costos_actuales()
+		self.costo.costo_auto = 100
+		self.costo.costo_moto = 50
+		self.costo.costo_otro = 200
+		self.costo.save()
+
+		self.tarifa = TarifaPlena.get_tarifa_actual()
+		self.tarifa.activa = False
+		self.tarifa.costo_fijo_auto = 8000
+		self.tarifa.costo_fijo_moto = 4000
+		self.tarifa.costo_fijo_otro = 12000
+		self.tarifa.save()
+
+	# --- Utilidades ------------------------------------------------------
+
+	def _entrar(self, minutos, matricula='ABC-123', tipo='Auto'):
+		"""Registra un vehiculo que entro hace `minutos` y sigue dentro."""
+		return Cliente.objects.create(
+			cedula='1122334455', nombre='Ana Ruiz', matricula=matricula,
+			tipo_vehiculo=tipo,
+			fecha_entrada=dj_timezone.now() - timedelta(minutes=minutos),
+		)
+
+	def _salir(self, cliente):
+		"""Registra la salida por la vista, que es donde debe congelarse el cobro."""
+		response = self.client.post(reverse('dashboard_parking'), {
+			'confirmar_salida': 'true',
+			'cliente_id': cliente.id,
+		}, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+		self.assertTrue(response.json()['success'])
+		cliente.refresh_from_db()
+		return cliente
+
+	def _subir_tarifas(self):
+		self.costo.costo_auto = 500
+		self.costo.costo_moto = 250
+		self.costo.costo_otro = 900
+		self.costo.save()
+
+	# --- Congelamiento del cobro -----------------------------------------
+
+	def test_la_salida_guarda_el_monto_cobrado(self):
+		cliente = self._salir(self._entrar(minutos=10))
+		self.assertIsNotNone(cliente.monto_cobrado)
+		self.assertEqual(cliente.calcular_costo(), 1000)  # 10 min a 100/min
+
+	def test_la_salida_por_codigo_tambien_congela_el_cobro(self):
+		"""salida_qr registra la salida por su cuenta; no puede quedarse sin congelar."""
+		cliente = self._entrar(minutos=10, matricula='QR-001')
+		response = self.client.post(reverse('salida_qr'), {
+			'codigo': str(cliente.id),
+		}, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+		self.assertTrue(response.json()['success'])
+
+		self._subir_tarifas()
+		cliente.refresh_from_db()
+		self.assertEqual(cliente.calcular_costo(), 1000)
+
+	def test_subir_el_precio_no_recobra_a_quien_ya_salio(self):
+		cliente = self._salir(self._entrar(minutos=10))
+		self._subir_tarifas()
+		cliente.refresh_from_db()
+		self.assertEqual(cliente.calcular_costo(), 1000)
+
+	def test_el_vehiculo_aun_dentro_si_toma_la_tarifa_nueva(self):
+		"""No hay que congelar de mas: cotizar un carro dentro sigue siendo en vivo."""
+		cliente = self._entrar(minutos=10)
+		self._subir_tarifas()
+		salida = cliente.fecha_entrada + timedelta(minutes=10)
+		self.assertEqual(cliente.calcular_costo_temporal(salida), 5000)
+
+	def test_activar_la_tarifa_plena_no_reetiqueta_cobros_pasados(self):
+		cliente = self._salir(self._entrar(minutos=10))
+		self.tarifa.activa = True
+		self.tarifa.save()
+		cliente.refresh_from_db()
+		self.assertEqual(cliente.calcular_costo(), 1000)
+		self.assertFalse(cliente.es_tarifa_plena())
+		self.assertNotIn('Tarifa Plena', cliente.costo_formateado())
+
+	def test_la_tarifa_plena_vigente_al_salir_queda_registrada(self):
+		self.tarifa.activa = True
+		self.tarifa.save()
+		cliente = self._salir(self._entrar(minutos=10))
+		self.assertEqual(cliente.calcular_costo(), 8000)
+		self.assertTrue(cliente.es_tarifa_plena())
+
+		# Apagar el interruptor global tampoco debe reabrir el cobro.
+		self.tarifa.activa = False
+		self.tarifa.save()
+		cliente.refresh_from_db()
+		self.assertEqual(cliente.calcular_costo(), 8000)
+		self.assertTrue(cliente.es_tarifa_plena())
+
+	def test_la_tarifa_unitaria_aplicada_queda_registrada(self):
+		cliente = self._salir(self._entrar(minutos=10))
+		self._subir_tarifas()
+		cliente.refresh_from_db()
+		# "Tarifa Base" en ver_registro.html sale de aqui.
+		self.assertEqual(cliente.costo_por_tiempo(), 100)
+
+	def test_un_registro_sin_monto_congelado_sigue_calculando_en_vivo(self):
+		"""Respaldo para el historial anterior a la migracion (monto_cobrado nulo)."""
+		cliente = Cliente.objects.create(
+			cedula='999', matricula='OLD-001', tipo_vehiculo='Auto',
+			fecha_entrada=dj_timezone.now() - timedelta(minutes=10),
+			fecha_salida=dj_timezone.now(),
+		)
+		self.assertIsNone(cliente.monto_cobrado)
+		self.assertEqual(cliente.calcular_costo(), 1000)
+
+	# --- Cortes de recaudacion -------------------------------------------
+
+	def test_el_corte_cerrado_cuadra_con_su_detalle_tras_cambiar_precios(self):
+		self._salir(self._entrar(minutos=10, matricula='AAA-111'))
+		self._salir(self._entrar(minutos=20, matricula='BBB-222'))
+
+		response = self.client.post(reverse('corte_recaudacion'), {'observaciones': ''})
+		self.assertTrue(response.json()['success'])
+		corte = Recaudacion.objects.latest('fecha_corte')
+		self.assertEqual(float(corte.monto_recaudado), 3000)
+
+		self._subir_tarifas()
+
+		detalle = corte.get_clientes_atendidos()
+		self.assertEqual(sorted(d['costo'] for d in detalle), [1000.0, 2000.0])
+		self.assertEqual(sum(d['costo'] for d in detalle), float(corte.monto_recaudado))
+
+	def test_la_migracion_congela_el_historial_existente(self):
+		"""Guarda del backfill de 0020, que corre sobre registros ya cerrados.
+
+		La base de pruebas esta vacia cuando se aplican las migraciones, asi que el
+		recorrido de clientes solo se ejercita invocandolo aqui con datos reales.
+		"""
+		migracion = import_module('app_page.migrations.0020_congelar_cobro_en_cliente')
+
+		ahora = dj_timezone.now()
+		viejos = {
+			tipo: Cliente.objects.create(
+				cedula='5555555555', matricula=f'OLD-{tipo}', tipo_vehiculo=tipo,
+				fecha_entrada=ahora - timedelta(minutes=10), fecha_salida=ahora,
+			)
+			for tipo in ('Auto', 'Moto', 'Otro')
+		}
+		dentro = self._entrar(minutos=10, matricula='IN-001')
+
+		migracion.congelar_historial(django_apps, None)
+
+		for tipo, esperado in (('Auto', 1000), ('Moto', 500), ('Otro', 2000)):
+			with self.subTest(tipo=tipo):
+				viejos[tipo].refresh_from_db()
+				self.assertEqual(float(viejos[tipo].monto_cobrado), esperado)
+				self.assertEqual(float(viejos[tipo].tarifa_aplicada), esperado / 10)
+
+		# Un vehiculo que sigue dentro no tiene cobro que congelar.
+		dentro.refresh_from_db()
+		self.assertIsNone(dentro.monto_cobrado)
+
+	def test_el_periodo_abierto_no_se_reprecia(self):
+		self._salir(self._entrar(minutos=10))
+		antes = Recaudacion.calcular_recaudacion_actual()['monto_total']
+		self._subir_tarifas()
+		despues = Recaudacion.calcular_recaudacion_actual()['monto_total']
+
+		self.assertEqual(antes, 1000)
+		self.assertEqual(despues, antes)

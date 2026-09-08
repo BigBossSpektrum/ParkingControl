@@ -1,3 +1,4 @@
+from decimal import Decimal
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
@@ -23,6 +24,21 @@ class Cliente(models.Model):
 	tiempo_parking = models.PositiveIntegerField(null=True, blank=True, help_text='Tiempo en minutos')
 	fecha_entrada = models.DateTimeField(null=True, blank=True)
 	fecha_salida = models.DateTimeField(null=True, blank=True)
+	monto_cobrado = models.DecimalField(
+		max_digits=12, decimal_places=2, null=True, blank=True,
+		verbose_name="Monto cobrado",
+		help_text='Cobro congelado al registrar la salida; no lo alteran los cambios de tarifa posteriores'
+	)
+	tarifa_aplicada = models.DecimalField(
+		max_digits=10, decimal_places=2, null=True, blank=True,
+		verbose_name="Tarifa aplicada",
+		help_text='Tarifa unitaria del cobro: por minuto, o el costo fijo si fue tarifa plena'
+	)
+	cobrado_con_tarifa_plena = models.BooleanField(
+		default=False,
+		verbose_name="Cobrado con tarifa plena",
+		help_text='Modalidad vigente al registrar la salida'
+	)
 	qr_image = models.ImageField(upload_to='qr_codes/', null=True, blank=True)
 	foto = models.ImageField(upload_to='fotos_clientes/', null=True, blank=True, verbose_name="Fotografía")
 
@@ -260,76 +276,93 @@ class Cliente(models.Model):
 		
 		return ", ".join(partes)
 
+	def _cobro_vigente(self, tiempo_minutos):
+		"""Devuelve (monto, tarifa_unitaria, es_plena) segun las tarifas vigentes hoy."""
+		tarifa_plena = TarifaPlena.get_tarifa_actual()
+
+		if tarifa_plena.activa:
+			# Si la tarifa plena esta activa, usar costo fijo
+			unitaria = tarifa_plena.get_costo_por_tipo(self.tipo_vehiculo)
+			return float(unitaria), unitaria, True
+
+		# Si no, usar el calculo por minutos normal
+		costos = Costo.get_costos_actuales()
+		unitaria = costos.get_costo_por_tipo(self.tipo_vehiculo)
+		return float(unitaria) * max(1, tiempo_minutos), unitaria, False
+
+	def cobro_congelado(self):
+		"""Indica si el cobro ya quedo fijado al registrar la salida"""
+		return self.monto_cobrado is not None
+
+	def congelar_cobro(self):
+		"""Fija el cobro con las tarifas vigentes al registrar la salida.
+
+		Requiere fecha_salida ya asignada, porque mide el tiempo hasta ella. No
+		guarda el registro: de eso se encarga quien llama.
+		"""
+		monto, unitaria, plena = self._cobro_vigente(self.tiempo_en_minutos())
+		self.monto_cobrado = Decimal(str(round(monto, 2)))
+		self.tarifa_aplicada = unitaria
+		self.cobrado_con_tarifa_plena = plena
+		return float(self.monto_cobrado)
+
 	def calcular_costo(self):
-		"""Calcula el costo total basado en el tiempo y tipo de vehículo"""
+		"""Costo total: el congelado si el vehiculo ya salio, el vigente si sigue dentro"""
 		if not self.fecha_entrada:
 			return 0.00
-		
-		# Verificar si la tarifa plena está activa
-		tarifa_plena = TarifaPlena.get_tarifa_actual()
-		
-		if tarifa_plena.activa:
-			# Si la tarifa plena está activa, usar costo fijo
-			return float(tarifa_plena.get_costo_por_tipo(self.tipo_vehiculo))
-		else:
-			# Si no, usar el cálculo por minutos normal
-			costos = Costo.get_costos_actuales()
-			tiempo_minutos = max(1, self.tiempo_en_minutos())
-			costo_por_minuto = costos.get_costo_por_tipo(self.tipo_vehiculo)
-			return float(costo_por_minuto) * tiempo_minutos
-	
+
+		if self.cobro_congelado():
+			return float(self.monto_cobrado)
+
+		return self._cobro_vigente(self.tiempo_en_minutos())[0]
+
 	def costo_formateado(self):
 		"""Devuelve el costo formateado como string"""
 		costo = self.calcular_costo()
-		tarifa_plena = TarifaPlena.get_tarifa_actual()
-		
-		if tarifa_plena.activa:
+
+		if self.es_tarifa_plena():
 			return f"${costo:,.2f} (Tarifa Plena)"
 		else:
 			return f"${costo:,.2f}"
-	
+
 	def es_tarifa_plena(self):
-		"""Verifica si este cliente está usando tarifa plena"""
-		tarifa_plena = TarifaPlena.get_tarifa_actual()
-		return tarifa_plena.activa
+		"""Modalidad del cobro: la aplicada al salir, o la vigente si sigue dentro"""
+		if self.cobro_congelado():
+			return self.cobrado_con_tarifa_plena
+
+		return TarifaPlena.get_tarifa_actual().activa
 
 	def costo_por_tiempo(self):
-		"""Calcula el costo por minuto del tipo de vehículo"""
+		"""Tarifa unitaria del cobro: la aplicada al salir, o la vigente si sigue dentro"""
+		if self.cobro_congelado() and self.tarifa_aplicada is not None:
+			return float(self.tarifa_aplicada)
+
 		if not hasattr(self, '_costo_por_tiempo'):
 			costos = Costo.get_costos_actuales()
 			self._costo_por_tiempo = costos.get_costo_por_tipo(self.tipo_vehiculo)
 		return float(self._costo_por_tiempo)
-	
+
 	def calcular_costo_temporal(self, fecha_salida_temporal):
-		"""Calcula el costo total basado en una fecha de salida temporal (sin modificar el registro)"""
+		"""Cotiza una salida hipotetica con las tarifas vigentes, sin tocar el registro.
+
+		Siempre en vivo: el vehiculo sigue dentro y debe verse el precio de hoy.
+		"""
 		if not self.fecha_entrada:
 			return 0.00
-		
-		# Verificar si la tarifa plena está activa
-		tarifa_plena = TarifaPlena.get_tarifa_actual()
-		
-		if tarifa_plena.activa:
-			# Si la tarifa plena está activa, usar costo fijo
-			return float(tarifa_plena.get_costo_por_tipo(self.tipo_vehiculo))
-		else:
-			# Si no, usar el cálculo por minutos normal
-			costos = Costo.get_costos_actuales()
-			# Calcular minutos temporalmente
-			delta = fecha_salida_temporal - self.fecha_entrada
-			tiempo_minutos = max(1, int(delta.total_seconds() // 60))
-			costo_por_minuto = costos.get_costo_por_tipo(self.tipo_vehiculo)
-			return float(costo_por_minuto) * tiempo_minutos
-	
+
+		delta = fecha_salida_temporal - self.fecha_entrada
+		return self._cobro_vigente(int(delta.total_seconds() // 60))[0]
+
 	def costo_formateado_temporal(self, fecha_salida_temporal):
 		"""Devuelve el costo temporal formateado como string"""
 		costo = self.calcular_costo_temporal(fecha_salida_temporal)
 		tarifa_plena = TarifaPlena.get_tarifa_actual()
-		
+
 		if tarifa_plena.activa:
 			return f"${costo:,.2f} (Tarifa Plena)"
 		else:
 			return f"${costo:,.2f}"
-	
+
 	def tiempo_por_costo(self):
 		"""Calcula la relación tiempo transcurrido dividido por el costo total"""
 		costo_total = self.calcular_costo()
