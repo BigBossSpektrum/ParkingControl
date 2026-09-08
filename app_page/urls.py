@@ -6,6 +6,7 @@ urlpatterns = [
     path('logout/', views.logout_view, name='logout'),
     path('salida/', views.salida_qr, name='salida_qr'),
     path('portal/', views.portal_opciones, name='portal_opciones'),
+    path('manual/', views.manual_soporte, name='manual_soporte'),
     path('index/', views.dashboard, name='index'),  # Redirigir index al dashboard
     path('', views.dashboard, name='dashboard'),
     

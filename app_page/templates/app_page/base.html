@@ -59,6 +59,12 @@
                                 </a>
                             </li>
                         {% endif %}
+                        <li class="nav-item">
+                            <a class="nav-link{% if request.resolver_match.url_name == 'manual_soporte' %} active{% endif %}"
+                               href="{% url 'manual_soporte' %}">
+                                <i class="bi bi-question-circle me-1"></i>Ayuda
+                            </a>
+                        </li>
                     </ul>
 
                     {# --- Información de sesión: al extremo derecho, tras el separador --- #}
@@ -96,6 +102,11 @@
                                 <li>
                                     <a class="dropdown-item" href="{% url 'lista_clientes' %}">
                                         <i class="bi bi-list-ul me-2"></i>Lista de clientes
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="{% url 'manual_soporte' %}">
+                                        <i class="bi bi-question-circle me-2"></i>Manual y soporte
                                     </a>
                                 </li>
                                 {% if perfil.es_administrador %}

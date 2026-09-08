@@ -22,6 +22,7 @@ from .models import Cliente, Costo, Perfil, Recaudacion, TarifaPlena, Visitante
 from .formato import fecha_local
 from .templatetags.estaticos import static_v
 from .photo_utils import MAX_FOTO_BYTES, decodificar_foto_base64
+from .views import SOPORTE
 
 
 class ConteoVisitantesTests(TestCase):
@@ -1034,3 +1035,57 @@ class CongelamientoDeCobroTests(TestCase):
 
 		self.assertEqual(antes, 1000)
 		self.assertEqual(despues, antes)
+
+
+class ManualSoporteTests(TestCase):
+	"""Manual y soporte: acceso, filtrado por rol y datos de contacto."""
+
+	def setUp(self):
+		self.url = reverse('manual_soporte')
+		self.admin = self._crear(username='jefa', rol='administrador')
+		self.empleado = self._crear(username='auxiliar', rol='empleado')
+
+	def _crear(self, username, rol, password='clave-segura-123'):
+		usuario = User.objects.create_user(username=username, password=password)
+		# El signal post_save de User ya creo el Perfil como 'empleado'.
+		perfil = Perfil.objects.get(usuario=usuario)
+		perfil.rol = rol
+		perfil.save()
+		return usuario
+
+	def test_manual_requiere_login(self):
+		response = self.client.get(self.url)
+		self.assertEqual(response.status_code, 302)
+		self.assertIn(reverse('login'), response['Location'])
+
+	def test_empleado_accede_al_manual(self):
+		self.client.force_login(self.empleado)
+		response = self.client.get(self.url)
+		self.assertEqual(response.status_code, 200)
+		self.assertTemplateUsed(response, 'app_page/manual_soporte.html')
+		self.assertContains(response, 'Registrar la salida y cobrar')
+
+	def test_empleado_no_ve_secciones_de_administrador(self):
+		self.client.force_login(self.empleado)
+		response = self.client.get(self.url)
+		self.assertNotContains(response, 'Solo administrador')
+		self.assertNotContains(response, 'Configurar las tarifas')
+
+	def test_administrador_ve_secciones_de_administrador(self):
+		self.client.force_login(self.admin)
+		response = self.client.get(self.url)
+		self.assertContains(response, 'Solo administrador')
+		self.assertContains(response, 'Configurar las tarifas')
+		self.assertContains(response, 'corte de caja')
+
+	def test_datos_de_soporte_en_la_pagina(self):
+		self.client.force_login(self.empleado)
+		response = self.client.get(self.url)
+		self.assertContains(response, SOPORTE['whatsapp_url'])
+		self.assertContains(response, SOPORTE['correo'])
+
+	def test_enlace_de_ayuda_en_la_navegacion(self):
+		"""El empleado tiene que poder llegar al manual desde cualquier pagina."""
+		self.client.force_login(self.empleado)
+		response = self.client.get(reverse('dashboard_parking'))
+		self.assertContains(response, self.url)
