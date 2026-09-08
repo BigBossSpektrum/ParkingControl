@@ -60,3 +60,9 @@ htmlcov/
 
 # Local settings
 local_settings.py
+
+# Build / empaquetado
+build/
+dist/
+*.spec
+ParkingControl.exe

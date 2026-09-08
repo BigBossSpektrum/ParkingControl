@@ -1,9 +1,10 @@
 {% extends 'app_page/base.html' %}
+{% load static estaticos %}
 {% block title %}Panel Principal{% endblock %}
 
 {% block content %}
-<!-- Panel de información del usuario -->
-<div class="row mb-4">
+<!-- Panel de información del usuario (se oculta solo a los 5 s) -->
+<div class="row mb-4" data-auto-ocultar="5000">
     <div class="col-12">
         <div class="alert alert-info">
             <div class="row align-items-center">
@@ -18,7 +19,7 @@
                     </small>
                 </div>
                 <div class="col-md-6 text-md-end">
-                    <small class="text-muted">
+                    <small class="text-body-secondary">
                         <i class="bi bi-clock me-1"></i>
                         Sesión iniciada
                     </small>
@@ -31,101 +32,140 @@
 <div class="row">
     <div class="col-md-6 mb-4">
         {# Formulario de registro de usuario #}
-        <div class="card bg-dark text-success border-success shadow-lg" style="width: 100%; max-width: 480px;">
-            <div class="card-body px-5 py-4">
-                <h2 class="card-title text-center mb-4">
-                    <i class="bi bi-person-plus-fill me-2"></i>Registro de Cliente
+        <div class="card form-card">
+            <div class="card-body p-3">
+                <h2 class="card-title-min mb-3">
+                    <i class="bi bi-person-plus-fill me-2"></i>Registro de Vehiculo
                 </h2>
                 {% if message_success %}<div class="alert alert-success">{{ message_success }}</div>{% endif %}
                 {% if mensaje_error %}<div class="alert alert-danger">{{ mensaje_error }}</div>{% endif %}
                 <form method="post" id="registroForm" onsubmit="return false;">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="registro">
-                    <div class="mb-4">
-                        <label for="{{ registro_form.cedula.id_for_label }}" class="form-label">
-                            <i class="bi bi-card-text me-2"></i>Cédula
-                        </label>
-                        <input type="text" 
-                               name="{{ registro_form.cedula.name }}" 
-                               id="{{ registro_form.cedula.id_for_label }}" 
-                               class="form-control" 
-                               placeholder="Ingrese cédula"
-                               required>
-                    </div>
-                    <div class="mb-4">
-                        <label for="{{ registro_form.nombre.id_for_label }}" class="form-label">
-                            <i class="bi bi-person-vcard me-2"></i>Nombre
-                        </label>
-                        <input type="text" 
-                               name="{{ registro_form.nombre.name }}" 
-                               id="{{ registro_form.nombre.id_for_label }}" 
-                               class="form-control" 
-                               placeholder="Ingrese nombre completo"
-                               required>
-                    </div>
-                                        <div class="mb-4">
-                        <label for="{{ registro_form.tipo_vehiculo.id_for_label }}" class="form-label">
-                            <i class="bi bi-truck me-2"></i>Tipo de vehículo
-                        </label>
-                        <select name="{{ registro_form.tipo_vehiculo.name }}" 
-                                id="{{ registro_form.tipo_vehiculo.id_for_label }}" 
-                                class="form-control" 
-                                required>
-                            <option value="">Seleccione tipo de vehículo</option>
-                            <option value="Auto">Auto</option>
-                            <option value="Moto">Moto</option>
-                        </select>
-                    </div>
-                    <div class="mb-4">
-                        <label for="{{ registro_form.matricula.id_for_label }}" class="form-label">
-                            <i class="bi bi-car-front me-2"></i>Placa del vehículo
-                        </label>
-                        <input type="text" 
-                               name="{{ registro_form.matricula.name }}" 
-                               id="{{ registro_form.matricula.id_for_label }}" 
-                               class="form-control" 
-                               placeholder=""
-                               maxlength="10"
-                               style="text-transform: uppercase;"
-                               oninput="this.value = this.value.toUpperCase()"
-                               required>
-                    </div>
-                    <div class="mb-4">
-                        <label for="{{ registro_form.telefono.id_for_label }}" class="form-label">
-                            <i class="bi bi-telephone me-2"></i>Teléfono
-                        </label>
-                        <input type="tel" 
-                               name="{{ registro_form.telefono.name }}" 
-                               id="{{ registro_form.telefono.id_for_label }}" 
-                               class="form-control" 
-                               placeholder="Ingrese teléfono">
-                    </div>
-                    <div class="mb-4">
-                        <label class="form-label">
-                            <i class="bi bi-building me-2"></i>Ubicación (Opcional)
-                        </label>
-                        <div class="row">
-                            <div class="col-6">
-                                <input type="text" 
-                                       name="{{ registro_form.torre.name }}" 
-                                       id="{{ registro_form.torre.id_for_label }}" 
-                                       class="form-control" 
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <div class="form-floating">
+                                <input type="text"
+                                       name="{{ registro_form.cedula.name }}"
+                                       id="{{ registro_form.cedula.id_for_label }}"
+                                       class="form-control"
+                                       placeholder="Cédula"
+                                       required>
+                                <label for="{{ registro_form.cedula.id_for_label }}">
+                                    <i class="bi bi-card-text me-2"></i>Cédula
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="form-floating">
+                                <input type="tel"
+                                       name="{{ registro_form.telefono.name }}"
+                                       id="{{ registro_form.telefono.id_for_label }}"
+                                       class="form-control"
+                                       placeholder="Teléfono">
+                                <label for="{{ registro_form.telefono.id_for_label }}">
+                                    <i class="bi bi-telephone me-2"></i>Teléfono
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <div class="form-floating">
+                                <input type="text"
+                                       name="{{ registro_form.nombre.name }}"
+                                       id="{{ registro_form.nombre.id_for_label }}"
+                                       class="form-control"
+                                       placeholder="Nombre completo"
+                                       required>
+                                <label for="{{ registro_form.nombre.id_for_label }}">
+                                    <i class="bi bi-person-vcard me-2"></i>Nombre completo
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="form-floating">
+                                <select name="{{ registro_form.tipo_vehiculo.name }}"
+                                        id="{{ registro_form.tipo_vehiculo.id_for_label }}"
+                                        class="form-select"
+                                        required>
+                                    {% comment %}
+                                    Las opciones salen de TIPO_VEHICULO_CHOICES via el
+                                    formulario. Escritas a mano se quedaron sin "Otro"
+                                    durante meses sin que nadie lo notara.
+                                    {% endcomment %}
+                                    <option value="">Seleccione</option>
+                                    {% for valor, etiqueta in registro_form.tipo_vehiculo.field.choices %}
+                                        <option value="{{ valor }}">{{ etiqueta }}</option>
+                                    {% endfor %}
+                                </select>
+                                <label for="{{ registro_form.tipo_vehiculo.id_for_label }}">
+                                    <i class="bi bi-truck me-2"></i>Tipo
+                                </label>
+                            </div>
+                        </div>
+                        {% comment %}
+                        La placa son dos campos del formulario
+                        (matricula_inicio + matricula_fin), que ClienteForm.save()
+                        une como "ABC-123".
+                        {% endcomment %}
+                        <div class="col-3">
+                            <div class="form-floating">
+                                <input type="text"
+                                       name="{{ registro_form.matricula_inicio.name }}"
+                                       id="{{ registro_form.matricula_inicio.id_for_label }}"
+                                       class="form-control"
+                                       placeholder="ABC"
+                                       maxlength="3"
+                                       style="text-transform: uppercase;"
+                                       oninput="this.value = this.value.toUpperCase()"
+                                       required>
+                                <label for="{{ registro_form.matricula_inicio.id_for_label }}">
+                                    <i class="bi bi-car-front me-1"></i>Placa
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-3">
+                            <div class="form-floating">
+                                <input type="text"
+                                       name="{{ registro_form.matricula_fin.name }}"
+                                       id="{{ registro_form.matricula_fin.id_for_label }}"
+                                       class="form-control"
+                                       placeholder="123"
+                                       maxlength="3"
+                                       style="text-transform: uppercase;"
+                                       oninput="this.value = this.value.toUpperCase()"
+                                       required>
+                                <label for="{{ registro_form.matricula_fin.id_for_label }}">123</label>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="form-floating">
+                                <input type="text"
+                                       name="{{ registro_form.torre.name }}"
+                                       id="{{ registro_form.torre.id_for_label }}"
+                                       class="form-control"
                                        placeholder="Torre"
                                        maxlength="10">
-                                <small class="text-muted">Torre</small>
+                                <label for="{{ registro_form.torre.id_for_label }}">
+                                    <i class="bi bi-building me-2"></i>Torre (opc.)
+                                </label>
                             </div>
-                            <div class="col-6">
+                        </div>
+                        <div class="col-6">
+                            <div class="form-floating">
                                 <input type="text"
                                        name="{{ registro_form.apartamento.name }}"
                                        id="{{ registro_form.apartamento.id_for_label }}"
                                        class="form-control"
                                        placeholder="Apartamento"
                                        maxlength="10">
-                                <small class="text-muted">Apartamento</small>
+                                <label for="{{ registro_form.apartamento.id_for_label }}">
+                                    <i class="bi bi-door-open me-2"></i>Apto. (opc.)
+                                </label>
                             </div>
                         </div>
                     </div>
-                    <button type="submit" class="btn btn-success w-100 py-2" id="submitRegistroBtn">
+                    {% include 'app_page/partials/_camera_capture.html' with cc_id="camara_cliente" cc_name="foto_data" %}
+                    <button type="submit" class="btn btn-success w-100 mt-3" id="submitRegistroBtn">
                         <i class="bi bi-save me-1"></i>Registrar Cliente
                     </button>
                 </form>
@@ -135,63 +175,107 @@
     
     <div class="col-md-6 mb-4">
         {# Formulario de salida #}
-        <div class="card bg-dark text-success border-success shadow-lg" style="width: 100%; max-width: 480px;">
-            <div class="card-body px-5 py-4">
-                <h2 class="card-title text-center mb-4">
+        <div class="card form-card">
+            <div class="card-body p-3">
+                <h2 class="card-title-min mb-3">
                     <i class="bi bi-box-arrow-right me-2"></i>Registrar Salida
                 </h2>
                 {% if mensaje_salida %}<div class="alert alert-info">{{ mensaje_salida }}</div>{% endif %}
                 <form method="post" id="salidaForm" onsubmit="return false;">
                     {% csrf_token %}
-                <div class="mb-4">
-                    <label for="id_codigo" class="form-label">
-                        <i class="bi bi-upc-scan me-2"></i>Escanee el código QR o ingrese la cédula o ID
-                    </label>
-                    <input type="text" 
-                           name="codigo" 
-                           id="id_codigo" 
-                           class="form-control" 
-                           placeholder="Escanee QR o ingrese cédula/ID..."
-                           autocomplete="off"
-                           autofocus>
-                    <div class="form-text text-muted mt-2">
-                        <small><i class="bi bi-lightbulb me-1"></i>Campo principal del sistema - se enfoca automáticamente para facilitar el escaneo</small>
+                    <div class="form-floating">
+                        <input type="text"
+                               name="codigo"
+                               id="id_codigo"
+                               class="form-control"
+                               placeholder="Escanee QR o ingrese cédula/ID"
+                               autocomplete="off"
+                               autofocus>
+                        <label for="id_codigo">
+                            <i class="bi bi-upc-scan me-2"></i>Código QR, cédula o ID
+                        </label>
                     </div>
-                </div>
-                <button type="submit" class="btn btn-success w-100 py-2" id="submitSalidaBtn">
-                    <i class="bi bi-box-arrow-right me-2"></i>Registrar Salida
-                </button>
-            </form>
+                    <div class="form-text text-body-secondary mt-2">
+                        <small><i class="bi bi-lightbulb me-1"></i>Se enfoca automáticamente para facilitar el escaneo</small>
+                    </div>
+                    <button type="submit" class="btn btn-success w-100 mt-3" id="submitSalidaBtn">
+                        <i class="bi bi-box-arrow-right me-2"></i>Registrar Salida
+                    </button>
+                </form>
+            </div>
         </div>
     </div>
 </div>
 
-<!-- Separador visual -->
-<hr class="my-5">
-
-<!-- Sección de acciones adicionales -->
-<div class="row">
+<!-- Últimos clientes registrados -->
+<div class="row mt-4">
     <div class="col-12">
-        <div class="d-flex justify-content-center gap-3 flex-wrap">
-            <a href="{% url 'lista_clientes' %}" class="btn btn-primary">
-                <i class="bi bi-list-ul me-2"></i>Ver Lista de Clientes
-            </a>
-            {% if perfil.es_administrador %}
-            <a href="{% url 'admin:index' %}" class="btn btn-secondary">
-                <i class="bi bi-gear me-2"></i>Panel de Administración
-            </a>
-            <a href="{% url 'printer_dashboard' %}" class="btn btn-info">
-                <i class="bi bi-printer me-2"></i>Configurar Impresora
-            </a>
-            {% endif %}
+        <div class="card">
+            <div class="card-body p-3">
+                <h4 class="card-title-min mb-3">
+                    <i class="bi bi-clock-history me-2"></i>Últimos Vehiculos Registrados
+                </h4>
+
+                {% if ultimos_clientes %}
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th><i class="bi bi-card-text me-1"></i>Cédula</th>
+                                <th><i class="bi bi-person me-1"></i>Nombre</th>
+                                <th><i class="bi bi-car-front me-1"></i>Matrícula</th>
+                                <th><i class="bi bi-truck me-1"></i>Tipo</th>
+                                <th><i class="bi bi-box-arrow-in-right me-1"></i>Entrada</th>
+                                <th><i class="bi bi-info-circle me-1"></i>Estado</th>
+                                <th class="text-end"><i class="bi bi-gear me-1"></i>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for cliente in ultimos_clientes %}
+                            <tr>
+                                <td>{{ cliente.get_display_cedula }}</td>
+                                <td>{{ cliente.get_display_name }}</td>
+                                <td>{{ cliente.matricula }}</td>
+                                <td>{{ cliente.get_tipo_vehiculo_display }}</td>
+                                <td>{{ cliente.fecha_entrada|date:"d/m/Y H:i" }}</td>
+                                <td>
+                                    {% if cliente.fecha_salida %}
+                                        <span class="badge text-bg-secondary">Salido</span>
+                                    {% else %}
+                                        <span class="badge text-bg-success">En parking</span>
+                                    {% endif %}
+                                </td>
+                                {# acciones-tabla: excluye estos clics del auto-enfoque del escáner #}
+                                <td class="acciones-tabla text-end">
+                                    <button type="button" class="btn btn-success btn-sm"
+                                            onclick="verRegistro({{ cliente.id }})"
+                                            title="Ver detalles">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="bi bi-car-front fs-1 text-body-secondary"></i>
+                    <p class="mt-3 mb-0 text-body-secondary">No hay clientes registrados aún</p>
+                </div>
+                {% endif %}
+            </div>
         </div>
     </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
+<script src="{% static_v 'app_page/js/camera-capture.js' %}"></script>
+<script src="{% static_v 'app_page/js/cliente-detalles.js' %}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    const camaraCliente = initCameraCapture(document.getElementById('camara_cliente'));
     const salidaForm = document.getElementById('salidaForm');
     const registroForm = document.getElementById('registroForm');
     const codigoInput = document.getElementById('id_codigo');
@@ -217,9 +301,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // Re-enfocar cuando se pierde el foco (útil para scanners)
     document.addEventListener('click', function(e) {
         // No re-enfocar si hay un modal abierto o si se hizo clic en un modal
-        if (document.querySelector('.swal2-container') || 
+        if (document.querySelector('.swal2-container') ||
             e.target.closest('.swal2-container') ||
-            e.target.closest('form') || 
+            e.target.closest('form') ||
+            e.target.closest('.acciones-tabla') ||
+            e.target.closest('.navbar') ||
             e.target.closest('.alert')) {
             return;
         }
@@ -250,7 +336,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 icon: 'warning',
                 title: 'Campo requerido',
                 text: 'Por favor ingrese un código QR o cédula.',
-                confirmButtonColor: '#198754'
+                confirmButtonColor: '#146c2e'
             });
             return false;
         }
@@ -288,7 +374,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 icon: 'error',
                                 title: 'Error',
                                 text: response.mensaje || 'Error al procesar la solicitud',
-                                confirmButtonColor: '#198754'
+                                confirmButtonColor: '#146c2e'
                             });
                         }
                     } catch (e) {
@@ -296,7 +382,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             icon: 'error',
                             title: 'Error de respuesta',
                             text: 'Error al procesar la respuesta del servidor',
-                            confirmButtonColor: '#198754'
+                            confirmButtonColor: '#146c2e'
                         });
                     }
                 } else {
@@ -304,7 +390,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         icon: 'error',
                         title: 'Error de conexión',
                         text: 'Error al conectar con el servidor',
-                        confirmButtonColor: '#198754'
+                        confirmButtonColor: '#146c2e'
                     });
                 }
             }
@@ -346,7 +432,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 icon: 'warning',
                 title: 'Campos requeridos',
                 text: 'Por favor complete todos los campos obligatorios.',
-                confirmButtonColor: '#198754'
+                confirmButtonColor: '#146c2e'
             });
             return false;
         }
@@ -396,7 +482,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 icon: 'success',
                                 title: 'Cliente registrado',
                                 text: message,
-                                confirmButtonColor: '#198754'
+                                confirmButtonColor: '#146c2e'
                             }).then(() => {
                                 limpiarFormularioRegistro();
                                 // Actualizar estadísticas si existen
@@ -408,7 +494,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 icon: 'error',
                                 title: 'Error en el registro',
                                 text: response.message || 'Error al registrar el cliente',
-                                confirmButtonColor: '#198754'
+                                confirmButtonColor: '#146c2e'
                             });
                         }
                     } catch (e) {
@@ -417,7 +503,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             icon: 'error',
                             title: 'Error de respuesta',
                             text: 'Error al procesar la respuesta del servidor',
-                            confirmButtonColor: '#198754'
+                            confirmButtonColor: '#146c2e'
                         });
                     }
                 } else {
@@ -425,7 +511,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         icon: 'error',
                         title: 'Error de conexión',
                         text: 'Error al conectar con el servidor',
-                        confirmButtonColor: '#198754'
+                        confirmButtonColor: '#146c2e'
                     });
                 }
             }
@@ -437,7 +523,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 icon: 'error',
                 title: 'Error de red',
                 text: 'Error de conexión de red',
-                confirmButtonColor: '#198754'
+                confirmButtonColor: '#146c2e'
             });
         };
         
@@ -452,6 +538,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     function limpiarFormularioRegistro() {
         registroForm.reset();
+        camaraCliente.reset();
         resetRegistroButton();
         // Enfocar el campo de código para salida después del registro exitoso
         if (codigoInput) {
@@ -468,39 +555,36 @@ document.addEventListener('DOMContentLoaded', function() {
             title: '💰 Confirmar Pago',
             html: `
                 <div class="text-start">
-                    <h5 class="text-success mb-3">Información del Cliente:</h5>
+                    <h5 class="mb-3">Información del Cliente:</h5>
                     <p><strong>Nombre:</strong> ${cliente.nombre}</p>
                     <p><strong>Cédula:</strong> ${cliente.cedula}</p>
                     <p><strong>Matrícula:</strong> ${cliente.matricula}</p>
                     <p><strong>Tipo:</strong> ${cliente.tipo_vehiculo}</p>
                     <hr>
-                    <h5 class="text-info mb-3">Tiempo y Costo:</h5>
+                    <h5 class="mb-3">Tiempo y Costo:</h5>
                     <p><strong>Entrada:</strong> ${cliente.fecha_entrada}</p>
                     <p><strong>Salida Estimada:</strong> ${cliente.fecha_salida_estimada}</p>
                     <p><strong>Tiempo Total:</strong> ${cliente.tiempo_total}</p>
                     <p><strong>Modalidad:</strong> ${tipoTarifa}</p>
                     <hr>
-                    <div class="alert alert-warning text-center">
+                    <div class="bg-body-tertiary border rounded p-3 text-center">
                         <h4 class="mb-2">💰 Total a Cobrar:</h4>
-                        <h2 class="text-danger mb-0">${cliente.costo_formateado}</h2>
+                        <h2 class="mb-0">${cliente.costo_formateado}</h2>
                     </div>
-                    <div class="alert alert-info">
-                        <small><i class="fas fa-info-circle me-1"></i>
+                    <p class="mt-3 mb-0">
+                        <small class="text-body-secondary"><i class="bi bi-info-circle me-1"></i>
                         Confirme después de haber cobrado el monto para registrar la salida definitivamente.</small>
-                    </div>
+                    </p>
                 </div>
             `,
             confirmButtonText: 'Pago Confirmado - Registrar Salida',
-            confirmButtonColor: '#198754',
+            confirmButtonColor: '#146c2e',
             showCancelButton: true,
             cancelButtonText: 'Cancelar',
             cancelButtonColor: '#6c757d',
             width: '600px',
             allowOutsideClick: false,
             focusConfirm: true,
-            customClass: {
-                popup: 'text-dark'
-            },
             didOpen: () => {
                 // Asegurar que el foco esté en el botón de confirmar
                 const confirmButton = Swal.getConfirmButton();
@@ -529,32 +613,29 @@ document.addEventListener('DOMContentLoaded', function() {
             title: '✅ Salida Registrada Exitosamente',
             html: `
                 <div class="text-start">
-                    <h5 class="text-success mb-3">Información del Cliente:</h5>
+                    <h5 class="mb-3">Información del Cliente:</h5>
                     <p><strong>Nombre:</strong> ${cliente.nombre}</p>
                     <p><strong>Cédula:</strong> ${cliente.cedula}</p>
                     <p><strong>Matrícula:</strong> ${cliente.matricula}</p>
                     <p><strong>Tipo:</strong> ${cliente.tipo_vehiculo}</p>
                     <hr>
-                    <h5 class="text-info mb-3">Tiempo y Costo Final:</h5>
+                    <h5 class="mb-3">Tiempo y Costo Final:</h5>
                     <p><strong>Entrada:</strong> ${cliente.fecha_entrada}</p>
                     <p><strong>Salida:</strong> ${cliente.fecha_salida}</p>
                     <p><strong>Tiempo Total:</strong> ${cliente.tiempo_total}</p>
                     <p><strong>Modalidad:</strong> ${tipoTarifa}</p>
                     <hr>
-                    <div class="alert alert-success text-center">
+                    <div class="bg-body-tertiary border rounded p-3 text-center">
                         <h4 class="mb-2">✅ Pagado:</h4>
-                        <h2 class="text-success mb-0">${cliente.costo_formateado}</h2>
+                        <h2 class="mb-0">${cliente.costo_formateado}</h2>
                     </div>
                 </div>
             `,
             confirmButtonText: 'Cerrar',
-            confirmButtonColor: '#198754',
+            confirmButtonColor: '#146c2e',
             width: '600px',
             allowOutsideClick: false,
             focusConfirm: true,
-            customClass: {
-                popup: 'text-dark'
-            },
             didOpen: () => {
                 // Asegurar que el foco esté en el botón de cerrar
                 const confirmButton = Swal.getConfirmButton();
@@ -607,7 +688,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 icon: 'error',
                                 title: 'Error',
                                 text: response.mensaje || 'Error al confirmar la salida',
-                                confirmButtonColor: '#198754',
+                                confirmButtonColor: '#146c2e',
                                 allowOutsideClick: false,
                                 focusConfirm: true
                             }).then(() => {
@@ -621,7 +702,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             icon: 'error',
                             title: 'Error de respuesta',
                             text: 'Error al procesar la respuesta del servidor',
-                            confirmButtonColor: '#198754',
+                            confirmButtonColor: '#146c2e',
                             allowOutsideClick: false,
                             focusConfirm: true
                         }).then(() => {
@@ -635,7 +716,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         icon: 'error',
                         title: 'Error de conexión',
                         text: 'Error al conectar con el servidor',
-                        confirmButtonColor: '#198754',
+                        confirmButtonColor: '#146c2e',
                         allowOutsideClick: false,
                         focusConfirm: true
                     }).then(() => {

@@ -9,6 +9,7 @@ urlpatterns = [
     path('test/', views.test_printer, name='test_printer'),
     path('test/<int:printer_id>/', views.test_specific_printer, name='test_specific_printer'),
     path('config/', views.printer_config, name='printer_config'),
+    path('config/<int:printer_id>/', views.printer_config, name='edit_printer'),
     path('status/', views.printer_status, name='printer_status'),
     path('jobs/', views.print_jobs_list, name='print_jobs_list'),
     path('jobs/retry/<int:job_id>/', views.retry_print_job, name='retry_print_job'),

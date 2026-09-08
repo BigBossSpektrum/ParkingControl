@@ -1,0 +1,426 @@
+/* ==========================================================================
+   Parking Control - tema unificado
+   Fuente unica de verdad del tema claro y de las reglas responsive.
+   Se carga DESPUES de Bootstrap desde app_page/templates/app_page/base.html.
+
+   El HTML declara data-bs-theme="light", asi que las utilidades de Bootstrap
+   5.3 (bg-body-tertiary, text-body, text-body-secondary...) ya resuelven solas.
+   Aqui solo se define la identidad propia y lo que Bootstrap no cubre.
+   ========================================================================== */
+
+:root {
+    /* --- Color ---------------------------------------------------------
+       Paleta clara y poco saturada. El verde deja de ser el color del texto
+       y pasa a ser solo acento: boton primario, enlaces y estado activo.
+       Antes el texto era #5df75d sobre negro, lo que tenia mucho contraste
+       pero repintaba pantallas enteras de un unico color brillante. */
+    --pc-bg: #f7f8f9;           /* fondo de pagina */
+    --pc-surface: #ffffff;      /* tarjetas, tablas */
+    --pc-surface-alt: #eef0f2;  /* cabeceras de tabla, zonas destacadas */
+    --pc-border: #d6dade;
+    --pc-fg: #1b1e21;           /* texto principal - 15,8:1 sobre --pc-bg */
+    --pc-fg-muted: #5a6169;     /* texto secundario - 5,9:1 sobre --pc-bg */
+    --pc-accent: #146c2e;       /* verde de marca - 6,4:1 sobre blanco */
+    --pc-accent-hover: #0f5423;
+    --pc-on-accent: #ffffff;    /* texto sobre el acento */
+
+    /* --- Tipografia ----------------------------------------------------
+       Escala de 6 pasos. Antes habia 13 tamanos sueltos sin relacion entre
+       si (0.7 / 0.75 / 0.8 / 0.85 / 0.875 / 0.9 / 0.95 / 1.3 rem y 8 / 10 /
+       12 / 16 px), cada uno inventado en su plantilla. */
+    --pc-fs-xs: 0.75rem;
+    --pc-fs-sm: 0.875rem;
+    --pc-fs-base: 1rem;
+    --pc-fs-lg: 1.125rem;
+    --pc-fs-xl: 1.375rem;
+    --pc-fs-2xl: 1.75rem;
+
+    /* El peso maximo es 600: 700+ sobre fondo claro engorda el trazo y es
+       parte de la sensacion de "saturado". */
+    --pc-fw-normal: 400;
+    --pc-fw-medium: 500;
+    --pc-fw-bold: 600;
+
+    --pc-lh-tight: 1.25;
+    --pc-lh-base: 1.5;
+}
+
+/* --------------------------------------------------------------------------
+   Base
+   -------------------------------------------------------------------------- */
+
+body {
+    background: var(--pc-bg);
+    color: var(--pc-fg);
+    font-size: var(--pc-fs-base);
+    line-height: var(--pc-lh-base);
+    /* Red de seguridad: ninguna vista debe arrastrar la pagina en horizontal.
+       Las tablas anchas scrollean dentro de su .table-responsive. */
+    overflow-x: hidden;
+}
+
+/* --- Imagen de fondo -------------------------------------------------------
+   El CSS no puede resolver {% static %}, asi que la URL entra como variable
+   desde la plantilla: base.html pone la imagen de la app y login.html la suya.
+   Sin variable definida el fondo es el color plano de siempre.
+
+   Son dos capas fijas detras de todo: la foto y un velo que le baja el
+   contraste. El velo no es decorativo - sin el, las tablas y el texto sobre
+   zonas claras de la foto dejan de ser legibles. */
+body::before,
+body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+}
+body::before {
+    background: var(--pc-bg-image, none) center / cover no-repeat;
+    z-index: -2;
+}
+body::after {
+    background: var(--pc-bg-veil, none);
+    z-index: -1;
+}
+
+/* Titulos: un unico ramp, con el peso limitado a --pc-fw-bold. */
+h1, .h1 { font-size: var(--pc-fs-2xl); }
+h2, .h2 { font-size: var(--pc-fs-xl); }
+h3, .h3 { font-size: var(--pc-fs-lg); }
+h4, .h4,
+h5, .h5,
+h6, .h6 { font-size: var(--pc-fs-base); }
+
+h1, h2, h3, h4, h5, h6,
+.h1, .h2, .h3, .h4, .h5, .h6 {
+    font-weight: var(--pc-fw-bold);
+    line-height: var(--pc-lh-tight);
+    color: var(--pc-fg);
+}
+
+/* Los <a class="btn"> son botones, no enlaces: el color del texto lo pone la regla
+   del boton. Sin el :not(.btn), a:visited (0,1,1) le gana a .btn-success (0,1,0) y
+   el texto queda verde sobre el fondo verde del propio boton. */
+a:not(.btn),
+a:not(.btn):visited {
+    color: var(--pc-accent);
+}
+
+a:not(.btn):hover,
+a:not(.btn):focus {
+    color: var(--pc-accent-hover);
+}
+
+.navbar, .table, .btn, .form-control {
+    border-radius: 0 !important;
+}
+
+/* Texto secundario: un solo tono en lugar de text-muted + opacidades sueltas. */
+.text-body-secondary,
+.text-muted {
+    color: var(--pc-fg-muted) !important;
+}
+
+/* --------------------------------------------------------------------------
+   Componentes
+   -------------------------------------------------------------------------- */
+
+.card {
+    background: var(--pc-surface);
+    border-color: var(--pc-border);
+}
+
+.table {
+    background: var(--pc-surface);
+    color: var(--pc-fg);
+}
+
+.table th, .table td {
+    border-color: var(--pc-border);
+}
+
+.table thead th {
+    background: var(--pc-surface-alt);
+    font-weight: var(--pc-fw-medium);
+}
+
+.list-group-item {
+    background: var(--pc-surface);
+    color: var(--pc-fg);
+    border-color: var(--pc-border);
+}
+
+.btn-success, .btn-success:focus {
+    background: var(--pc-accent);
+    color: var(--pc-on-accent);
+    border: none;
+}
+
+.btn-success:hover {
+    background: var(--pc-accent-hover);
+    color: var(--pc-on-accent);
+}
+
+.btn-dark, .btn-dark:focus {
+    background: var(--pc-surface);
+    color: var(--pc-fg);
+    border: 1px solid var(--pc-border);
+}
+
+.btn-dark:hover {
+    background: var(--pc-surface-alt);
+    color: var(--pc-fg);
+    border-color: var(--pc-border);
+}
+
+.form-control, .form-select {
+    background: var(--pc-surface);
+    color: var(--pc-fg);
+    border: 1px solid var(--pc-border);
+}
+
+.form-control:focus, .form-select:focus {
+    background: var(--pc-surface);
+    color: var(--pc-fg);
+    border-color: var(--pc-accent);
+    box-shadow: 0 0 0 0.2rem rgba(20, 108, 46, 0.2);
+}
+
+/* --------------------------------------------------------------------------
+   Formularios compactos (etiquetas flotantes)
+   -------------------------------------------------------------------------- */
+
+/* Tarjeta que envuelve un formulario de alta. */
+.form-card {
+    max-width: 520px;
+}
+
+/* Encabezado discreto que sustituye a los antiguos <h2> centrados. */
+.card-title-min {
+    font-size: var(--pc-fs-sm);
+    font-weight: var(--pc-fw-bold);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--pc-fg-muted);
+}
+
+.form-floating > label {
+    color: var(--pc-fg-muted);
+}
+
+/* Bootstrap dibuja un ::after DETRAS de la etiqueta ya flotada usando el color
+   de fondo del documento; sobre una superficie distinta aparecería como una
+   barra cruzando el campo. Se reajusta al fondo del propio control. */
+.form-floating > .form-control:focus ~ label::after,
+.form-floating > .form-control:not(:placeholder-shown) ~ label::after,
+.form-floating > .form-select ~ label::after {
+    background-color: var(--pc-surface);
+}
+
+.form-floating > .form-control:focus ~ label,
+.form-floating > .form-control:not(:placeholder-shown) ~ label,
+.form-floating > .form-select ~ label {
+    color: var(--pc-accent);
+}
+
+/* --------------------------------------------------------------------------
+   Navbar colapsable
+   -------------------------------------------------------------------------- */
+
+.navbar {
+    border-bottom: 1px solid var(--pc-border);
+}
+
+.navbar-toggler {
+    border-color: var(--pc-border);
+}
+
+.navbar-toggler:focus {
+    box-shadow: 0 0 0 0.2rem rgba(20, 108, 46, 0.2);
+}
+
+.navbar-brand {
+    font-size: var(--pc-fs-base);
+    font-weight: var(--pc-fw-bold);
+    letter-spacing: 0.02em;
+    color: var(--pc-fg);
+}
+
+/* Enlaces de navegación: texto legible con estado activo inequívoco. */
+.nav-principal .nav-link {
+    color: var(--pc-fg);
+    font-size: var(--pc-fs-sm);
+    font-weight: var(--pc-fw-medium);
+    padding: 0.5rem 0.85rem;
+}
+
+.nav-principal .nav-link:hover,
+.nav-principal .nav-link:focus {
+    color: var(--pc-accent);
+}
+
+.nav-principal .nav-link.active {
+    background: var(--pc-accent);
+    color: var(--pc-on-accent);
+    font-weight: var(--pc-fw-bold);
+}
+
+/* Contadores e identidad de sesion. Antes eran tres badges de tres colores
+   distintos (success / warning / info) compitiendo en la barra superior; el
+   dato lo da el numero, no el color. */
+.badge-contador {
+    background: var(--pc-surface-alt);
+    color: var(--pc-fg);
+    border: 1px solid var(--pc-border);
+    font-size: var(--pc-fs-xs);
+    font-weight: var(--pc-fw-medium);
+    padding: 0.4rem 0.6rem;
+}
+
+/* Separador entre el grupo de enlaces y el de información. */
+@media (min-width: 992px) {
+    .navbar-info {
+        border-left: 1px solid var(--pc-border);
+        padding-left: 1rem;
+    }
+}
+
+/* Por debajo de lg el menu se despliega en vertical: el separador pasa a
+   horizontal y los elementos ocupan el ancho completo. */
+@media (max-width: 991.98px) {
+    .navbar-info {
+        border-top: 1px solid var(--pc-border);
+        padding-top: 0.75rem;
+        margin-top: 0.5rem;
+    }
+
+    .navbar-collapse .btn {
+        width: 100%;
+    }
+
+    .navbar-collapse > .d-flex,
+    .navbar-collapse .navbar-info {
+        align-items: stretch !important;
+    }
+
+    /* Al dejar de ser botones, estos enlaces quedaban fuera de la regla de
+       44px que theme.css aplica a .btn. */
+    .nav-principal .nav-link {
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+    }
+}
+
+/* --------------------------------------------------------------------------
+   Pie de pagina
+   -------------------------------------------------------------------------- */
+
+.site-footer {
+    background: var(--pc-surface-alt);
+    border-top: 1px solid var(--pc-border);
+}
+
+.site-footer p {
+    color: var(--pc-fg-muted);
+    font-size: var(--pc-fs-sm);
+}
+
+/* --------------------------------------------------------------------------
+   Accesibilidad tactil en movil
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 767.98px) {
+    /* iOS Safari hace zoom automatico e irreversible al enfocar un campo con
+       font-size < 16px. Esta regla lo evita en todo el sistema. */
+    .form-control,
+    .form-select,
+    input[type="text"],
+    input[type="password"],
+    input[type="date"],
+    input[type="number"],
+    input[type="tel"],
+    select,
+    textarea {
+        font-size: 16px !important;
+    }
+
+    /* Objetivo tactil minimo recomendado (~44px). */
+    .btn {
+        min-height: 44px;
+    }
+
+    /* Los botones de accion de tabla son iconos cuadrados: se les da un
+       minimo algo menor pero todavia pulsable. */
+    .btn-sm,
+    .btn-group .btn-sm {
+        min-height: 40px;
+        min-width: 40px;
+    }
+
+    /* Las botoneras de fila se mantienen horizontales pero con separacion. */
+    .btn-group .btn + .btn {
+        margin-left: 2px;
+    }
+}
+
+/* --------------------------------------------------------------------------
+   Indicador de carga
+   -------------------------------------------------------------------------- */
+
+/* Sustituye a .fa-spin, que venia de Font Awesome (libreria que nunca se
+   cargaba). Es feedback de "estoy trabajando", no decoracion, por eso se
+   conserva; se respeta la preferencia de movimiento reducido del sistema. */
+.icono-girando {
+    display: inline-block;
+    animation: pc-girar 1.5s linear infinite;
+}
+
+@keyframes pc-girar {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .icono-girando {
+        animation: none;
+    }
+}
+
+/* --------------------------------------------------------------------------
+   Auto-ocultar (ver app_page/js/auto-ocultar.js)
+   -------------------------------------------------------------------------- */
+
+/* La clase de transicion la aplica el JS al arrancar; sin JavaScript el
+   elemento se queda visible en lugar de atrapado a media opacidad. */
+.auto-ocultar-fade {
+    transition: opacity 0.5s ease;
+}
+
+.auto-ocultar-oculto {
+    opacity: 0;
+}
+
+/* --------------------------------------------------------------------------
+   SweetAlert2
+   -------------------------------------------------------------------------- */
+
+/* width: '90%' evita que el popup se salga de pantalla en movil; el
+   max-width lo devuelve a un ancho comodo en escritorio. */
+.swal-salida-popup {
+    max-width: 600px;
+}
+
+/* --------------------------------------------------------------------------
+   Tablas anchas
+   -------------------------------------------------------------------------- */
+
+.table-responsive {
+    -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 767.98px) {
+    .table-responsive > .table {
+        font-size: var(--pc-fs-sm);
+    }
+}

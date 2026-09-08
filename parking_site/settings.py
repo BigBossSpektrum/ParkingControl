@@ -1,4 +1,6 @@
 from pathlib import Path
+
+from django.contrib.messages import constants as messages
 # Media files (debe ir después de BASE_DIR)
 # ...
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -140,6 +142,12 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Bootstrap llama "danger" a lo que Django etiqueta como "error"; sin este mapeo
+# base.html generaria una clase .alert-error que no existe y el mensaje saldria sin estilo.
+MESSAGE_TAGS = {
+    messages.ERROR: 'danger',
+}
 
 # Login/Logout URLs
 LOGIN_URL = '/login/'

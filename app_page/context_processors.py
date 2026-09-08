@@ -8,7 +8,9 @@ def user_profile_context(request):
         perfil = get_user_profile(request.user)
         
         # Estadísticas básicas para la barra de navegación
-        hoy = timezone.now().date()
+        # localdate() da la fecha en TIME_ZONE (America/Bogota); now().date()
+        # daria la fecha UTC y a partir de las 19:00 locales no coincidirian.
+        hoy = timezone.localdate()
         
         clientes_hoy = Cliente.objects.filter(
             fecha_entrada__date=hoy

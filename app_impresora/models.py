@@ -39,6 +39,12 @@ class PrinterConfiguration(models.Model):
     def __str__(self):
         return f"{self.name} - {self.model}"
 
+    def save(self, *args, **kwargs):
+        # Solo una impresora puede estar activa a la vez.
+        if self.is_active:
+            PrinterConfiguration.objects.filter(is_active=True).exclude(pk=self.pk).update(is_active=False)
+        super().save(*args, **kwargs)
+
 
 class TicketDesignConfiguration(models.Model):
     """Configuración de diseño para los tickets"""

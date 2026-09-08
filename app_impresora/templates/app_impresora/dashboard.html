@@ -6,32 +6,34 @@
 {% block extra_head %}
 <style>
     .printer-card {
-        background: #fff;
+        background: var(--pc-surface);
+        border: 1px solid var(--pc-border);
         border-radius: 10px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
         padding: 1.5rem;
         margin-bottom: 1.5rem;
         transition: all 0.3s ease;
     }
     .printer-card:hover {
-        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
+    /* El borde lateral si comunica estado (activa / inactiva). */
     .printer-active {
-        border-left: 4px solid #28a745;
+        border-left: 4px solid var(--pc-accent);
     }
     .printer-inactive {
-        border-left: 4px solid #6c757d;
+        border-left: 4px solid var(--pc-border);
     }
     .simulation-mode {
-        background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
-        border: 1px solid #2196f3;
-        color: #0d47a1;
+        background: var(--pc-surface-alt);
+        border: 1px solid var(--pc-border);
+        color: var(--pc-fg);
         padding: 1rem;
         border-radius: 8px;
         margin-bottom: 1.5rem;
     }
     .quick-actions {
-        background: #f8f9fa;
+        background: var(--pc-surface-alt);
         border-radius: 8px;
         padding: 1.5rem;
         margin-bottom: 1.5rem;
@@ -42,25 +44,28 @@
     .empty-state {
         text-align: center;
         padding: 3rem;
-        background: #f8f9fa;
+        background: var(--pc-surface-alt);
         border-radius: 10px;
         margin: 2rem 0;
     }
     
     /* Estilos para previsualización de impresión */
+    /* La previsualizacion imita el ticket termico real: monoespaciada y en px,
+       porque debe reproducir el ancho de 80mm del papel. No se toca. */
     .ticket-preview {
         background: #fff;
-        border: 2px dashed #ccc;
+        border: 2px dashed var(--pc-border);
         border-radius: 8px;
         padding: 20px;
         font-family: 'Courier New', monospace;
         font-size: 12px;
         line-height: 1.4;
+        color: #000;
         width: 80mm;
         margin: 0 auto;
         position: relative;
     }
-    
+
     .ticket-header {
         text-align: center;
         border-bottom: 1px solid #ddd;
@@ -85,18 +90,18 @@
     }
     
     .design-controls {
-        background: #f8f9fa;
+        background: var(--pc-surface-alt);
         border-radius: 8px;
         padding: 20px;
         margin-bottom: 20px;
     }
-    
+
     .control-group {
         margin-bottom: 15px;
     }
-    
+
     .control-group label {
-        font-weight: bold;
+        font-weight: var(--pc-fw-medium);
         margin-bottom: 5px;
         display: block;
     }
@@ -117,15 +122,16 @@
     
     .font-option {
         padding: 5px 10px;
-        border: 1px solid #ddd;
+        border: 1px solid var(--pc-border);
         border-radius: 4px;
         cursor: pointer;
-        background: #fff;
+        background: var(--pc-surface);
     }
-    
+
     .font-option.active {
-        background: #007bff;
-        color: #fff;
+        background: var(--pc-accent);
+        color: var(--pc-on-accent);
+        border-color: var(--pc-accent);
     }
     
     .preview-modal {
@@ -139,17 +145,17 @@
     .template-card {
         cursor: pointer;
         transition: all 0.3s ease;
-        border: 2px solid #e9ecef;
+        border: 2px solid var(--pc-border);
     }
-    
+
     .template-card:hover {
-        border-color: #007bff;
-        box-shadow: 0 4px 8px rgba(0,123,255,0.2);
+        border-color: var(--pc-fg-muted);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
     }
-    
+
     .template-card.selected {
-        border-color: #28a745;
-        background-color: #f8fff9;
+        border-color: var(--pc-accent);
+        background-color: var(--pc-surface-alt);
     }
 </style>
 {% endblock %}
@@ -159,12 +165,12 @@
     <!-- Header -->
     <div class="row mb-4">
         <div class="col-md-8">
-            <h2><i class="fas fa-print text-primary"></i> Panel de Control de Impresoras</h2>
-            <p class="text-white">Gestiona tus impresoras térmicas para el sistema de parking</p>
+            <h2><i class="bi bi-printer me-1"></i> Panel de Control de Impresoras</h2>
+            <p class="text-body-secondary">Gestiona tus impresoras térmicas para el sistema de parking</p>
         </div>
         <div class="col-md-4 text-end">
-            <a href="{% url 'add_printer' %}" class="btn btn-success btn-lg text-dark">
-            <i class="fas fa-plus-circle"></i> Agregar Impresora
+            <a href="{% url 'add_printer' %}" class="btn btn-success btn-lg">
+            <i class="bi bi-plus-circle"></i> Agregar Impresora
             </a>
         </div>
     </div>
@@ -174,12 +180,12 @@
     <div class="simulation-mode">
         <div class="row align-items-center">
             <div class="col-md-8">
-                <h5><i class="fas fa-flask"></i> Modo Simulación Activo</h5>
+                <h5><i class="bi bi-clipboard-check"></i> Modo Simulación Activo</h5>
                 <p class="mb-0">Las impresiones se simularán. Los tickets no saldrán físicamente.</p>
             </div>
             <div class="col-md-4 text-end">
                 <button id="disable-simulation" class="btn btn-outline-primary">
-                    <i class="fas fa-power-off"></i> Activar Modo Real
+                    <i class="bi bi-power"></i> Activar Modo Real
                 </button>
             </div>
         </div>
@@ -189,27 +195,27 @@
     <!-- Acciones Rápidas -->
     {% if printers %}
     <div class="quick-actions">
-        <h5><i class="fas fa-bolt text-warning"></i> Acciones Rápidas</h5>
+        <h5><i class="bi bi-lightning-charge me-1"></i> Acciones Rápidas</h5>
         <div class="row">
-            <div class="col-md-2">
+            <div class="col-6 col-md-4 col-lg-2">
                 <button id="test-active-printer" class="btn btn-primary w-100">
-                    <i class="fas fa-print"></i> Probar Activa
+                    <i class="bi bi-printer"></i> Probar Activa
                 </button>
             </div>
-            <div class="col-md-2">
+            <div class="col-6 col-md-4 col-lg-2">
                 <button id="preview-design" class="btn btn-info w-100">
-                    <i class="fas fa-eye"></i> Previsualizar
+                    <i class="bi bi-eye"></i> Previsualizar
                 </button>
             </div>
-            <div class="col-md-2">
+            <div class="col-6 col-md-4 col-lg-2">
                 <button id="refresh-status" class="btn btn-outline-secondary w-100">
-                    <i class="fas fa-sync-alt"></i> Actualizar
+                    <i class="bi bi-arrow-clockwise"></i> Actualizar
                 </button>
             </div>
 
-            <div class="col-md-2">
+            <div class="col-6 col-md-4 col-lg-2">
                 <button id="customize-design" class="btn btn-success w-100">
-                    <i class="fas fa-palette"></i> Personalizar
+                    <i class="bi bi-palette"></i> Personalizar
                 </button>
             </div>
         </div>
@@ -220,7 +226,7 @@
     {% if printers %}
     <div class="row">
         <div class="col-12">
-            <h4><i class="fas fa-list"></i> Impresoras Configuradas ({{ printers|length }})</h4>
+            <h4><i class="bi bi-list-ul"></i> Impresoras Configuradas ({{ printers|length }})</h4>
             {% for printer in printers %}
             <div class="printer-card {% if printer.is_active %}printer-active{% else %}printer-inactive{% endif %}">
                 <div class="row align-items-center">
@@ -228,16 +234,16 @@
                         <div class="d-flex align-items-center">
                             <div class="me-3">
                                 {% if printer.is_active %}
-                                    <i class="fas fa-circle text-success fa-lg"></i>
+                                    <i class="bi bi-circle-fill text-success"></i>
                                 {% else %}
-                                    <i class="fas fa-circle text-secondary fa-lg"></i>
+                                    <i class="bi bi-circle-fill text-body-secondary"></i>
                                 {% endif %}
                             </div>
                             <div>
                                 <h5 class="mb-1">{{ printer.name }}</h5>
-                                <p class="text-muted mb-1">
-                                    <i class="fas fa-cog"></i> {{ printer.get_printer_type_display }} | 
-                                    <i class="fas fa-plug"></i> {{ printer.connection_string|truncatechars:30 }}
+                                <p class="text-body-secondary mb-1">
+                                    <i class="bi bi-gear"></i> {{ printer.get_printer_type_display }} | 
+                                    <i class="bi bi-plug"></i> {{ printer.connection_string|truncatechars:30 }}
                                 </p>
                                 <span class="badge {% if printer.is_active %}bg-success{% else %}bg-secondary{% endif %}">
                                     {% if printer.is_active %}Activa{% else %}Inactiva{% endif %}
@@ -247,32 +253,36 @@
                     </div>
                     <div class="col-md-4 text-end">
                         <div class="btn-group btn-action" role="group">
-                            <button class="btn btn-sm btn-outline-primary" 
+                            <a class="btn btn-sm btn-outline-secondary"
+                               href="{% url 'edit_printer' printer.id %}"
+                               title="Editar configuración de la impresora">
+                                <i class="bi bi-pencil"></i> Editar
+                            </a>
+
+                            <button class="btn btn-sm btn-outline-primary"
                                     onclick="testSpecificPrinter({{ printer.id }})"
                                     title="Probar impresora - Enviar ticket de prueba">
-                                <i class="fas fa-print"></i> Probar
+                                <i class="bi bi-printer"></i> Probar
                             </button>
-                            
+
                             {% if not printer.is_active %}
-                            <button class="btn btn-sm btn-success" 
+                            <button class="btn btn-sm btn-success"
                                     onclick="activatePrinter({{ printer.id }})"
                                     title="Activar impresora">
-                                <i class="fas fa-power-off"></i> Activar
+                                <i class="bi bi-power"></i> Activar
                             </button>
                             {% else %}
-                            <button class="btn btn-sm btn-warning" 
+                            <button class="btn btn-sm btn-warning"
                                     onclick="deactivatePrinter({{ printer.id }})"
-                                    title="Desactivar impresora"
-                                    {% if printers|length == 1 %}disabled title="No puedes desactivar la única impresora"{% endif %}>
-                                <i class="fas fa-pause-circle"></i> Pausar
+                                    title="Desactivar impresora">
+                                <i class="bi bi-pause-circle"></i> Pausar
                             </button>
                             {% endif %}
-                            
-                            <button class="btn btn-sm btn-danger" 
-                                    onclick="deletePrinter({{ printer.id }}, '{{ printer.name|escapejs }}')"
-                                    title="Eliminar impresora permanentemente"
-                                    {% if printer.is_active and printers|length == 1 %}disabled title="No puedes eliminar la única impresora activa"{% endif %}>
-                                <i class="fas fa-trash-alt"></i> Eliminar
+
+                            <button class="btn btn-sm btn-danger"
+                                    onclick="deletePrinter({{ printer.id }}, '{{ printer.name|escapejs }}', {{ printer.printjob_set.count }})"
+                                    title="Eliminar impresora permanentemente">
+                                <i class="bi bi-trash"></i> Eliminar
                             </button>
                         </div>
                     </div>
@@ -284,11 +294,11 @@
     {% else %}
     <!-- Sin impresoras configuradas -->
     <div class="empty-state">
-        <i class="fas fa-printer fa-5x text-muted mb-3"></i>
+        <i class="bi bi-printer fs-1 text-muted mb-3"></i>
         <h4>No hay impresoras configuradas</h4>
-        <p class="text-muted mb-4">Agrega tu primera impresora para comenzar a imprimir tickets QR automáticamente</p>
+        <p class="text-body-secondary mb-4">Agrega tu primera impresora para comenzar a imprimir tickets QR automáticamente</p>
         <a href="{% url 'add_printer' %}" class="btn btn-success btn-lg">
-            <i class="fas fa-plus-circle"></i> Agregar Primera Impresora
+            <i class="bi bi-plus-circle"></i> Agregar Primera Impresora
         </a>
     </div>
     {% endif %}
@@ -298,9 +308,9 @@
     <div class="row mt-4">
         <div class="col-12">
             <div class="d-flex justify-content-between align-items-center mb-3">
-                <h4><i class="fas fa-clock text-info"></i> Trabajos Recientes</h4>
+                <h4><i class="bi bi-clock me-1"></i> Trabajos Recientes</h4>
                 <a href="{% url 'print_jobs_list' %}" class="btn btn-outline-primary btn-sm">
-                    <i class="fas fa-external-link-alt"></i> Ver Todos
+                    <i class="bi bi-box-arrow-up-right"></i> Ver Todos
                 </a>
             </div>
             
@@ -335,7 +345,7 @@
                             <td>
                                 {% if job.status == 'FAILED' %}
                                     <button class="btn btn-sm btn-outline-warning" onclick="retryPrintJob({{ job.id }})" title="Reintentar impresión">
-                                        <i class="fas fa-redo-alt"></i>
+                                        <i class="bi bi-arrow-clockwise"></i>
                                     </button>
                                 {% endif %}
                             </td>
@@ -354,7 +364,7 @@
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title"><i class="fas fa-eye"></i> Previsualización del Ticket</h5>
+                <h5 class="modal-title"><i class="bi bi-eye"></i> Previsualización del Ticket</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
@@ -393,10 +403,10 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
                 <button type="button" class="btn btn-success" onclick="openCustomizeModal()">
-                    <i class="fas fa-palette"></i> Personalizar Diseño
+                    <i class="bi bi-palette"></i> Personalizar Diseño
                 </button>
                 <button type="button" class="btn btn-primary" onclick="printPreview()">
-                    <i class="fas fa-print"></i> Imprimir Prueba
+                    <i class="bi bi-printer"></i> Imprimir Prueba
                 </button>
             </div>
         </div>
@@ -408,14 +418,14 @@
     <div class="modal-dialog modal-xl">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title"><i class="fas fa-palette"></i> Personalizar Diseño del Ticket</h5>
+                <h5 class="modal-title"><i class="bi bi-palette"></i> Personalizar Diseño del Ticket</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <div class="row">
                     <div class="col-md-4">
                         <div class="design-controls">
-                            <h6><i class="fas fa-paint-brush"></i> Configuración de Diseño</h6>
+                            <h6><i class="bi bi-brush"></i> Configuración de Diseño</h6>
                             
                             <div class="control-group">
                                 <label>Fuente del Ticket:</label>
@@ -485,7 +495,7 @@ Gracias por su visita</textarea>
                                 <div class="col-md-4">
                                     <div class="card template-card" onclick="loadTemplate('minimal')">
                                         <div class="card-body text-center">
-                                            <i class="fas fa-file-alt fa-2x mb-2"></i>
+                                            <i class="bi bi-file-text fs-2 mb-2"></i>
                                             <h6>Minimal</h6>
                                             <small>Solo datos esenciales</small>
                                         </div>
@@ -494,7 +504,7 @@ Gracias por su visita</textarea>
                                 <div class="col-md-4">
                                     <div class="card template-card" onclick="loadTemplate('completo')">
                                         <div class="card-body text-center">
-                                            <i class="fas fa-file-invoice fa-2x mb-2"></i>
+                                            <i class="bi bi-receipt fs-2 mb-2"></i>
                                             <h6>Completo</h6>
                                             <small>Todos los elementos</small>
                                         </div>
@@ -503,7 +513,7 @@ Gracias por su visita</textarea>
                                 <div class="col-md-4">
                                     <div class="card template-card" onclick="loadTemplate('empresarial')">
                                         <div class="card-body text-center">
-                                            <i class="fas fa-building fa-2x mb-2"></i>
+                                            <i class="bi bi-building fs-2 mb-2"></i>
                                             <h6>Empresarial</h6>
                                             <small>Formal y profesional</small>
                                         </div>
@@ -517,10 +527,10 @@ Gracias por su visita</textarea>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                 <button type="button" class="btn btn-primary" onclick="saveDesignSettings()">
-                    <i class="fas fa-save"></i> Guardar Configuración
+                    <i class="bi bi-save"></i> Guardar Configuración
                 </button>
                 <button type="button" class="btn btn-success" onclick="printCustomPreview()">
-                    <i class="fas fa-print"></i> Imprimir Prueba
+                    <i class="bi bi-printer"></i> Imprimir Prueba
                 </button>
             </div>
         </div>
@@ -565,7 +575,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // Probar impresora activa
 document.getElementById('test-active-printer')?.addEventListener('click', function() {
     this.disabled = true;
-    this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Probando...';
+    this.innerHTML = '<i class="bi bi-arrow-repeat icono-girando"></i> Probando...';
     
     fetch('{% url "test_printer" %}', {
         method: 'POST',
@@ -583,7 +593,7 @@ document.getElementById('test-active-printer')?.addEventListener('click', functi
     })
     .finally(() => {
         this.disabled = false;
-        this.innerHTML = '<i class="fas fa-print"></i> Probar Activa';
+        this.innerHTML = '<i class="bi bi-printer"></i> Probar Activa';
     });
 });
 
@@ -720,10 +730,15 @@ function deactivatePrinter(printerId) {
 }
 
 // Eliminar impresora
-function deletePrinter(printerId, printerName) {
+function deletePrinter(printerId, printerName, jobsCount) {
+    let texto = `Se eliminará permanentemente "${printerName}"`;
+    if (jobsCount > 0) {
+        texto += `, junto a sus ${jobsCount} trabajo(s) de impresión`;
+    }
+
     Swal.fire({
         title: '¿Eliminar impresora?',
-        text: `Se eliminará permanentemente "${printerName}"`,
+        text: texto,
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#d33',

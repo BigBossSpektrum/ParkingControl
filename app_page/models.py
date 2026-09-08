@@ -1,3 +1,4 @@
+from decimal import Decimal
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
@@ -5,6 +6,7 @@ from PIL import Image, ImageDraw, ImageFont
 import qrcode
 from io import BytesIO
 from django.core.files.base import ContentFile
+from .formato import fecha_local
 
 class Cliente(models.Model):
 	TIPO_VEHICULO_CHOICES = [
@@ -22,7 +24,23 @@ class Cliente(models.Model):
 	tiempo_parking = models.PositiveIntegerField(null=True, blank=True, help_text='Tiempo en minutos')
 	fecha_entrada = models.DateTimeField(null=True, blank=True)
 	fecha_salida = models.DateTimeField(null=True, blank=True)
+	monto_cobrado = models.DecimalField(
+		max_digits=12, decimal_places=2, null=True, blank=True,
+		verbose_name="Monto cobrado",
+		help_text='Cobro congelado al registrar la salida; no lo alteran los cambios de tarifa posteriores'
+	)
+	tarifa_aplicada = models.DecimalField(
+		max_digits=10, decimal_places=2, null=True, blank=True,
+		verbose_name="Tarifa aplicada",
+		help_text='Tarifa unitaria del cobro: por minuto, o el costo fijo si fue tarifa plena'
+	)
+	cobrado_con_tarifa_plena = models.BooleanField(
+		default=False,
+		verbose_name="Cobrado con tarifa plena",
+		help_text='Modalidad vigente al registrar la salida'
+	)
 	qr_image = models.ImageField(upload_to='qr_codes/', null=True, blank=True)
+	foto = models.ImageField(upload_to='fotos_clientes/', null=True, blank=True, verbose_name="Fotografía")
 
 	def generate_qr_with_data(self):
 		"""Genera un QR con datos adicionales integrados en la imagen"""
@@ -73,7 +91,7 @@ class Cliente(models.Model):
 				font_small = ImageFont.load_default()
 			
 			# Datos a mostrar
-			fecha_str = self.fecha_entrada.strftime('%d/%m/%Y %H:%M')
+			fecha_str = fecha_local(self.fecha_entrada)
 			matricula_str = f"Matrícula: {self.matricula}"
 			hora_str = f"Entrada: {fecha_str}"
 			id_str = f"ID: {self.id}"
@@ -258,76 +276,93 @@ class Cliente(models.Model):
 		
 		return ", ".join(partes)
 
+	def _cobro_vigente(self, tiempo_minutos):
+		"""Devuelve (monto, tarifa_unitaria, es_plena) segun las tarifas vigentes hoy."""
+		tarifa_plena = TarifaPlena.get_tarifa_actual()
+
+		if tarifa_plena.activa:
+			# Si la tarifa plena esta activa, usar costo fijo
+			unitaria = tarifa_plena.get_costo_por_tipo(self.tipo_vehiculo)
+			return float(unitaria), unitaria, True
+
+		# Si no, usar el calculo por minutos normal
+		costos = Costo.get_costos_actuales()
+		unitaria = costos.get_costo_por_tipo(self.tipo_vehiculo)
+		return float(unitaria) * max(1, tiempo_minutos), unitaria, False
+
+	def cobro_congelado(self):
+		"""Indica si el cobro ya quedo fijado al registrar la salida"""
+		return self.monto_cobrado is not None
+
+	def congelar_cobro(self):
+		"""Fija el cobro con las tarifas vigentes al registrar la salida.
+
+		Requiere fecha_salida ya asignada, porque mide el tiempo hasta ella. No
+		guarda el registro: de eso se encarga quien llama.
+		"""
+		monto, unitaria, plena = self._cobro_vigente(self.tiempo_en_minutos())
+		self.monto_cobrado = Decimal(str(round(monto, 2)))
+		self.tarifa_aplicada = unitaria
+		self.cobrado_con_tarifa_plena = plena
+		return float(self.monto_cobrado)
+
 	def calcular_costo(self):
-		"""Calcula el costo total basado en el tiempo y tipo de vehículo"""
+		"""Costo total: el congelado si el vehiculo ya salio, el vigente si sigue dentro"""
 		if not self.fecha_entrada:
 			return 0.00
-		
-		# Verificar si la tarifa plena está activa
-		tarifa_plena = TarifaPlena.get_tarifa_actual()
-		
-		if tarifa_plena.activa:
-			# Si la tarifa plena está activa, usar costo fijo
-			return float(tarifa_plena.get_costo_por_tipo(self.tipo_vehiculo))
-		else:
-			# Si no, usar el cálculo por minutos normal
-			costos = Costo.get_costos_actuales()
-			tiempo_minutos = max(1, self.tiempo_en_minutos())
-			costo_por_minuto = costos.get_costo_por_tipo(self.tipo_vehiculo)
-			return float(costo_por_minuto) * tiempo_minutos
-	
+
+		if self.cobro_congelado():
+			return float(self.monto_cobrado)
+
+		return self._cobro_vigente(self.tiempo_en_minutos())[0]
+
 	def costo_formateado(self):
 		"""Devuelve el costo formateado como string"""
 		costo = self.calcular_costo()
-		tarifa_plena = TarifaPlena.get_tarifa_actual()
-		
-		if tarifa_plena.activa:
+
+		if self.es_tarifa_plena():
 			return f"${costo:,.2f} (Tarifa Plena)"
 		else:
 			return f"${costo:,.2f}"
-	
+
 	def es_tarifa_plena(self):
-		"""Verifica si este cliente está usando tarifa plena"""
-		tarifa_plena = TarifaPlena.get_tarifa_actual()
-		return tarifa_plena.activa
+		"""Modalidad del cobro: la aplicada al salir, o la vigente si sigue dentro"""
+		if self.cobro_congelado():
+			return self.cobrado_con_tarifa_plena
+
+		return TarifaPlena.get_tarifa_actual().activa
 
 	def costo_por_tiempo(self):
-		"""Calcula el costo por minuto del tipo de vehículo"""
+		"""Tarifa unitaria del cobro: la aplicada al salir, o la vigente si sigue dentro"""
+		if self.cobro_congelado() and self.tarifa_aplicada is not None:
+			return float(self.tarifa_aplicada)
+
 		if not hasattr(self, '_costo_por_tiempo'):
 			costos = Costo.get_costos_actuales()
 			self._costo_por_tiempo = costos.get_costo_por_tipo(self.tipo_vehiculo)
 		return float(self._costo_por_tiempo)
-	
+
 	def calcular_costo_temporal(self, fecha_salida_temporal):
-		"""Calcula el costo total basado en una fecha de salida temporal (sin modificar el registro)"""
+		"""Cotiza una salida hipotetica con las tarifas vigentes, sin tocar el registro.
+
+		Siempre en vivo: el vehiculo sigue dentro y debe verse el precio de hoy.
+		"""
 		if not self.fecha_entrada:
 			return 0.00
-		
-		# Verificar si la tarifa plena está activa
-		tarifa_plena = TarifaPlena.get_tarifa_actual()
-		
-		if tarifa_plena.activa:
-			# Si la tarifa plena está activa, usar costo fijo
-			return float(tarifa_plena.get_costo_por_tipo(self.tipo_vehiculo))
-		else:
-			# Si no, usar el cálculo por minutos normal
-			costos = Costo.get_costos_actuales()
-			# Calcular minutos temporalmente
-			delta = fecha_salida_temporal - self.fecha_entrada
-			tiempo_minutos = max(1, int(delta.total_seconds() // 60))
-			costo_por_minuto = costos.get_costo_por_tipo(self.tipo_vehiculo)
-			return float(costo_por_minuto) * tiempo_minutos
-	
+
+		delta = fecha_salida_temporal - self.fecha_entrada
+		return self._cobro_vigente(int(delta.total_seconds() // 60))[0]
+
 	def costo_formateado_temporal(self, fecha_salida_temporal):
 		"""Devuelve el costo temporal formateado como string"""
 		costo = self.calcular_costo_temporal(fecha_salida_temporal)
 		tarifa_plena = TarifaPlena.get_tarifa_actual()
-		
+
 		if tarifa_plena.activa:
 			return f"${costo:,.2f} (Tarifa Plena)"
 		else:
 			return f"${costo:,.2f}"
-	
+
 	def tiempo_por_costo(self):
 		"""Calcula la relación tiempo transcurrido dividido por el costo total"""
 		costo_total = self.calcular_costo()
@@ -436,6 +471,7 @@ class Visitante(models.Model):
 	telefono = models.CharField(max_length=20, blank=True, null=True, verbose_name="Número de teléfono")
 	torre = models.CharField(max_length=10, blank=True, null=True, help_text='Torre del apartamento que visita', verbose_name="Torre")
 	apartamento = models.CharField(max_length=10, blank=True, null=True, help_text='Número de apartamento que visita', verbose_name="Apartamento")
+	foto = models.ImageField(upload_to='fotos_visitantes/', null=True, blank=True, verbose_name="Fotografía")
 	fecha_registro = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de registro")
 	fecha_actualizacion = models.DateTimeField(auto_now=True, verbose_name="Última actualización")
 	
@@ -498,6 +534,13 @@ class Costo(models.Model):
 		verbose_name="Costo por minuto - Moto",
 		help_text="Costo en pesos por minuto de estacionamiento para motos"
 	)
+	costo_otro = models.DecimalField(
+		max_digits=10,
+		decimal_places=2,
+		default=0.00,
+		verbose_name="Costo por minuto - Otro",
+		help_text="Costo en pesos por minuto de estacionamiento para otros vehiculos"
+	)
 	fecha_actualizacion = models.DateTimeField(auto_now=True)
 	actualizado_por = models.ForeignKey(
 		User, 
@@ -508,7 +551,7 @@ class Costo(models.Model):
 	)
 	
 	def __str__(self):
-		return f"Auto: ${self.costo_auto}/min - Moto: ${self.costo_moto}/min"
+		return f"Auto: ${self.costo_auto}/min - Moto: ${self.costo_moto}/min - Otro: ${self.costo_otro}/min"
 	
 	def get_costo_por_tipo(self, tipo_vehiculo):
 		"""Devuelve el costo por minuto según el tipo de vehículo"""
@@ -516,8 +559,12 @@ class Costo(models.Model):
 			return self.costo_auto
 		elif tipo_vehiculo.lower() == 'moto':
 			return self.costo_moto
+		elif tipo_vehiculo.lower() == 'otro':
+			return self.costo_otro
 		else:
-			return self.costo_auto  # Por defecto auto
+			# Red de seguridad para datos antiguos o un tipo que se anada
+			# despues sin actualizar aqui: se cobra como auto, no se rompe.
+			return self.costo_auto
 	
 	@classmethod
 	def get_costos_actuales(cls):
@@ -526,7 +573,8 @@ class Costo(models.Model):
 			id=1,  # Solo un registro de costos
 			defaults={
 				'costo_auto': 1.00,  # Valores por defecto: $1 por minuto
-				'costo_moto': 0.50   # $0.50 por minuto
+				'costo_moto': 0.50,  # $0.50 por minuto
+				'costo_otro': 1.00
 			}
 		)
 		return costo
@@ -557,6 +605,13 @@ class TarifaPlena(models.Model):
 		verbose_name="Costo fijo - Moto",
 		help_text="Costo fijo en pesos para motos cuando la tarifa plena está activa"
 	)
+	costo_fijo_otro = models.DecimalField(
+		max_digits=10,
+		decimal_places=2,
+		default=0.00,
+		verbose_name="Costo fijo - Otro",
+		help_text="Costo fijo en pesos para otros vehiculos cuando la tarifa plena está activa"
+	)
 	fecha_actualizacion = models.DateTimeField(auto_now=True)
 	actualizado_por = models.ForeignKey(
 		User, 
@@ -568,7 +623,8 @@ class TarifaPlena(models.Model):
 	
 	def __str__(self):
 		estado = "Activa" if self.activa else "Inactiva"
-		return f"Tarifa Plena ({estado}) - Auto: ${self.costo_fijo_auto} - Moto: ${self.costo_fijo_moto}"
+		return (f"Tarifa Plena ({estado}) - Auto: ${self.costo_fijo_auto} "
+			f"- Moto: ${self.costo_fijo_moto} - Otro: ${self.costo_fijo_otro}")
 	
 	def get_costo_por_tipo(self, tipo_vehiculo):
 		"""Devuelve el costo fijo según el tipo de vehículo"""
@@ -576,8 +632,11 @@ class TarifaPlena(models.Model):
 			return self.costo_fijo_auto
 		elif tipo_vehiculo.lower() == 'moto':
 			return self.costo_fijo_moto
+		elif tipo_vehiculo.lower() == 'otro':
+			return self.costo_fijo_otro
 		else:
-			return self.costo_fijo_auto  # Por defecto auto
+			# Misma red de seguridad que en Costo.get_costo_por_tipo().
+			return self.costo_fijo_auto
 	
 	@classmethod
 	def get_tarifa_actual(cls):
@@ -637,7 +696,7 @@ class Recaudacion(models.Model):
 	)
 	
 	def __str__(self):
-		return f"Corte {self.id} - ${self.monto_recaudado:,.2f} ({self.fecha_corte.strftime('%d/%m/%Y %H:%M')})"
+		return f"Corte {self.id} - ${self.monto_recaudado:,.2f} ({fecha_local(self.fecha_corte)})"
 	
 	@classmethod
 	def get_ultimo_corte(cls):
@@ -666,7 +725,10 @@ class Recaudacion(models.Model):
 			total_recaudado += cliente.calcular_costo()
 			numero_clientes += 1
 		
-		fecha_inicio = fecha_ultimo_corte or timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+		# Sin cortes previos se arranca desde la medianoche LOCAL. timezone.now()
+		# es UTC: replace(hour=0) sobre el da las 19:00 del dia anterior en Bogota.
+		inicio_del_dia = timezone.localtime(timezone.now()).replace(hour=0, minute=0, second=0, microsecond=0)
+		fecha_inicio = fecha_ultimo_corte or inicio_del_dia
 		
 		return {
 			'monto_total': total_recaudado,
@@ -691,8 +753,8 @@ class Recaudacion(models.Model):
 				'cedula': cliente.get_display_cedula(),
 				'matricula': cliente.matricula,
 				'tipo_vehiculo': cliente.get_tipo_vehiculo_display(),
-				'fecha_entrada': cliente.fecha_entrada.strftime('%d/%m/%Y %H:%M') if cliente.fecha_entrada else 'No registrada',
-				'fecha_salida': cliente.fecha_salida.strftime('%d/%m/%Y %H:%M') if cliente.fecha_salida else 'No registrada',
+				'fecha_entrada': fecha_local(cliente.fecha_entrada, 'No registrada'),
+				'fecha_salida': fecha_local(cliente.fecha_salida, 'No registrada'),
 				'tiempo_parking': cliente.tiempo_formateado(),
 				'costo': float(cliente.calcular_costo()),
 				'costo_formateado': cliente.costo_formateado(),

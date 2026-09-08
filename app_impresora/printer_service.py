@@ -17,6 +17,11 @@ from .models import PrinterConfiguration, PrintJob
 
 logger = logging.getLogger(__name__)
 
+# Valor de connection_string que indica "USB directo por vendor/product id",
+# en contraposición al nombre de una impresora instalada en Windows.
+USB_DIRECTO = 'USB_DIRECT'
+
+
 def get_bogota_time(dt=None):
     """Convierte una fecha/hora a la zona horaria de Bogotá"""
     if dt is None:
@@ -70,6 +75,43 @@ class PrinterService:
         logger.info(f"Modo simulación recargado: {self.simulation_mode}")
         return self.simulation_mode
     
+    def _instancia_win32(self, nombre):
+        """Conecta con una impresora instalada en Windows por su nombre exacto."""
+        try:
+            from escpos.printer import Win32Raw
+        except ImportError:
+            raise Exception(
+                "La conexión por nombre de impresora de Windows solo está "
+                "disponible en Windows."
+            )
+
+        try:
+            return Win32Raw(nombre)
+        except Exception as e:
+            raise Exception(
+                f"No se pudo abrir la impresora de Windows '{nombre}': {e}. "
+                f"Comprueba que el nombre coincide exactamente con el de "
+                f"Panel de Control > Dispositivos e Impresoras."
+            )
+
+    def _instancia_usb_directa(self):
+        """Conecta por USB con los vendor/product id habituales de Epson."""
+        ultimo_error = None
+        for vendor, product in ((0x04b8, 0x0202), (0x04b8, 0x0e15)):
+            try:
+                return Usb(vendor, product)
+            except Exception as e:
+                ultimo_error = e
+
+        if 'no backend available' in str(ultimo_error).lower():
+            raise Exception(
+                "No se pudo conectar por USB directo: falta el backend libusb. "
+                "Edita la impresora y elige su nombre de Windows como cadena de "
+                "conexión en lugar de USB directo."
+            )
+
+        raise Exception(f"No se pudo conectar por USB directo: {ultimo_error}")
+
     def _get_printer_instance(self):
         """Obtiene una instancia de la impresora basada en la configuración"""
         if not self.printer_config:
@@ -77,25 +119,19 @@ class PrinterService:
         
         try:
             if self.printer_config.printer_type == 'USB':
-                connection = self.printer_config.connection_string
-                
-                # Si tenemos un nombre de impresora de Windows, usar Win32Raw directamente
-                if connection and ("Receipt" in connection or "EPSON" in connection):
+                connection = (self.printer_config.connection_string or '').strip()
+
+                # 'auto' es un valor heredado del formulario antiguo de alta, que
+                # enviaba esa cadena en lugar del nombre real de la impresora.
+                if connection and connection not in (USB_DIRECTO, 'auto'):
+                    # La cadena de conexión es el nombre de la impresora en Windows.
                     logger.info(f"Usando Win32Raw para impresora Windows: {connection}")
-                    from escpos.printer import Win32Raw
-                    printer = Win32Raw(connection)
+                    printer = self._instancia_win32(connection)
                 else:
-                    # Para impresoras USB directas, intentar encontrar automáticamente
+                    # USB directo por vendor/product id: necesita el backend libusb.
                     logger.info("Intentando conexión USB directa con vendor/product IDs")
-                    try:
-                        # Intentar con los IDs comunes de Epson
-                        printer = Usb(0x04b8, 0x0202)  # Epson M244A común
-                    except:
-                        try:
-                            printer = Usb(0x04b8, 0x0e15)  # Otro ID común de Epson
-                        except:
-                            raise Exception("No se pudo conectar por USB directo")
-                            
+                    printer = self._instancia_usb_directa()
+
             elif self.printer_config.printer_type == 'SERIAL':
                 port = self.printer_config.connection_string
                 printer = Serial(port, baudrate=9600, timeout=1)

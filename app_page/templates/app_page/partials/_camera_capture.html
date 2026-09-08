@@ -1,0 +1,38 @@
+{% comment %}
+Sección de captura de fotografía por cámara.
+
+Se inicializa con initCameraCapture() (app_page/js/camera-capture.js), que escribe
+la foto como data URL JPEG en el input oculto. La foto es siempre opcional.
+
+Parámetros:
+  cc_id   - id del contenedor, para pasarlo a initCameraCapture()
+  cc_name - name del input oculto que viaja en el POST (normalmente "foto_data")
+{% endcomment %}
+<div class="border rounded p-3 mt-3" id="{{ cc_id }}">
+    <div class="d-flex align-items-center mb-2">
+        <i class="bi bi-camera me-2"></i>
+        <span class="fw-semibold">Fotografía (opcional)</span>
+    </div>
+
+    <input type="hidden" name="{{ cc_name }}" data-cc-input>
+
+    <div class="text-center">
+        <video data-cc-video class="d-none w-100 rounded bg-dark" style="max-width: 320px;" autoplay muted playsinline></video>
+        <img data-cc-preview class="d-none w-100 rounded border" style="max-width: 320px;" alt="Fotografía capturada">
+        <canvas data-cc-canvas class="d-none"></canvas>
+    </div>
+
+    <div class="d-flex flex-wrap gap-2 mt-2">
+        <button type="button" class="btn btn-outline-success btn-sm" data-cc-start>
+            <i class="bi bi-camera-video me-1"></i>Activar cámara
+        </button>
+        <button type="button" class="btn btn-success btn-sm d-none" data-cc-shoot>
+            <i class="bi bi-camera-fill me-1"></i>Capturar
+        </button>
+        <button type="button" class="btn btn-outline-secondary btn-sm d-none" data-cc-retry>
+            <i class="bi bi-arrow-counterclockwise me-1"></i>Repetir
+        </button>
+    </div>
+
+    <div class="small text-body-secondary mt-2" data-cc-status></div>
+</div>

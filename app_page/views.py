@@ -7,14 +7,19 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_protect
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse, JsonResponse
+from django.contrib import messages
 from django.contrib.auth import authenticate, login as auth_login, logout as auth_logout
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.forms import SetPasswordForm, UserCreationForm
+from django.contrib.auth.models import User
 from django.core.paginator import Paginator
 from django import forms
 from django.db import models
 from django.core.files.base import ContentFile
-from .models import Cliente, Costo, Visitante, TarifaPlena, Recaudacion
-from .decorators import require_edit_permission, require_delete_permission, require_view_list_permission, get_user_profile
+from .models import Cliente, Costo, Perfil, Visitante, TarifaPlena, Recaudacion
+from .formato import fecha_local
+from .photo_utils import decodificar_foto_base64
+from .decorators import require_admin, require_edit_permission, require_delete_permission, require_view_list_permission, get_user_profile
 
 # Importar el servicio de impresión
 try:
@@ -55,6 +60,9 @@ def procesar_confirmacion_salida(request, is_ajax):
 		
 		# Ahora sí registrar la salida
 		cliente.fecha_salida = timezone.now()
+		# El cobro se congela aqui: cambiar las tarifas despues no debe recobrar
+		# a quien ya salio ni descuadrar un corte de caja cerrado.
+		cliente.congelar_cobro()
 		cliente.save()
 		
 		# Calcular tiempo en parking
@@ -80,8 +88,8 @@ def procesar_confirmacion_salida(request, is_ajax):
 					'cedula': cliente.get_display_cedula(),
 					'matricula': cliente.matricula,
 					'tipo_vehiculo': cliente.get_tipo_vehiculo_display(),
-					'fecha_entrada': cliente.fecha_entrada.strftime('%d/%m/%Y %H:%M') if cliente.fecha_entrada else 'No registrada',
-					'fecha_salida': cliente.fecha_salida.strftime('%d/%m/%Y %H:%M'),
+					'fecha_entrada': fecha_local(cliente.fecha_entrada, 'No registrada'),
+					'fecha_salida': fecha_local(cliente.fecha_salida),
 					'tiempo_total': tiempo_str,
 					'costo_total': costo_total,
 					'costo_formateado': costo_formateado,
@@ -195,8 +203,8 @@ def dashboard_parking(request):
 								'cedula': cliente.get_display_cedula(),
 								'matricula': cliente.matricula,
 								'tipo_vehiculo': cliente.get_tipo_vehiculo_display(),
-								'fecha_entrada': cliente.fecha_entrada.strftime('%d/%m/%Y %H:%M') if cliente.fecha_entrada else 'No registrada',
-								'fecha_salida_estimada': fecha_salida_temporal.strftime('%d/%m/%Y %H:%M'),
+								'fecha_entrada': fecha_local(cliente.fecha_entrada, 'No registrada'),
+								'fecha_salida_estimada': fecha_local(fecha_salida_temporal),
 								'tiempo_total': tiempo_str,
 								'costo_total': costo_total,
 								'costo_formateado': costo_formateado,
@@ -235,6 +243,16 @@ def dashboard_parking(request):
 				try:
 					cliente = registro_form.save(commit=False)
 					cliente.fecha_entrada = timezone.now()
+
+					# La fotografía es opcional: si llega corrupta se descarta,
+					# pero el registro del cliente continúa igual.
+					try:
+						foto = decodificar_foto_base64(request.POST.get('foto_data', ''), prefijo='cliente')
+						if foto:
+							cliente.foto.save(foto[0], foto[1], save=False)
+					except ValueError as foto_error:
+						logger.warning(f"Foto descartada en registro de cliente: {foto_error}")
+
 					cliente.save()
 					logger.info(f"Cliente saved with ID: {cliente.id}")
 					
@@ -276,8 +294,9 @@ def dashboard_parking(request):
 								'cedula': cliente.get_display_cedula(),
 								'matricula': cliente.matricula,
 								'tipo_vehiculo': cliente.get_tipo_vehiculo_display(),
-								'fecha_entrada': cliente.fecha_entrada.strftime('%d/%m/%Y %H:%M'),
-								'qr_url': cliente.qr_image.url if cliente.qr_image else None
+								'fecha_entrada': fecha_local(cliente.fecha_entrada),
+								'qr_url': cliente.qr_image.url if cliente.qr_image else None,
+								'foto_url': cliente.foto.url if cliente.foto else None
 							},
 							'print_result': {
 								'success': print_success,
@@ -317,12 +336,16 @@ def dashboard_parking(request):
 	# Obtener perfil del usuario
 	perfil = get_user_profile(request.user)
 	
+	# Ultimos ingresos, para poder consultarlos sin salir del panel
+	ultimos_clientes = Cliente.objects.order_by('-fecha_entrada')[:5]
+
 	return render(request, 'app_page/dashboard_parking.html', {
 		'salida_form': salida_form,
 		'registro_form': registro_form,
 		'mensaje_salida': mensaje_salida,
 		'message_success': message_success,
 		'perfil': perfil,
+		'ultimos_clientes': ultimos_clientes,
 	})
 
 # --- VISTA PARA VER REGISTRO Y QR ---
@@ -345,11 +368,14 @@ def ver_registro(request, pk):
 			'nombre': cliente.get_display_name(),
 			'cedula': cliente.get_display_cedula(),
 			'telefono': cliente.get_display_telefono(),
+			'torre': cliente.get_display_torre(),
+			'apartamento': cliente.get_display_apartamento(),
 			'matricula': cliente.matricula,
 			'tipo_vehiculo': cliente.get_tipo_vehiculo_display(),
-			'fecha_entrada': cliente.fecha_entrada.strftime('%d/%m/%Y %H:%M') if cliente.fecha_entrada else None,
-			'fecha_salida': cliente.fecha_salida.strftime('%d/%m/%Y %H:%M') if cliente.fecha_salida else None,
+			'fecha_entrada': fecha_local(cliente.fecha_entrada, None),
+			'fecha_salida': fecha_local(cliente.fecha_salida, None),
 			'qr_url': cliente.qr_image.url if cliente.qr_image else None,
+			'foto_url': cliente.foto.url if cliente.foto else None,
 		}
 		return JsonResponse(data)
 	
@@ -652,6 +678,7 @@ def salida_qr(request):
 			if cliente:
 				from django.utils import timezone
 				cliente.fecha_salida = timezone.now()
+				cliente.congelar_cobro()
 				cliente.save()
 				
 				# Calcular tiempo en parking
@@ -676,8 +703,8 @@ def salida_qr(request):
 							'cedula': cliente.get_display_cedula(),
 							'matricula': cliente.matricula,
 							'tipo_vehiculo': cliente.get_tipo_vehiculo_display(),
-							'fecha_entrada': cliente.fecha_entrada.strftime('%d/%m/%Y %H:%M') if cliente.fecha_entrada else 'No registrada',
-							'fecha_salida': cliente.fecha_salida.strftime('%d/%m/%Y %H:%M'),
+							'fecha_entrada': fecha_local(cliente.fecha_entrada, 'No registrada'),
+							'fecha_salida': fecha_local(cliente.fecha_salida),
 							'tiempo_total': tiempo_str,
 							'costo_total': costo_total,
 							'costo_formateado': costo_formateado,
@@ -692,8 +719,8 @@ def salida_qr(request):
 					'cedula': cliente.cedula,
 					'matricula': cliente.matricula,
 					'tipo_vehiculo': cliente.get_tipo_vehiculo_display(),
-					'fecha_entrada': cliente.fecha_entrada.strftime('%d/%m/%Y %H:%M') if cliente.fecha_entrada else 'No registrada',
-					'fecha_salida': cliente.fecha_salida.strftime('%d/%m/%Y %H:%M'),
+					'fecha_entrada': fecha_local(cliente.fecha_entrada, 'No registrada'),
+					'fecha_salida': fecha_local(cliente.fecha_salida),
 					'tiempo_total': tiempo_str
 				}
 			else:
@@ -732,7 +759,7 @@ class CostoForm(forms.ModelForm):
 	"""Formulario para configurar los costos del parking"""
 	class Meta:
 		model = Costo
-		fields = ['costo_auto', 'costo_moto']
+		fields = ['costo_auto', 'costo_moto', 'costo_otro']
 		widgets = {
 			'costo_auto': forms.NumberInput(attrs={
 				'class': 'form-control', 
@@ -746,66 +773,245 @@ class CostoForm(forms.ModelForm):
 				'step': '0.01',
 				'min': '0'
 			}),
+			'costo_otro': forms.NumberInput(attrs={
+				'class': 'form-control',
+				'placeholder': 'Ej: 0.75',
+				'step': '0.01',
+				'min': '0'
+			}),
 		}
 		labels = {
 			'costo_auto': 'Costo por minuto - Auto ($)',
 			'costo_moto': 'Costo por minuto - Moto ($)',
+			'costo_otro': 'Costo por minuto - Otro ($)',
 		}
+
+
+class TarifaPlenaForm(forms.ModelForm):
+	"""Formulario para configurar la tarifa plena (costo fijo por vehiculo)"""
+	class Meta:
+		model = TarifaPlena
+		fields = ['activa', 'costo_fijo_auto', 'costo_fijo_moto', 'costo_fijo_otro']
+		widgets = {
+			'activa': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+			'costo_fijo_auto': forms.NumberInput(attrs={
+				'class': 'form-control',
+				'placeholder': 'Ej: 5000',
+				'step': '0.01',
+				'min': '0'
+			}),
+			'costo_fijo_moto': forms.NumberInput(attrs={
+				'class': 'form-control',
+				'placeholder': 'Ej: 3000',
+				'step': '0.01',
+				'min': '0'
+			}),
+			'costo_fijo_otro': forms.NumberInput(attrs={
+				'class': 'form-control',
+				'placeholder': 'Ej: 4000',
+				'step': '0.01',
+				'min': '0'
+			}),
+		}
+		labels = {
+			'activa': 'Cobrar tarifa plena en lugar del precio por minuto',
+			'costo_fijo_auto': 'Costo fijo - Auto ($)',
+			'costo_fijo_moto': 'Costo fijo - Moto ($)',
+			'costo_fijo_otro': 'Costo fijo - Otro ($)',
+		}
+
+
+class CrearUsuarioForm(UserCreationForm):
+	"""Alta de usuarios del sistema desde el panel de administracion.
+
+	Hereda de UserCreationForm para reutilizar la unicidad del nombre de usuario,
+	la confirmacion de contrasena y los validadores de AUTH_PASSWORD_VALIDATORS.
+	"""
+	first_name = forms.CharField(
+		max_length=150, required=False, label='Nombre completo'
+	)
+	email = forms.EmailField(required=False, label='Correo electronico')
+	rol = forms.ChoiceField(choices=Perfil.ROLES_CHOICES, label='Rol')
+
+	class Meta(UserCreationForm.Meta):
+		model = User
+		fields = ['username', 'first_name', 'email']
+
+	def __init__(self, *args, **kwargs):
+		super().__init__(*args, **kwargs)
+		for nombre, campo in self.fields.items():
+			css = 'form-select' if nombre == 'rol' else 'form-control'
+			campo.widget.attrs['class'] = css
+			campo.widget.attrs.setdefault('placeholder', campo.label or nombre)
+
+
+class RestablecerPasswordForm(SetPasswordForm):
+	"""Cambio de contrasena de otro usuario, sin pedir la contrasena anterior."""
+
+	def __init__(self, *args, **kwargs):
+		super().__init__(*args, **kwargs)
+		for campo in self.fields.values():
+			campo.widget.attrs['class'] = 'form-control'
+
+
+def _hay_otro_admin_activo(usuario):
+	"""Comprueba que quede al menos otro administrador activo aparte del indicado.
+
+	Sirve para no dejar el sistema sin ningun administrador con acceso.
+	"""
+	return Perfil.objects.filter(
+		rol='administrador', usuario__is_active=True
+	).exclude(usuario=usuario).exists()
+
+
+@require_admin
+def panel_admin(request):
+	"""Panel de administracion: usuarios del sistema y tarifas del parking.
+
+	Sustituye al admin generico de Django para las dos tareas cotidianas. Todos
+	los formularios de la pagina hacen POST aqui con un campo oculto action,
+	siguiendo el mismo patron que dashboard_parking y dashboard_visitante.
+	"""
+	costo = Costo.get_costos_actuales()
+	tarifa = TarifaPlena.get_tarifa_actual()
+
+	form_costos = CostoForm(instance=costo)
+	form_tarifa = TarifaPlenaForm(instance=tarifa)
+	form_usuario = CrearUsuarioForm()
+
+	if request.method == 'POST':
+		action = request.POST.get('action')
+
+		if action == 'guardar_tarifas':
+			form_costos = CostoForm(request.POST, instance=costo)
+			form_tarifa = TarifaPlenaForm(request.POST, instance=tarifa)
+			if form_costos.is_valid() and form_tarifa.is_valid():
+				costo_obj = form_costos.save(commit=False)
+				costo_obj.actualizado_por = request.user
+				costo_obj.save()
+
+				tarifa_obj = form_tarifa.save(commit=False)
+				tarifa_obj.actualizado_por = request.user
+				tarifa_obj.save()
+
+				messages.success(request, 'Tarifas actualizadas correctamente.')
+				return redirect('panel_admin')
+			messages.error(request, 'Revise los errores del formulario de tarifas.')
+
+		elif action == 'crear_usuario':
+			form_usuario = CrearUsuarioForm(request.POST)
+			if form_usuario.is_valid():
+				nuevo = form_usuario.save()
+				# El signal post_save de User ya creo el Perfil como empleado;
+				# aqui solo se ajusta al rol elegido.
+				perfil_nuevo = get_user_profile(nuevo)
+				perfil_nuevo.rol = form_usuario.cleaned_data['rol']
+				perfil_nuevo.save()
+				messages.success(
+					request,
+					f'Usuario {nuevo.username} creado como {perfil_nuevo.get_rol_display()}.'
+				)
+				return redirect('panel_admin')
+			messages.error(request, 'Revise los errores del formulario de nuevo usuario.')
+
+		elif action == 'cambiar_rol':
+			objetivo = get_object_or_404(User, pk=request.POST.get('usuario_id'))
+			nuevo_rol = request.POST.get('rol')
+			roles_validos = dict(Perfil.ROLES_CHOICES)
+
+			if nuevo_rol not in roles_validos:
+				messages.error(request, 'El rol indicado no es valido.')
+			elif objetivo == request.user:
+				messages.error(request, 'No puede cambiar su propio rol.')
+			elif (nuevo_rol != 'administrador'
+					and get_user_profile(objetivo).es_administrador()
+					and not _hay_otro_admin_activo(objetivo)):
+				messages.error(
+					request,
+					'No se puede degradar al unico administrador activo del sistema.'
+				)
+			else:
+				perfil_objetivo = get_user_profile(objetivo)
+				perfil_objetivo.rol = nuevo_rol
+				perfil_objetivo.save()
+				messages.success(
+					request,
+					f'{objetivo.username} ahora es {perfil_objetivo.get_rol_display()}.'
+				)
+			return redirect('panel_admin')
+
+		elif action == 'toggle_estado':
+			objetivo = get_object_or_404(User, pk=request.POST.get('usuario_id'))
+
+			if objetivo == request.user:
+				messages.error(request, 'No puede desactivar su propia cuenta.')
+			elif (objetivo.is_active
+					and get_user_profile(objetivo).es_administrador()
+					and not _hay_otro_admin_activo(objetivo)):
+				messages.error(
+					request,
+					'No se puede desactivar al unico administrador activo del sistema.'
+				)
+			else:
+				objetivo.is_active = not objetivo.is_active
+				objetivo.save()
+				estado = 'activado' if objetivo.is_active else 'desactivado'
+				messages.success(request, f'Usuario {objetivo.username} {estado}.')
+			return redirect('panel_admin')
+
+		elif action == 'restablecer_password':
+			objetivo = get_object_or_404(User, pk=request.POST.get('usuario_id'))
+			form_password = RestablecerPasswordForm(objetivo, request.POST)
+			if form_password.is_valid():
+				form_password.save()
+				messages.success(request, f'Contrasena de {objetivo.username} restablecida.')
+			else:
+				for error in form_password.errors.values():
+					messages.error(request, error[0])
+			return redirect('panel_admin')
+
+		else:
+			messages.error(request, 'Accion no reconocida.')
+			return redirect('panel_admin')
+
+	usuarios = User.objects.select_related('perfil').order_by('username')
+
+	return render(request, 'app_page/panel_admin.html', {
+		'form_costos': form_costos,
+		'form_tarifa': form_tarifa,
+		'form_usuario': form_usuario,
+		'form_password': RestablecerPasswordForm(request.user),
+		'usuarios': usuarios,
+		'roles': Perfil.ROLES_CHOICES,
+		'costo': costo,
+		'tarifa': tarifa,
+	})
 
 
 @login_required
 def configurar_costos(request):
-	"""Vista para configurar los costos del parking - Solo administradores"""
-	try:
-		perfil = get_user_profile(request.user)
-		if not perfil.puede_editar_costos():
-			return render(request, 'app_page/sin_permiso.html', {
-				'mensaje': 'No tiene permisos para configurar los costos del parking.'
-			})
-	except:
-		return render(request, 'app_page/sin_permiso.html', {
-			'mensaje': 'No tiene un perfil asignado.'
-		})
-	
-	# Obtener o crear la configuración de costos
-	costo = Costo.get_costos_actuales()
-	
-	if request.method == 'POST':
-		form = CostoForm(request.POST, instance=costo)
-		if form.is_valid():
-			costo_obj = form.save(commit=False)
-			costo_obj.actualizado_por = request.user
-			costo_obj.save()
-			
-			return render(request, 'app_page/configurar_costos.html', {
-				'form': CostoForm(instance=costo_obj),
-				'mensaje_exito': 'Costos actualizados correctamente.',
-				'costo': costo_obj
-			})
-		else:
-			return render(request, 'app_page/configurar_costos.html', {
-				'form': form,
-				'mensaje_error': 'Por favor, corrija los errores en el formulario.',
-				'costo': costo
-			})
-	else:
-		form = CostoForm(instance=costo)
-	
-	return render(request, 'app_page/configurar_costos.html', {
-		'form': form,
-		'costo': costo
-	})
+	"""Los costos se editan ahora en el panel de administracion.
+
+	Se conserva la ruta para no romper enlaces guardados.
+	"""
+	return redirect('panel_admin')
 
 
 @login_required
 def portal_opciones(request):
 	"""Vista del portal de opciones principal"""
 	# Contar clientes registrados hoy
-	hoy = timezone.now().date()
+	hoy = timezone.localdate()
 	conteo_hoy = Cliente.objects.filter(fecha_entrada__date=hoy).count()
 	
 	# Obtener últimos 5 registros
 	ultimos = Cliente.objects.all().order_by('-fecha_entrada')[:5]
+
+	return render(request, 'app_page/portal_opciones.html', {
+		'conteo_hoy': conteo_hoy,
+		'ultimos': ultimos
+	})
+
 
 # --- DASHBOARD VISITANTE: Panel principal para visitantes ---
 @login_required
@@ -838,12 +1044,24 @@ def dashboard_visitante(request):
 						torre=torre,
 						apartamento=apartamento
 					)
+
+					# La fotografía es opcional: si llega corrupta se descarta,
+					# pero el visitante queda registrado igual.
+					try:
+						foto = decodificar_foto_base64(request.POST.get('foto_data', ''), prefijo='visitante')
+						if foto:
+							visitante.foto.save(foto[0], foto[1], save=True)
+					except ValueError as foto_error:
+						logger.warning(f"Foto descartada en registro de visitante: {foto_error}")
+
 					message_success = f'Visitante {nombre} registrado exitosamente'
 				except Exception as e:
 					mensaje_error = f'Error al registrar visitante: {str(e)}'
 
 	# Obtener estadísticas
-	hoy = timezone.now().date()
+	# localdate() da la fecha en TIME_ZONE (America/Bogota); now().date() daria
+	# la fecha UTC y los visitantes de la noche no se contarian.
+	hoy = timezone.localdate()
 	visitantes_hoy = Visitante.objects.filter(fecha_registro__date=hoy).count()
 	total_visitantes = Visitante.objects.count()
 	
@@ -860,7 +1078,7 @@ def dashboard_visitante(request):
 		'total_visitantes': total_visitantes,
 		'ultimos_visitantes': ultimos_visitantes,
 		'perfil': perfil,
-		'today': timezone.now().date(),
+		'today': timezone.localdate(),
 	})
 
 # --- LISTA DE VISITANTES ---
@@ -894,7 +1112,7 @@ def lista_visitantes(request):
 	page_obj = paginator.get_page(page_number)
 	
 	# Estadísticas
-	hoy = timezone.now().date()
+	hoy = timezone.localdate()
 	inicio_semana = hoy - timezone.timedelta(days=hoy.weekday())
 	
 	total_visitantes = Visitante.objects.count()
@@ -997,8 +1215,9 @@ def ver_visitante(request, pk):
 				'torre': visitante.get_display_torre(),
 				'apartamento': visitante.get_display_apartamento(),
 				'ubicacion_completa': visitante.get_ubicacion_completa(),
-				'fecha_registro': visitante.fecha_registro.strftime('%d/%m/%Y %H:%M'),
-				'fecha_actualizacion': visitante.fecha_actualizacion.strftime('%d/%m/%Y %H:%M'),
+				'foto_url': visitante.foto.url if visitante.foto else None,
+				'fecha_registro': fecha_local(visitante.fecha_registro),
+				'fecha_actualizacion': fecha_local(visitante.fecha_actualizacion),
 			}
 		})
 	
@@ -1117,8 +1336,8 @@ def resumen_recaudacion(request):
 				'monto_total': float(datos_recaudacion['monto_total']),
 				'monto_formateado': f"${datos_recaudacion['monto_total']:,.2f}",
 				'numero_clientes': datos_recaudacion['numero_clientes'],
-				'fecha_inicio': datos_recaudacion['fecha_inicio'].strftime('%d/%m/%Y %H:%M'),
-				'fecha_actual': datos_recaudacion['fecha_actual'].strftime('%d/%m/%Y %H:%M'),
+				'fecha_inicio': fecha_local(datos_recaudacion['fecha_inicio']),
+				'fecha_actual': fecha_local(datos_recaudacion['fecha_actual']),
 			},
 			'historial': []
 		}
@@ -1132,10 +1351,10 @@ def resumen_recaudacion(request):
 					'id': corte.id,
 					'monto': float(corte.monto_recaudado),
 					'monto_formateado': f"${corte.monto_recaudado:,.2f}",
-					'fecha_corte': corte.fecha_corte.strftime('%d/%m/%Y %H:%M'),
+					'fecha_corte': fecha_local(corte.fecha_corte),
 					'numero_clientes': corte.numero_clientes,
 					'usuario': corte.usuario.get_full_name() or corte.usuario.username,
-					'periodo': f"{corte.fecha_inicio.strftime('%d/%m/%Y %H:%M')} - {corte.fecha_fin.strftime('%d/%m/%Y %H:%M')}",
+					'periodo': f"{fecha_local(corte.fecha_inicio)} - {fecha_local(corte.fecha_fin)}",
 					'clientes_atendidos': clientes_atendidos
 				})
 			except Exception as e:
@@ -1201,7 +1420,7 @@ def realizar_corte_recaudacion(request):
 				'monto': float(corte.monto_recaudado),
 				'monto_formateado': f"${corte.monto_recaudado:,.2f}",
 				'numero_clientes': corte.numero_clientes,
-				'fecha_corte': corte.fecha_corte.strftime('%d/%m/%Y %H:%M'),
+				'fecha_corte': fecha_local(corte.fecha_corte),
 				'usuario': corte.usuario.get_full_name() or corte.usuario.username
 			}
 		})

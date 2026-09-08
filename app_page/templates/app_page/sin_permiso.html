@@ -6,25 +6,25 @@
 <div class="container mt-5">
     <div class="row justify-content-center">
         <div class="col-md-6">
-            <div class="card bg-dark border-warning">
-                <div class="card-header bg-warning text-dark text-center">
+            <div class="card">
+                <div class="card-header text-center">
                     <h3 class="mb-0">
-                        <i class="bi bi-shield-exclamation"></i>
+                        <i class="bi bi-shield-exclamation me-1"></i>
                         Acceso Denegado
                     </h3>
                 </div>
                 <div class="card-body text-center">
-                    <i class="bi bi-lock display-1 text-warning mb-3"></i>
-                    <h4 class="text-warning mb-3">Sin Permisos</h4>
-                    <p class="text-light">{{ mensaje|default:"No tiene permisos para acceder a esta sección." }}</p>
-                    
+                    <i class="bi bi-lock fs-1 text-body-secondary mb-3 d-block"></i>
+                    <h4 class="mb-3">Sin Permisos</h4>
+                    <p class="text-body-secondary">{{ mensaje|default:"No tiene permisos para acceder a esta sección." }}</p>
+
                     <div class="mt-4">
                         <a href="{% url 'portal_opciones' %}" class="btn btn-success me-2">
-                            <i class="bi bi-house"></i>
+                            <i class="bi bi-house me-1"></i>
                             Volver al Portal
                         </a>
-                        <a href="{% url 'dashboard' %}" class="btn btn-secondary">
-                            <i class="bi bi-speedometer2"></i>
+                        <a href="{% url 'dashboard' %}" class="btn btn-dark">
+                            <i class="bi bi-speedometer2 me-1"></i>
                             Dashboard
                         </a>
                     </div>
