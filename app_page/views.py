@@ -32,6 +32,14 @@ except ImportError:
 # Configurar logger
 logger = logging.getLogger(__name__)
 
+# Datos de soporte del sistema. Viven aqui, y no en la plantilla, para tener un
+# unico punto de cambio y poder verificarlos desde los tests.
+SOPORTE = {
+	'whatsapp_numero': '+57 311 223 1697',
+	'whatsapp_url': 'https://wa.me/573112231697',
+	'correo': 'silvekerhernandez@proton.me',
+}
+
 def procesar_confirmacion_salida(request, is_ajax):
 	"""Función para procesar la confirmación de salida después de mostrar el costo"""
 	try:
@@ -1431,3 +1439,14 @@ def realizar_corte_recaudacion(request):
 			'success': False,
 			'mensaje': 'Error al realizar el corte de recaudación.'
 		})
+
+
+@login_required
+def manual_soporte(request):
+	"""Manual de uso, preguntas frecuentes y contacto de soporte.
+
+	El contenido es estatico y vive en la plantilla; los apartados de
+	administracion se filtran alli con `perfil.es_administrador`, que inyecta
+	el context processor user_profile_context en todas las paginas.
+	"""
+	return render(request, 'app_page/manual_soporte.html', {'soporte': SOPORTE})

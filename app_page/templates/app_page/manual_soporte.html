@@ -1,0 +1,536 @@
+{% extends 'app_page/base.html' %}
+{% block title %}Manual y soporte - Parking Control{% endblock %}
+
+{% block extra_head %}
+    <style>
+        /* Solo lo que Bootstrap no cubre. Los colores salen de las variables
+           de app_page/css/theme.css para no abrir una segunda paleta. */
+        .manual-seccion {
+            background: var(--pc-surface);
+            border: 1px solid var(--pc-border);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 1.25rem;
+            /* El titulo queda pegado al borde superior al saltar por ancla. */
+            scroll-margin-top: 1.5rem;
+        }
+        .manual-soporte-caja {
+            background: var(--pc-surface);
+            border: 2px solid var(--pc-accent);
+            border-radius: 12px;
+            padding: 20px;
+        }
+        .manual-indice a {
+            display: inline-block;
+            padding: 2px 0;
+        }
+        .manual-badge-admin {
+            background: var(--pc-surface-alt);
+            color: var(--pc-fg-muted);
+            font-size: var(--pc-fs-xs);
+            font-weight: var(--pc-fw-medium);
+            border: 1px solid var(--pc-border);
+            border-radius: 999px;
+            padding: 2px 10px;
+            white-space: nowrap;
+        }
+        .manual-paso li {
+            margin-bottom: 0.4rem;
+        }
+        .manual-aviso {
+            background: var(--pc-surface-alt);
+            border-left: 4px solid var(--pc-accent);
+            border-radius: 0 8px 8px 0;
+            padding: 12px 16px;
+            margin-top: 0.75rem;
+        }
+
+        /* Impresion: fuera todo lo que no es el manual, y las respuestas del
+           acordeon desplegadas para que el papel no salga con preguntas mudas. */
+        @media print {
+            .navbar,
+            .site-footer,
+            .alert,
+            .manual-no-imprimir {
+                display: none !important;
+            }
+            body::before,
+            body::after {
+                display: none !important;
+            }
+            .manual-seccion,
+            .manual-soporte-caja {
+                border: 1px solid #999;
+                break-inside: avoid;
+            }
+            .accordion-collapse {
+                display: block !important;
+                height: auto !important;
+                visibility: visible !important;
+            }
+            .accordion-button::after {
+                display: none !important;
+            }
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+            <h1 class="mb-0">
+                <i class="bi bi-life-preserver me-2"></i>Manual y soporte
+            </h1>
+            <button type="button" class="btn btn-dark manual-no-imprimir" onclick="window.print()">
+                <i class="bi bi-printer me-1"></i>Imprimir manual
+            </button>
+        </div>
+
+        {# --- Soporte primero: es lo que se busca cuando algo ya fallo. --- #}
+        <div class="manual-soporte-caja mb-4" id="soporte">
+            <h2 class="h5 mb-2"><i class="bi bi-headset me-2"></i>¿Necesita ayuda?</h2>
+            <p class="text-body-secondary mb-3">
+                Si algo no funciona y no encuentra la respuesta en este manual,
+                escriba por cualquiera de estos dos medios.
+            </p>
+            <div class="d-flex flex-wrap gap-2 mb-3">
+                <a href="{{ soporte.whatsapp_url }}" target="_blank" rel="noopener"
+                   class="btn btn-success">
+                    <i class="bi bi-whatsapp me-1"></i>WhatsApp {{ soporte.whatsapp_numero }}
+                </a>
+                <a href="mailto:{{ soporte.correo }}" class="btn btn-dark">
+                    <i class="bi bi-envelope me-1"></i>{{ soporte.correo }}
+                </a>
+            </div>
+            <h3 class="h6 mb-2">Qué incluir en el mensaje</h3>
+            <ul class="mb-0">
+                <li>Con qué usuario había iniciado sesión.</li>
+                <li>La hora aproximada en que ocurrió.</li>
+                <li>La placa o la cédula del registro involucrado, si aplica.</li>
+                <li>En qué pantalla estaba: Parking, Visitante, Salida, Administración...</li>
+                <li>El texto exacto del mensaje de error, o una foto de la pantalla.</li>
+            </ul>
+        </div>
+
+        {% comment %}
+        Indice. Las entradas de administracion se filtran con la misma condicion
+        que las secciones, para no dejar enlaces que no llevan a ninguna parte.
+        {% endcomment %}
+        <div class="manual-seccion manual-indice manual-no-imprimir">
+            <h2 class="h5 mb-3"><i class="bi bi-list-ol me-2"></i>Contenido</h2>
+            <ol class="mb-0">
+                <li><a href="#entrar">Entrar al sistema</a></li>
+                <li><a href="#entrada">Registrar la entrada de un vehículo</a></li>
+                <li><a href="#salida">Registrar la salida y cobrar</a></li>
+                <li><a href="#visitantes">Registrar visitantes</a></li>
+                <li><a href="#contadores">Los contadores de la barra superior</a></li>
+                {% if perfil.es_administrador %}
+                    <li><a href="#lista">Lista de autos parkeados</a></li>
+                    <li><a href="#tarifas">Configurar las tarifas</a></li>
+                    <li><a href="#usuarios">Usuarios y roles</a></li>
+                    <li><a href="#recaudacion">Recaudación y corte de caja</a></li>
+                    <li><a href="#impresora">Configurar la impresora</a></li>
+                {% endif %}
+                <li><a href="#arrancar">Arrancar el sistema en el computador</a></li>
+                <li><a href="#faq">Preguntas frecuentes</a></li>
+            </ol>
+        </div>
+
+        {# ============ Manual: secciones para cualquier rol ============ #}
+
+        <div class="manual-seccion" id="entrar">
+            <h2 class="h5 mb-3"><i class="bi bi-box-arrow-in-right me-2"></i>1. Entrar al sistema</h2>
+            <ol class="manual-paso">
+                <li>Escriba el <b>usuario</b> y la <b>contraseña</b> que le entregó el administrador.</li>
+                <li>Pulse <b>Iniciar sesión</b>.</li>
+            </ol>
+            <p class="mb-2">
+                Arriba a la derecha verá su nombre de usuario y, entre paréntesis, su rol:
+            </p>
+            <ul class="mb-0">
+                <li><b>Empleado:</b> registra entradas, salidas y visitantes.</li>
+                <li><b>Administrador:</b> además configura tarifas, gestiona usuarios,
+                    consulta la lista completa de vehículos y hace el corte de caja.</li>
+            </ul>
+            <div class="manual-aviso">
+                No comparta su contraseña. Todo lo que se registra queda asociado al
+                usuario que tenía la sesión abierta. Al terminar el turno, pulse
+                <b>Salir</b>.
+            </div>
+        </div>
+
+        <div class="manual-seccion" id="entrada">
+            <h2 class="h5 mb-3"><i class="bi bi-car-front-fill me-2"></i>2. Registrar la entrada de un vehículo</h2>
+            <ol class="manual-paso">
+                <li>Vaya a <b>Parking</b> en la barra superior.</li>
+                <li>Escriba la <b>placa</b> del vehículo.</li>
+                <li>Elija el <b>tipo de vehículo</b>: Auto, Moto u Otro. Cada tipo tiene
+                    su propia tarifa, así que este dato define cuánto se cobrará a la salida.</li>
+                <li>Complete los datos opcionales que apliquen: cédula, nombre, teléfono,
+                    torre y apartamento.</li>
+                <li>Si quiere dejar constancia del estado del vehículo, tome una
+                    <b>foto</b> con la cámara. Es opcional.</li>
+                <li>Pulse el botón de registrar. El sistema genera el <b>código QR</b> y
+                    manda el tiquete a la impresora si está configurada.</li>
+                <li>Entregue el tiquete al cliente y adviértale que lo necesita para salir.</li>
+            </ol>
+            <div class="manual-aviso">
+                La hora de entrada la pone el sistema automáticamente. No hay que
+                escribirla.
+            </div>
+        </div>
+
+        <div class="manual-seccion" id="salida">
+            <h2 class="h5 mb-3"><i class="bi bi-box-arrow-right me-2"></i>3. Registrar la salida y cobrar</h2>
+            <ol class="manual-paso">
+                <li>Vaya a <b>Registrar salida</b>.</li>
+                <li><b>Escanee el QR</b> del tiquete con el lector. Si el cliente perdió
+                    el tiquete o el QR no lee, escriba la <b>placa</b> a mano y busque.</li>
+                <li>El sistema muestra la hora de entrada, el <b>tiempo transcurrido</b> y
+                    el <b>monto a cobrar</b>.</li>
+                <li>Cobre al cliente y solo entonces confirme la salida.</li>
+            </ol>
+            <div class="manual-aviso">
+                <b>El cobro queda congelado.</b> En el momento en que confirma la salida,
+                el sistema guarda el monto y la tarifa que se aplicaron. Si más adelante
+                el administrador cambia los precios, ese registro <b>no</b> se recalcula:
+                así los cortes de caja ya cerrados siguen cuadrando. Es el comportamiento
+                correcto, no un error.
+            </div>
+        </div>
+
+        <div class="manual-seccion" id="visitantes">
+            <h2 class="h5 mb-3"><i class="bi bi-person-plus me-2"></i>4. Registrar visitantes</h2>
+            <p>
+                Los visitantes son personas que entran sin dejar un vehículo en cobro. Se
+                registran aparte y no generan cobro.
+            </p>
+            <ol class="manual-paso mb-0">
+                <li>Vaya a <b>Visitante</b> en la barra superior.</li>
+                <li>Complete los datos de la persona y a qué torre y apartamento va.</li>
+                <li>Si lo necesita, tome la <b>foto</b> con la cámara. Es opcional.</li>
+                <li>Registre. El histórico se consulta en la lista de visitantes.</li>
+            </ol>
+        </div>
+
+        <div class="manual-seccion" id="contadores">
+            <h2 class="h5 mb-3"><i class="bi bi-speedometer2 me-2"></i>5. Los contadores de la barra superior</h2>
+            <ul class="mb-0">
+                <li><b>Clientes hoy:</b> vehículos que entraron hoy, hayan salido o no.</li>
+                <li><b>En parking:</b> vehículos que entraron y <b>todavía no han salido</b>.
+                    Este número debería coincidir con los puestos ocupados.</li>
+                <li><b>Visitantes hoy:</b> visitantes registrados en el día.</li>
+            </ul>
+            <div class="manual-aviso">
+                Si "En parking" no cuadra con lo que ve en el patio, casi siempre es
+                porque quedó una salida sin registrar. Avise al administrador.
+            </div>
+        </div>
+
+        {% if perfil.es_administrador %}
+        {# ============ Manual: secciones solo de administrador ============ #}
+
+        <div class="manual-seccion" id="lista">
+            <div class="d-flex justify-content-between align-items-start gap-2 mb-3">
+                <h2 class="h5 mb-0"><i class="bi bi-list-ul me-2"></i>6. Lista de autos parkeados</h2>
+                <span class="manual-badge-admin">Solo administrador</span>
+            </div>
+            <p>
+                En <b>Lista autos parkeados</b> están todos los registros, activos y
+                cerrados, con buscador y paginación.
+            </p>
+            <ul class="mb-0">
+                <li><b>Ver:</b> abre el detalle del registro con sus datos, la foto si se
+                    tomó y el QR generado.</li>
+                <li><b>Editar:</b> corrige datos mal digitados, por ejemplo una placa.</li>
+                <li><b>Eliminar:</b> borra el registro. Es definitivo, úselo solo para
+                    registros creados por error.</li>
+            </ul>
+        </div>
+
+        <div class="manual-seccion" id="tarifas">
+            <div class="d-flex justify-content-between align-items-start gap-2 mb-3">
+                <h2 class="h5 mb-0"><i class="bi bi-cash-coin me-2"></i>7. Configurar las tarifas</h2>
+                <span class="manual-badge-admin">Solo administrador</span>
+            </div>
+            <p>
+                Las tarifas se editan en <a href="{% url 'panel_admin' %}">Administración</a>.
+                Hay dos modalidades y solo una se aplica al cobrar:
+            </p>
+            <ul>
+                <li><b>Precio por minuto:</b> el cobro es el tiempo de estancia por el
+                    precio del minuto. Hay un valor independiente para Auto, Moto y Otro.</li>
+                <li><b>Tarifa plena:</b> cuando está activa se cobra un <b>costo fijo</b>
+                    por vehículo, sin importar cuánto tiempo estuvo, también con un valor
+                    por cada tipo. Sirve para eventos o jornadas de precio único.</li>
+            </ul>
+            <ol class="manual-paso">
+                <li>Ajuste los valores en el formulario.</li>
+                <li>Active o desactive la tarifa plena según la jornada.</li>
+                <li>Guarde.</li>
+            </ol>
+            <div class="manual-aviso">
+                El cambio afecta solo a las salidas que se registren <b>a partir de ese
+                momento</b>. Los registros ya cerrados conservan el monto con el que se
+                cobraron.
+            </div>
+        </div>
+
+        <div class="manual-seccion" id="usuarios">
+            <div class="d-flex justify-content-between align-items-start gap-2 mb-3">
+                <h2 class="h5 mb-0"><i class="bi bi-people me-2"></i>8. Usuarios y roles</h2>
+                <span class="manual-badge-admin">Solo administrador</span>
+            </div>
+            <p>
+                También en <a href="{% url 'panel_admin' %}">Administración</a>, en la
+                tarjeta de usuarios:
+            </p>
+            <ul>
+                <li><b>Crear usuario:</b> nombre de usuario, contraseña y rol.</li>
+                <li><b>Cambiar rol:</b> pasa a un usuario de empleado a administrador o
+                    al revés.</li>
+                <li><b>Activar o desactivar:</b> un usuario desactivado no puede entrar,
+                    pero sus registros anteriores se conservan. Es lo que hay que usar
+                    cuando alguien deja el puesto.</li>
+                <li><b>Restablecer contraseña:</b> asigna una contraseña nueva al usuario.</li>
+            </ul>
+            <div class="manual-aviso">
+                El sistema no le deja cambiarse el rol a usted mismo, desactivar su propia
+                cuenta, ni degradar o desactivar al <b>último administrador activo</b>. Es
+                una protección para que el sistema nunca se quede sin nadie que pueda
+                administrarlo.
+            </div>
+        </div>
+
+        <div class="manual-seccion" id="recaudacion">
+            <div class="d-flex justify-content-between align-items-start gap-2 mb-3">
+                <h2 class="h5 mb-0"><i class="bi bi-wallet2 me-2"></i>9. Recaudación y corte de caja</h2>
+                <span class="manual-badge-admin">Solo administrador</span>
+            </div>
+            <p>
+                El <b>resumen de recaudación</b> suma lo cobrado en las salidas
+                registradas desde el último corte, junto con el número de clientes
+                atendidos.
+            </p>
+            <ol class="manual-paso">
+                <li>Consulte el resumen y compárelo con el dinero que hay en caja.</li>
+                <li>Si cuadra, realice el <b>corte</b>.</li>
+            </ol>
+            <div class="manual-aviso">
+                El corte cierra el período: guarda el total, el número de clientes, las
+                fechas de inicio y fin y quién lo hizo, y el siguiente resumen empieza
+                desde cero. <b>No se puede deshacer</b>, así que revise antes de
+                confirmar.
+            </div>
+        </div>
+
+        <div class="manual-seccion" id="impresora">
+            <div class="d-flex justify-content-between align-items-start gap-2 mb-3">
+                <h2 class="h5 mb-0"><i class="bi bi-printer me-2"></i>10. Configurar la impresora</h2>
+                <span class="manual-badge-admin">Solo administrador</span>
+            </div>
+            <p class="mb-0">
+                La configuración de la impresora de tiquetes está en
+                <a href="{% url 'printer_dashboard' %}">Configurar impresora</a>: allí se
+                elige el dispositivo, se prueba la conexión y se lanza una impresión de
+                prueba. Si el tiquete no sale, ese es el primer sitio donde mirar.
+            </p>
+        </div>
+        {% endif %}
+
+        <div class="manual-seccion" id="arrancar">
+            <h2 class="h5 mb-3"><i class="bi bi-power me-2"></i>Arrancar el sistema en el computador</h2>
+            <ol class="manual-paso">
+                <li>Haga doble clic en <b>ParkingControl.exe</b> en el escritorio.</li>
+                <li>Se abre una ventana negra (es el sistema funcionando, déjela abierta) y
+                    en unos segundos se abre el navegador en la pantalla de entrada.</li>
+                <li>Si vuelve a hacer doble clic con el sistema ya encendido, aparece un
+                    menú para <b>volver a abrir el navegador</b> o <b>detener el
+                    servidor</b>.</li>
+            </ol>
+            <div class="manual-aviso mb-0">
+                Cerrar la ventana negra apaga el sistema, y nadie podrá registrar entradas
+                ni salidas hasta que se vuelva a abrir.
+            </div>
+        </div>
+
+        {# ============ Preguntas frecuentes ============ #}
+
+        <div class="manual-seccion" id="faq">
+            <h2 class="h5 mb-3"><i class="bi bi-question-circle me-2"></i>Preguntas frecuentes</h2>
+            <div class="accordion" id="acordeonFaq">
+
+                <div class="accordion-item">
+                    <h3 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button"
+                                data-bs-toggle="collapse" data-bs-target="#faq1">
+                            No salió el tiquete impreso
+                        </button>
+                    </h3>
+                    <div id="faq1" class="accordion-collapse collapse" data-bs-parent="#acordeonFaq">
+                        <div class="accordion-body">
+                            El registro <b>sí quedó guardado</b> aunque no se imprima:
+                            revise la lista y lo verá. Compruebe que la impresora esté
+                            encendida, con papel y conectada. Si sigue sin imprimir, el
+                            administrador debe revisar <i>Configurar impresora</i>. Mientras
+                            tanto anote la placa y la hora, porque la salida se puede hacer
+                            buscando por placa.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item">
+                    <h3 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button"
+                                data-bs-toggle="collapse" data-bs-target="#faq2">
+                            El lector no reconoce el QR del tiquete
+                        </button>
+                    </h3>
+                    <div id="faq2" class="accordion-collapse collapse" data-bs-parent="#acordeonFaq">
+                        <div class="accordion-body">
+                            Limpie el lente del lector y pruebe con el papel bien plano, a
+                            unos 15 cm. Si el tiquete está roto, mojado o borroso, no
+                            insista: en la pantalla de salida escriba la <b>placa</b> a mano
+                            y busque el registro así. El cobro se calcula igual.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item">
+                    <h3 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button"
+                                data-bs-toggle="collapse" data-bs-target="#faq3">
+                            Olvidé mi contraseña
+                        </button>
+                    </h3>
+                    <div id="faq3" class="accordion-collapse collapse" data-bs-parent="#acordeonFaq">
+                        <div class="accordion-body">
+                            El sistema no envía correos de recuperación. Pídale al
+                            administrador que le restablezca la contraseña desde
+                            <i>Administración</i>. Si es el administrador quien perdió el
+                            acceso, escriba a soporte por WhatsApp.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item">
+                    <h3 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button"
+                                data-bs-toggle="collapse" data-bs-target="#faq4">
+                            Cambié la tarifa y un registro antiguo sigue con el precio viejo
+                        </button>
+                    </h3>
+                    <div id="faq4" class="accordion-collapse collapse" data-bs-parent="#acordeonFaq">
+                        <div class="accordion-body">
+                            Es correcto y es a propósito. Cuando se confirma una salida, el
+                            sistema <b>congela</b> el monto y la tarifa aplicada. Si los
+                            precios se recalcularan hacia atrás, los cortes de caja ya
+                            cerrados dejarían de cuadrar. Los precios nuevos se aplican a
+                            las salidas que se registren de ahí en adelante.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item">
+                    <h3 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button"
+                                data-bs-toggle="collapse" data-bs-target="#faq5">
+                            No veo "Lista autos parkeados" ni "Administración"
+                        </button>
+                    </h3>
+                    <div id="faq5" class="accordion-collapse collapse" data-bs-parent="#acordeonFaq">
+                        <div class="accordion-body">
+                            Esas opciones son solo para el rol <b>Administrador</b>. Su rol
+                            aparece entre paréntesis junto a su nombre de usuario, arriba a
+                            la derecha. Si cree que debería tener acceso, pídaselo al
+                            administrador.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item">
+                    <h3 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button"
+                                data-bs-toggle="collapse" data-bs-target="#faq6">
+                            La cámara no toma la foto
+                        </button>
+                    </h3>
+                    <div id="faq6" class="accordion-collapse collapse" data-bs-parent="#acordeonFaq">
+                        <div class="accordion-body">
+                            El navegador pide permiso la primera vez: acepte el aviso de
+                            usar la cámara. Si lo rechazó antes, vuelva a habilitarlo en los
+                            permisos del sitio, en el candado de la barra de direcciones.
+                            <b>La foto es opcional</b>: puede registrar la entrada sin ella.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item">
+                    <h3 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button"
+                                data-bs-toggle="collapse" data-bs-target="#faq7">
+                            La página no abre o el navegador dice que no puede conectarse
+                        </button>
+                    </h3>
+                    <div id="faq7" class="accordion-collapse collapse" data-bs-parent="#acordeonFaq">
+                        <div class="accordion-body">
+                            El sistema está apagado. Haga doble clic en
+                            <b>ParkingControl.exe</b> en el escritorio, espere unos segundos
+                            y el navegador se abrirá solo. Recuerde que la ventana negra que
+                            aparece debe quedarse abierta mientras se usa el sistema.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item">
+                    <h3 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button"
+                                data-bs-toggle="collapse" data-bs-target="#faq8">
+                            Registré una entrada con la placa mal escrita
+                        </button>
+                    </h3>
+                    <div id="faq8" class="accordion-collapse collapse" data-bs-parent="#acordeonFaq">
+                        <div class="accordion-body">
+                            No cree un segundo registro para la misma entrada: el vehículo
+                            quedaría contado dos veces. Pídale al administrador que corrija
+                            la placa desde <i>Lista autos parkeados</i>. Si el cliente está
+                            esperando para salir, puede buscarlo igual por la placa mal
+                            escrita o por el QR del tiquete.
+                        </div>
+                    </div>
+                </div>
+
+                {% if perfil.es_administrador %}
+                <div class="accordion-item">
+                    <h3 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button"
+                                data-bs-toggle="collapse" data-bs-target="#faq9">
+                            ¿Cuándo debo hacer el corte de recaudación?
+                        </button>
+                    </h3>
+                    <div id="faq9" class="accordion-collapse collapse" data-bs-parent="#acordeonFaq">
+                        <div class="accordion-body">
+                            Cuando entregue la caja: al cierre del día o al cambio de turno,
+                            según como trabajen. Cuente el dinero, compárelo con el resumen
+                            y solo entonces confirme el corte, porque <b>no se puede
+                            deshacer</b>. Si no cuadra, revise antes las salidas del
+                            período.
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+            </div>
+        </div>
+
+        <p class="text-body-secondary text-center mt-4 mb-0">
+            ¿No resolvió su duda?
+            <a href="{{ soporte.whatsapp_url }}" target="_blank" rel="noopener">Escriba a soporte por WhatsApp</a>
+            o a <a href="mailto:{{ soporte.correo }}">{{ soporte.correo }}</a>.
+        </p>
+
+    </div>
+</div>
+{% endblock %}

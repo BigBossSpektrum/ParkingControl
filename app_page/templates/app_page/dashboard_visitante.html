@@ -3,31 +3,6 @@
 {% block title %}Panel de Visitantes{% endblock %}
 
 {% block content %}
-<!-- Panel de información del usuario (se oculta solo a los 5 s) -->
-<div class="row mb-4" data-auto-ocultar="5000">
-    <div class="col-12">
-        <div class="alert alert-info">
-            <div class="row align-items-center">
-                <div class="col-md-6">
-                    <h5 class="mb-0">
-                        <i class="bi bi-people me-2"></i>
-                        Panel de Visitantes
-                    </h5>
-                    <small>
-                        <i class="bi bi-person-plus me-1"></i>
-                        Gestión de visitantes del edificio
-                    </small>
-                </div>
-                <div class="col-md-6 text-md-end">
-                    <small class="text-body-secondary">
-                        <i class="bi bi-calendar me-1"></i>
-                        {{ today|date:"d/m/Y" }}
-                    </small>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
 
 <div class="row">
     <div class="col-md-6 mb-4">

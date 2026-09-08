@@ -3,31 +3,6 @@
 {% block title %}Panel Principal{% endblock %}
 
 {% block content %}
-<!-- Panel de información del usuario (se oculta solo a los 5 s) -->
-<div class="row mb-4" data-auto-ocultar="5000">
-    <div class="col-12">
-        <div class="alert alert-info">
-            <div class="row align-items-center">
-                <div class="col-md-6">
-                    <h5 class="mb-0">
-                        <i class="bi bi-person-circle me-2"></i>
-                        Bienvenido, {{ user.get_full_name|default:user.username }}
-                    </h5>
-                    <small>
-                        <i class="bi bi-shield-check me-1"></i>
-                        Nivel de acceso: <strong>{{ perfil.get_rol_display }}</strong>
-                    </small>
-                </div>
-                <div class="col-md-6 text-md-end">
-                    <small class="text-body-secondary">
-                        <i class="bi bi-clock me-1"></i>
-                        Sesión iniciada
-                    </small>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
 
 <div class="row">
     <div class="col-md-6 mb-4">
