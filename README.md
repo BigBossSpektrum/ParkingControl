@@ -96,6 +96,41 @@ python manage.py runserver
 
 El sistema estará disponible en: `http://localhost:8000`
 
+### 7. Ejecutable de Escritorio (opcional, Windows)
+
+Para no depender de la consola en el día a día se puede generar `ParkingControl.exe`,
+que arranca el servidor y abre el navegador con un doble clic.
+
+**Construirlo** (una sola vez, en un equipo que ya tenga el proyecto funcionando):
+```powershell
+.\construir_exe.ps1
+```
+El script instala PyInstaller (`requirements-dev.txt`), genera el icono y deja
+`ParkingControl.exe` en la raíz del proyecto.
+
+**Instalarlo en el equipo de operación:**
+1. Copie el proyecto a `C:\ParkingControl` (el lanzador busca ahí primero; si no lo
+   encuentra, usa la carpeta donde esté el propio `.exe`).
+2. Instale Python 3.12 marcando la casilla **"Add python.exe to PATH"**.
+3. Ejecute `pip install -r requirements.txt` dentro de `C:\ParkingControl`.
+4. Doble clic en `ParkingControl.exe`.
+
+El `.exe` es solo un lanzador: **no** empaqueta Django. Usa el entorno virtual `env\`
+del proyecto si existe y, si no, el Python del sistema.
+
+**Qué pasa al ejecutarlo:**
+- Levanta el servidor, espera a que responda y abre el navegador.
+- En cuanto el navegador está abierto, la consola **se minimiza sola** a la barra de
+  tareas con el título *"ParkingControl - servidor"*. Restáurela para ver los registros
+  de Django; **cerrarla detiene el servidor**.
+- Si vuelve a ejecutar `ParkingControl.exe` con el servidor ya en marcha, aparece un
+  menú: **Enter** abre el navegador, **D** detiene el servidor. Por seguridad solo
+  detiene el proceso si es un `python.exe`; si el puerto 8000 lo ocupa otro programa,
+  avisa y no mata nada.
+
+Al no estar firmado digitalmente, Windows SmartScreen puede avisar la primera vez:
+*Más información* → *Ejecutar de todas formas*.
+
 ## ⚙️ Configuración Inicial
 
 ### 1. Acceso Administrativo
