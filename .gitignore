@@ -66,3 +66,8 @@ build/
 dist/
 *.spec
 ParkingControl.exe
+
+# Presentacion del manual: todo se regenera con los scripts de docs/presentacion
+docs/presentacion/capturas/
+docs/presentacion/media_demo/
+docs/presentacion/*.pptx
