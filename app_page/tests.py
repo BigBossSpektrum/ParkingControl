@@ -4,7 +4,7 @@ import shutil
 import tempfile
 from pathlib import Path
 from datetime import datetime, timedelta, timezone as dt_timezone
-from importlib import import_module
+from importlib import import_module, util
 from io import BytesIO, StringIO
 from unittest import mock
 
@@ -1089,3 +1089,54 @@ class ManualSoporteTests(TestCase):
 		self.client.force_login(self.empleado)
 		response = self.client.get(reverse('dashboard_parking'))
 		self.assertContains(response, self.url)
+
+
+class PresentacionManualTests(TestCase):
+	"""La presentacion (docs/presentacion) tiene que seguir al manual en pantalla.
+
+	El guion de las diapositivas repite, resumido, lo que explica
+	manual_soporte.html. Si alguien renombra o borra una seccion del manual, la
+	presentacion queda contando algo que ya no existe y nadie se entera hasta
+	proyectarla. Estos tests atan las dos cosas por el id de la seccion.
+	"""
+
+	@classmethod
+	def setUpClass(cls):
+		super().setUpClass()
+		ruta = Path(settings.BASE_DIR) / 'docs' / 'presentacion' / 'contenido.py'
+		especificacion = util.spec_from_file_location('presentacion_contenido', ruta)
+		cls.contenido = util.module_from_spec(especificacion)
+		especificacion.loader.exec_module(cls.contenido)
+
+		manual = Path(settings.BASE_DIR) / 'app_page' / 'templates' / 'app_page' / 'manual_soporte.html'
+		cls.manual_html = manual.read_text(encoding='utf-8')
+
+	def test_cada_diapositiva_apunta_a_una_seccion_del_manual(self):
+		for diapositiva in self.contenido.DIAPOSITIVAS:
+			identificador = diapositiva['id']
+			if identificador in self.contenido.IDS_SOLO_PRESENTACION:
+				continue
+			with self.subTest(diapositiva=identificador):
+				self.assertIn(
+					f'id="{identificador}"', self.manual_html,
+					f'La diapositiva "{identificador}" ya no tiene seccion en el manual',
+				)
+
+	def test_las_excepciones_siguen_siendo_excepciones(self):
+		"""Si el manual gana una de esas secciones, sobra tenerla exceptuada."""
+		for identificador in self.contenido.IDS_SOLO_PRESENTACION:
+			with self.subTest(diapositiva=identificador):
+				self.assertNotIn(
+					f'id="{identificador}"', self.manual_html,
+					f'"{identificador}" ya existe en el manual: quitelo de IDS_SOLO_PRESENTACION',
+				)
+
+	def test_cada_diapositiva_tiene_texto_y_captura_propia(self):
+		archivos = []
+		for diapositiva in self.contenido.DIAPOSITIVAS:
+			with self.subTest(diapositiva=diapositiva['id']):
+				self.assertTrue(diapositiva['pasos'], 'La diapositiva no explica ningun paso')
+				self.assertTrue(diapositiva['captura']['archivo'])
+				archivos.append(diapositiva['captura']['archivo'])
+
+		self.assertEqual(len(archivos), len(set(archivos)), 'Dos diapositivas comparten captura')

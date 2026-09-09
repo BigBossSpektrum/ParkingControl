@@ -1,1 +1,5 @@
 pyinstaller
+
+# Generacion de la presentacion de manual (docs/presentacion/)
+playwright
+python-pptx
